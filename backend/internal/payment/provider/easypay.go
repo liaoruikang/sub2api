@@ -95,7 +95,13 @@ func (e *EasyPay) apiBase() string {
 func (e *EasyPay) Name() string        { return "EasyPay" }
 func (e *EasyPay) ProviderKey() string { return payment.TypeEasyPay }
 func (e *EasyPay) SupportedTypes() []payment.PaymentType {
-	return []payment.PaymentType{payment.TypeAlipay, payment.TypeWxpay}
+	return []payment.PaymentType{
+		payment.TypeAlipay,
+		payment.TypeWxpay,
+		payment.TypeCreditCard,
+		payment.TypeCrypto,
+		payment.TypePayNow,
+	}
 }
 
 func (e *EasyPay) MerchantIdentityMetadata() map[string]string {
