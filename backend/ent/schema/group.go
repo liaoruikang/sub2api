@@ -45,6 +45,26 @@ func (Group) Fields() []ent.Field {
 		field.Float("rate_multiplier").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0),
+		field.Bool("limited_time_multiplier_enabled").
+			Default(false).
+			Comment("是否启用分组限时倍率"),
+		field.String("limited_time_multiplier_cron").
+			MaxLen(100).
+			Default("").
+			Comment("限时倍率开始时间 cron 表达式"),
+		field.Int("limited_time_multiplier_duration_minutes").
+			Default(0).
+			Comment("限时倍率持续时间（分钟）"),
+		field.Float("limited_time_multiplier_value").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
+			Default(1.0).
+			Comment("限时倍率生效时使用的倍率值"),
+		field.Int("limited_time_rpm_limit").
+			Default(0).
+			Comment("限时倍率窗口内分组 RPM 上限，0 表示不设置专属限时 RPM"),
+		field.Int("limited_time_user_concurrency_limit").
+			Default(0).
+			Comment("限时倍率窗口内分组内每用户最大并发数，0 表示不设置专属限时并发"),
 		field.Bool("is_exclusive").
 			Default(false),
 		field.String("status").
@@ -164,6 +184,10 @@ func (Group) Fields() []ent.Field {
 		field.Int("rpm_limit").
 			Default(0).
 			Comment("分组 RPM 上限，0 表示不限制；设置后接管该分组用户的限流"),
+		// Group-level per-user concurrency cap (0 = unlimited).
+		field.Int("user_concurrency_limit").
+			Default(0).
+			Comment("per-user concurrency limit in group; 0 means unlimited"),
 	}
 }
 

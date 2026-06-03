@@ -62,6 +62,8 @@ type AdminService interface {
 	BatchSetGroupRateMultipliers(ctx context.Context, groupID int64, entries []GroupRateMultiplierInput) error
 	ClearGroupRPMOverrides(ctx context.Context, groupID int64) error
 	BatchSetGroupRPMOverrides(ctx context.Context, groupID int64, entries []GroupRPMOverrideInput) error
+	ClearGroupLimitedTimeRPMOverrides(ctx context.Context, groupID int64) error
+	BatchSetGroupLimitedTimeRPMOverrides(ctx context.Context, groupID int64, entries []GroupLimitedTimeRPMOverrideInput) error
 	UpdateGroupSortOrders(ctx context.Context, updates []GroupSortOrderUpdate) error
 
 	// API Key management (admin)
@@ -188,15 +190,19 @@ type AdminBoundAuthIdentityChannel struct {
 }
 
 type CreateGroupInput struct {
-	Name             string
-	Description      string
-	Platform         string
-	RateMultiplier   float64
-	IsExclusive      bool
-	SubscriptionType string   // standard/subscription
-	DailyLimitUSD    *float64 // 日限额 (USD)
-	WeeklyLimitUSD   *float64 // 周限额 (USD)
-	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	Name                                 string
+	Description                          string
+	Platform                             string
+	RateMultiplier                       float64
+	LimitedTimeMultiplierEnabled         bool
+	LimitedTimeMultiplierCron            string
+	LimitedTimeMultiplierDurationMinutes int
+	LimitedTimeMultiplierValue           float64
+	IsExclusive                          bool
+	SubscriptionType                     string   // standard/subscription
+	DailyLimitUSD                        *float64 // 日限额 (USD)
+	WeeklyLimitUSD                       *float64 // 周限额 (USD)
+	MonthlyLimitUSD                      *float64 // 月限额 (USD)
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration bool
 	ImageRateIndependent bool
@@ -223,21 +229,31 @@ type CreateGroupInput struct {
 	ModelsListConfig            GroupModelsListConfig
 	// RPMLimit 分组 RPM 上限（0 = 不限制）
 	RPMLimit int
+	// LimitedTimeRPMLimit 限时倍率窗口内分组 RPM 上限（0 = 不设置专属限时 RPM）
+	LimitedTimeRPMLimit int
+	// LimitedTimeUserConcurrencyLimit 限时倍率窗口内分组内每用户最大并发数（0 = 不设置专属限时并发）
+	LimitedTimeUserConcurrencyLimit int
+	// UserConcurrencyLimit 分组内每用户最大并发数（0 = 不限制）
+	UserConcurrencyLimit int
 	// 从指定分组复制账号（创建分组后在同一事务内绑定）
 	CopyAccountsFromGroupIDs []int64
 }
 
 type UpdateGroupInput struct {
-	Name             string
-	Description      string
-	Platform         string
-	RateMultiplier   *float64 // 使用指针以支持设置为0
-	IsExclusive      *bool
-	Status           string
-	SubscriptionType string   // standard/subscription
-	DailyLimitUSD    *float64 // 日限额 (USD)
-	WeeklyLimitUSD   *float64 // 周限额 (USD)
-	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	Name                                 string
+	Description                          string
+	Platform                             string
+	RateMultiplier                       *float64 // 使用指针以支持设置为0
+	LimitedTimeMultiplierEnabled         *bool
+	LimitedTimeMultiplierCron            *string
+	LimitedTimeMultiplierDurationMinutes *int
+	LimitedTimeMultiplierValue           *float64
+	IsExclusive                          *bool
+	Status                               string
+	SubscriptionType                     string   // standard/subscription
+	DailyLimitUSD                        *float64 // 日限额 (USD)
+	WeeklyLimitUSD                       *float64 // 周限额 (USD)
+	MonthlyLimitUSD                      *float64 // 月限额 (USD)
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration *bool
 	ImageRateIndependent *bool
@@ -264,6 +280,12 @@ type UpdateGroupInput struct {
 	ModelsListConfig            *GroupModelsListConfig
 	// RPMLimit 分组 RPM 上限（0 = 不限制），nil 表示未提供不改动。
 	RPMLimit *int
+	// LimitedTimeRPMLimit 限时倍率窗口内分组 RPM 上限（0 = 不设置专属限时 RPM），nil 表示未提供不改动。
+	LimitedTimeRPMLimit *int
+	// LimitedTimeUserConcurrencyLimit 限时倍率窗口内分组内每用户最大并发数（0 = 不设置专属限时并发），nil 表示未提供不改动。
+	LimitedTimeUserConcurrencyLimit *int
+	// UserConcurrencyLimit 分组内每用户最大并发数（0 = 不限制），nil 表示未提供不改动。
+	UserConcurrencyLimit *int
 	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
 	CopyAccountsFromGroupIDs []int64
 }
@@ -1678,6 +1700,21 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		subscriptionType = SubscriptionTypeStandard
 	}
 
+	limitedTimeMultiplierCron := strings.TrimSpace(input.LimitedTimeMultiplierCron)
+	limitedTimeMultiplierValue := normalizeLimitedTimeMultiplierValue(input.LimitedTimeMultiplierValue)
+	limitedTimeMultiplierDurationMinutes := input.LimitedTimeMultiplierDurationMinutes
+	if subscriptionType == SubscriptionTypeSubscription {
+		limitedTimeMultiplierCron = ""
+		limitedTimeMultiplierDurationMinutes = 0
+		limitedTimeMultiplierValue = 1
+		input.LimitedTimeMultiplierEnabled = false
+		input.LimitedTimeRPMLimit = 0
+		input.LimitedTimeUserConcurrencyLimit = 0
+	}
+	if err := validateLimitedTimeMultiplier(input.LimitedTimeMultiplierEnabled, limitedTimeMultiplierCron, limitedTimeMultiplierDurationMinutes, limitedTimeMultiplierValue); err != nil {
+		return nil, err
+	}
+
 	// 限额字段：nil/负数 表示"无限制"，0 表示"不允许用量"，正数表示具体限额
 	dailyLimit := normalizeLimit(input.DailyLimitUSD)
 	weeklyLimit := normalizeLimit(input.WeeklyLimitUSD)
@@ -1751,35 +1788,54 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	}
 
 	group := &Group{
-		Name:                            input.Name,
-		Description:                     input.Description,
-		Platform:                        platform,
-		RateMultiplier:                  input.RateMultiplier,
-		IsExclusive:                     input.IsExclusive,
-		Status:                          StatusActive,
-		SubscriptionType:                subscriptionType,
-		DailyLimitUSD:                   dailyLimit,
-		WeeklyLimitUSD:                  weeklyLimit,
-		MonthlyLimitUSD:                 monthlyLimit,
-		AllowImageGeneration:            input.AllowImageGeneration,
-		ImageRateIndependent:            input.ImageRateIndependent,
-		ImageRateMultiplier:             imageRateMultiplier,
-		ImagePrice1K:                    imagePrice1K,
-		ImagePrice2K:                    imagePrice2K,
-		ImagePrice4K:                    imagePrice4K,
-		ClaudeCodeOnly:                  input.ClaudeCodeOnly,
-		FallbackGroupID:                 input.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: fallbackOnInvalidRequest,
-		ModelRouting:                    input.ModelRouting,
-		MCPXMLInject:                    mcpXMLInject,
-		SupportedModelScopes:            input.SupportedModelScopes,
-		AllowMessagesDispatch:           input.AllowMessagesDispatch,
-		RequireOAuthOnly:                input.RequireOAuthOnly,
-		RequirePrivacySet:               input.RequirePrivacySet,
-		DefaultMappedModel:              input.DefaultMappedModel,
-		MessagesDispatchModelConfig:     normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
-		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
-		RPMLimit:                        input.RPMLimit,
+		Name:                                 input.Name,
+		Description:                          input.Description,
+		Platform:                             platform,
+		RateMultiplier:                       input.RateMultiplier,
+		LimitedTimeMultiplierEnabled:         input.LimitedTimeMultiplierEnabled,
+		LimitedTimeMultiplierCron:            limitedTimeMultiplierCron,
+		LimitedTimeMultiplierDurationMinutes: limitedTimeMultiplierDurationMinutes,
+		LimitedTimeMultiplierValue:           limitedTimeMultiplierValue,
+		IsExclusive:                          input.IsExclusive,
+		Status:                               StatusActive,
+		SubscriptionType:                     subscriptionType,
+		DailyLimitUSD:                        dailyLimit,
+		WeeklyLimitUSD:                       weeklyLimit,
+		MonthlyLimitUSD:                      monthlyLimit,
+		AllowImageGeneration:                 input.AllowImageGeneration,
+		ImageRateIndependent:                 input.ImageRateIndependent,
+		ImageRateMultiplier:                  imageRateMultiplier,
+		ImagePrice1K:                         imagePrice1K,
+		ImagePrice2K:                         imagePrice2K,
+		ImagePrice4K:                         imagePrice4K,
+		ClaudeCodeOnly:                       input.ClaudeCodeOnly,
+		FallbackGroupID:                      input.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:      fallbackOnInvalidRequest,
+		ModelRouting:                         input.ModelRouting,
+		MCPXMLInject:                         mcpXMLInject,
+		SupportedModelScopes:                 input.SupportedModelScopes,
+		AllowMessagesDispatch:                input.AllowMessagesDispatch,
+		RequireOAuthOnly:                     input.RequireOAuthOnly,
+		RequirePrivacySet:                    input.RequirePrivacySet,
+		DefaultMappedModel:                   input.DefaultMappedModel,
+		MessagesDispatchModelConfig:          normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
+		ModelsListConfig:                     normalizeGroupModelsListConfig(input.ModelsListConfig),
+		RPMLimit:                             input.RPMLimit,
+		LimitedTimeRPMLimit:                  input.LimitedTimeRPMLimit,
+		LimitedTimeUserConcurrencyLimit:      input.LimitedTimeUserConcurrencyLimit,
+		UserConcurrencyLimit:                 input.UserConcurrencyLimit,
+	}
+	if group.RPMLimit < 0 {
+		return nil, errors.New("rpm_limit must be >= 0")
+	}
+	if group.LimitedTimeRPMLimit < 0 {
+		return nil, errors.New("limited_time_rpm_limit must be >= 0")
+	}
+	if group.LimitedTimeUserConcurrencyLimit < 0 {
+		return nil, errors.New("limited_time_user_concurrency_limit must be >= 0")
+	}
+	if group.UserConcurrencyLimit < 0 {
+		return nil, errors.New("user_concurrency_limit must be >= 0")
 	}
 	sanitizeGroupMessagesDispatchFields(group)
 	if err := s.groupRepo.Create(ctx, group); err != nil {
@@ -1832,6 +1888,32 @@ func normalizePrice(price *float64) *float64 {
 		return nil
 	}
 	return price
+}
+
+func normalizeLimitedTimeMultiplierValue(value float64) float64 {
+	if value <= 0 {
+		return 1
+	}
+	return value
+}
+
+func validateLimitedTimeMultiplier(enabled bool, cronExpr string, durationMinutes int, value float64) error {
+	if !enabled {
+		return nil
+	}
+	if strings.TrimSpace(cronExpr) == "" {
+		return errors.New("limited_time_multiplier_cron is required when limited time multiplier is enabled")
+	}
+	if _, err := groupLimitedTimeMultiplierCronParser.Parse(cronExpr); err != nil {
+		return fmt.Errorf("invalid limited_time_multiplier_cron: %w", err)
+	}
+	if durationMinutes <= 0 {
+		return errors.New("limited_time_multiplier_duration_minutes must be > 0")
+	}
+	if value <= 0 {
+		return errors.New("limited_time_multiplier_value must be > 0")
+	}
+	return nil
 }
 
 // validateFallbackGroup 校验降级分组的有效性
@@ -1924,6 +2006,18 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		}
 		group.RateMultiplier = *input.RateMultiplier
 	}
+	if input.LimitedTimeMultiplierEnabled != nil {
+		group.LimitedTimeMultiplierEnabled = *input.LimitedTimeMultiplierEnabled
+	}
+	if input.LimitedTimeMultiplierCron != nil {
+		group.LimitedTimeMultiplierCron = strings.TrimSpace(*input.LimitedTimeMultiplierCron)
+	}
+	if input.LimitedTimeMultiplierDurationMinutes != nil {
+		group.LimitedTimeMultiplierDurationMinutes = *input.LimitedTimeMultiplierDurationMinutes
+	}
+	if input.LimitedTimeMultiplierValue != nil {
+		group.LimitedTimeMultiplierValue = normalizeLimitedTimeMultiplierValue(*input.LimitedTimeMultiplierValue)
+	}
 	if input.IsExclusive != nil {
 		group.IsExclusive = *input.IsExclusive
 	}
@@ -1935,6 +2029,18 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.SubscriptionType != "" {
 		group.SubscriptionType = input.SubscriptionType
 	}
+	if group.SubscriptionType == SubscriptionTypeSubscription {
+		group.LimitedTimeMultiplierEnabled = false
+		group.LimitedTimeMultiplierCron = ""
+		group.LimitedTimeMultiplierDurationMinutes = 0
+		group.LimitedTimeMultiplierValue = 1
+		group.LimitedTimeRPMLimit = 0
+		group.LimitedTimeUserConcurrencyLimit = 0
+	}
+	if err := validateLimitedTimeMultiplier(group.LimitedTimeMultiplierEnabled, group.LimitedTimeMultiplierCron, group.LimitedTimeMultiplierDurationMinutes, group.LimitedTimeMultiplierValue); err != nil {
+		return nil, err
+	}
+
 	// 限额字段：nil/负数 表示"无限制"，0 表示"不允许用量"，正数表示具体限额
 	// 前端始终发送这三个字段，无需 nil 守卫
 	group.DailyLimitUSD = normalizeLimit(input.DailyLimitUSD)
@@ -2030,7 +2136,28 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		group.ModelsListConfig = normalizeGroupModelsListConfig(*input.ModelsListConfig)
 	}
 	if input.RPMLimit != nil {
+		if *input.RPMLimit < 0 {
+			return nil, errors.New("rpm_limit must be >= 0")
+		}
 		group.RPMLimit = *input.RPMLimit
+	}
+	if input.LimitedTimeRPMLimit != nil {
+		if *input.LimitedTimeRPMLimit < 0 {
+			return nil, errors.New("limited_time_rpm_limit must be >= 0")
+		}
+		group.LimitedTimeRPMLimit = *input.LimitedTimeRPMLimit
+	}
+	if input.LimitedTimeUserConcurrencyLimit != nil {
+		if *input.LimitedTimeUserConcurrencyLimit < 0 {
+			return nil, errors.New("limited_time_user_concurrency_limit must be >= 0")
+		}
+		group.LimitedTimeUserConcurrencyLimit = *input.LimitedTimeUserConcurrencyLimit
+	}
+	if input.UserConcurrencyLimit != nil {
+		if *input.UserConcurrencyLimit < 0 {
+			return nil, errors.New("user_concurrency_limit must be >= 0")
+		}
+		group.UserConcurrencyLimit = *input.UserConcurrencyLimit
 	}
 	sanitizeGroupMessagesDispatchFields(group)
 
@@ -2212,6 +2339,39 @@ func (s *adminServiceImpl) BatchSetGroupRPMOverrides(ctx context.Context, groupI
 		return err
 	}
 	// RPM override 已嵌入 auth cache snapshot (v7)，变更后必须失效相关缓存。
+	if s.authCacheInvalidator != nil {
+		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, groupID)
+	}
+	return nil
+}
+
+func (s *adminServiceImpl) ClearGroupLimitedTimeRPMOverrides(ctx context.Context, groupID int64) error {
+	if s.userGroupRateRepo == nil {
+		return nil
+	}
+	if err := s.userGroupRateRepo.ClearGroupLimitedTimeRPMOverrides(ctx, groupID); err != nil {
+		return err
+	}
+	// limited_time_rpm_override 已嵌入 auth cache snapshot，变更后必须失效相关缓存。
+	if s.authCacheInvalidator != nil {
+		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, groupID)
+	}
+	return nil
+}
+
+func (s *adminServiceImpl) BatchSetGroupLimitedTimeRPMOverrides(ctx context.Context, groupID int64, entries []GroupLimitedTimeRPMOverrideInput) error {
+	if s.userGroupRateRepo == nil {
+		return nil
+	}
+	for _, e := range entries {
+		if e.LimitedTimeRPMOverride != nil && *e.LimitedTimeRPMOverride < 0 {
+			return infraerrors.BadRequest("INVALID_LIMITED_TIME_RPM_OVERRIDE", fmt.Sprintf("limited_time_rpm_override must be >= 0 (user_id=%d)", e.UserID))
+		}
+	}
+	if err := s.userGroupRateRepo.SyncGroupLimitedTimeRPMOverrides(ctx, groupID, entries); err != nil {
+		return err
+	}
+	// limited_time_rpm_override 已嵌入 auth cache snapshot，变更后必须失效相关缓存。
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, groupID)
 	}

@@ -14852,80 +14852,92 @@ func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 // GroupMutation represents an operation that mutates the Group nodes in the graph.
 type GroupMutation struct {
 	config
-	op                                      Op
-	typ                                     string
-	id                                      *int64
-	created_at                              *time.Time
-	updated_at                              *time.Time
-	deleted_at                              *time.Time
-	name                                    *string
-	description                             *string
-	rate_multiplier                         *float64
-	addrate_multiplier                      *float64
-	is_exclusive                            *bool
-	status                                  *string
-	platform                                *string
-	subscription_type                       *string
-	daily_limit_usd                         *float64
-	adddaily_limit_usd                      *float64
-	weekly_limit_usd                        *float64
-	addweekly_limit_usd                     *float64
-	monthly_limit_usd                       *float64
-	addmonthly_limit_usd                    *float64
-	default_validity_days                   *int
-	adddefault_validity_days                *int
-	allow_image_generation                  *bool
-	image_rate_independent                  *bool
-	image_rate_multiplier                   *float64
-	addimage_rate_multiplier                *float64
-	image_price_1k                          *float64
-	addimage_price_1k                       *float64
-	image_price_2k                          *float64
-	addimage_price_2k                       *float64
-	image_price_4k                          *float64
-	addimage_price_4k                       *float64
-	claude_code_only                        *bool
-	fallback_group_id                       *int64
-	addfallback_group_id                    *int64
-	fallback_group_id_on_invalid_request    *int64
-	addfallback_group_id_on_invalid_request *int64
-	model_routing                           *map[string][]int64
-	model_routing_enabled                   *bool
-	mcp_xml_inject                          *bool
-	supported_model_scopes                  *[]string
-	appendsupported_model_scopes            []string
-	sort_order                              *int
-	addsort_order                           *int
-	allow_messages_dispatch                 *bool
-	require_oauth_only                      *bool
-	require_privacy_set                     *bool
-	default_mapped_model                    *string
-	messages_dispatch_model_config          *domain.OpenAIMessagesDispatchModelConfig
-	models_list_config                      *domain.GroupModelsListConfig
-	rpm_limit                               *int
-	addrpm_limit                            *int
-	clearedFields                           map[string]struct{}
-	api_keys                                map[int64]struct{}
-	removedapi_keys                         map[int64]struct{}
-	clearedapi_keys                         bool
-	redeem_codes                            map[int64]struct{}
-	removedredeem_codes                     map[int64]struct{}
-	clearedredeem_codes                     bool
-	subscriptions                           map[int64]struct{}
-	removedsubscriptions                    map[int64]struct{}
-	clearedsubscriptions                    bool
-	usage_logs                              map[int64]struct{}
-	removedusage_logs                       map[int64]struct{}
-	clearedusage_logs                       bool
-	accounts                                map[int64]struct{}
-	removedaccounts                         map[int64]struct{}
-	clearedaccounts                         bool
-	allowed_users                           map[int64]struct{}
-	removedallowed_users                    map[int64]struct{}
-	clearedallowed_users                    bool
-	done                                    bool
-	oldValue                                func(context.Context) (*Group, error)
-	predicates                              []predicate.Group
+	op                                          Op
+	typ                                         string
+	id                                          *int64
+	created_at                                  *time.Time
+	updated_at                                  *time.Time
+	deleted_at                                  *time.Time
+	name                                        *string
+	description                                 *string
+	rate_multiplier                             *float64
+	addrate_multiplier                          *float64
+	limited_time_multiplier_enabled             *bool
+	limited_time_multiplier_cron                *string
+	limited_time_multiplier_duration_minutes    *int
+	addlimited_time_multiplier_duration_minutes *int
+	limited_time_multiplier_value               *float64
+	addlimited_time_multiplier_value            *float64
+	limited_time_rpm_limit                      *int
+	addlimited_time_rpm_limit                   *int
+	limited_time_user_concurrency_limit         *int
+	addlimited_time_user_concurrency_limit      *int
+	is_exclusive                                *bool
+	status                                      *string
+	platform                                    *string
+	subscription_type                           *string
+	daily_limit_usd                             *float64
+	adddaily_limit_usd                          *float64
+	weekly_limit_usd                            *float64
+	addweekly_limit_usd                         *float64
+	monthly_limit_usd                           *float64
+	addmonthly_limit_usd                        *float64
+	default_validity_days                       *int
+	adddefault_validity_days                    *int
+	allow_image_generation                      *bool
+	image_rate_independent                      *bool
+	image_rate_multiplier                       *float64
+	addimage_rate_multiplier                    *float64
+	image_price_1k                              *float64
+	addimage_price_1k                           *float64
+	image_price_2k                              *float64
+	addimage_price_2k                           *float64
+	image_price_4k                              *float64
+	addimage_price_4k                           *float64
+	claude_code_only                            *bool
+	fallback_group_id                           *int64
+	addfallback_group_id                        *int64
+	fallback_group_id_on_invalid_request        *int64
+	addfallback_group_id_on_invalid_request     *int64
+	model_routing                               *map[string][]int64
+	model_routing_enabled                       *bool
+	mcp_xml_inject                              *bool
+	supported_model_scopes                      *[]string
+	appendsupported_model_scopes                []string
+	sort_order                                  *int
+	addsort_order                               *int
+	allow_messages_dispatch                     *bool
+	require_oauth_only                          *bool
+	require_privacy_set                         *bool
+	default_mapped_model                        *string
+	messages_dispatch_model_config              *domain.OpenAIMessagesDispatchModelConfig
+	models_list_config                          *domain.GroupModelsListConfig
+	rpm_limit                                   *int
+	addrpm_limit                                *int
+	user_concurrency_limit                      *int
+	adduser_concurrency_limit                   *int
+	clearedFields                               map[string]struct{}
+	api_keys                                    map[int64]struct{}
+	removedapi_keys                             map[int64]struct{}
+	clearedapi_keys                             bool
+	redeem_codes                                map[int64]struct{}
+	removedredeem_codes                         map[int64]struct{}
+	clearedredeem_codes                         bool
+	subscriptions                               map[int64]struct{}
+	removedsubscriptions                        map[int64]struct{}
+	clearedsubscriptions                        bool
+	usage_logs                                  map[int64]struct{}
+	removedusage_logs                           map[int64]struct{}
+	clearedusage_logs                           bool
+	accounts                                    map[int64]struct{}
+	removedaccounts                             map[int64]struct{}
+	clearedaccounts                             bool
+	allowed_users                               map[int64]struct{}
+	removedallowed_users                        map[int64]struct{}
+	clearedallowed_users                        bool
+	done                                        bool
+	oldValue                                    func(context.Context) (*Group, error)
+	predicates                                  []predicate.Group
 }
 
 var _ ent.Mutation = (*GroupMutation)(nil)
@@ -15286,6 +15298,302 @@ func (m *GroupMutation) AddedRateMultiplier() (r float64, exists bool) {
 func (m *GroupMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+}
+
+// SetLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field.
+func (m *GroupMutation) SetLimitedTimeMultiplierEnabled(b bool) {
+	m.limited_time_multiplier_enabled = &b
+}
+
+// LimitedTimeMultiplierEnabled returns the value of the "limited_time_multiplier_enabled" field in the mutation.
+func (m *GroupMutation) LimitedTimeMultiplierEnabled() (r bool, exists bool) {
+	v := m.limited_time_multiplier_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLimitedTimeMultiplierEnabled returns the old "limited_time_multiplier_enabled" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLimitedTimeMultiplierEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLimitedTimeMultiplierEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLimitedTimeMultiplierEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLimitedTimeMultiplierEnabled: %w", err)
+	}
+	return oldValue.LimitedTimeMultiplierEnabled, nil
+}
+
+// ResetLimitedTimeMultiplierEnabled resets all changes to the "limited_time_multiplier_enabled" field.
+func (m *GroupMutation) ResetLimitedTimeMultiplierEnabled() {
+	m.limited_time_multiplier_enabled = nil
+}
+
+// SetLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field.
+func (m *GroupMutation) SetLimitedTimeMultiplierCron(s string) {
+	m.limited_time_multiplier_cron = &s
+}
+
+// LimitedTimeMultiplierCron returns the value of the "limited_time_multiplier_cron" field in the mutation.
+func (m *GroupMutation) LimitedTimeMultiplierCron() (r string, exists bool) {
+	v := m.limited_time_multiplier_cron
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLimitedTimeMultiplierCron returns the old "limited_time_multiplier_cron" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLimitedTimeMultiplierCron(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLimitedTimeMultiplierCron is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLimitedTimeMultiplierCron requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLimitedTimeMultiplierCron: %w", err)
+	}
+	return oldValue.LimitedTimeMultiplierCron, nil
+}
+
+// ResetLimitedTimeMultiplierCron resets all changes to the "limited_time_multiplier_cron" field.
+func (m *GroupMutation) ResetLimitedTimeMultiplierCron() {
+	m.limited_time_multiplier_cron = nil
+}
+
+// SetLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field.
+func (m *GroupMutation) SetLimitedTimeMultiplierDurationMinutes(i int) {
+	m.limited_time_multiplier_duration_minutes = &i
+	m.addlimited_time_multiplier_duration_minutes = nil
+}
+
+// LimitedTimeMultiplierDurationMinutes returns the value of the "limited_time_multiplier_duration_minutes" field in the mutation.
+func (m *GroupMutation) LimitedTimeMultiplierDurationMinutes() (r int, exists bool) {
+	v := m.limited_time_multiplier_duration_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLimitedTimeMultiplierDurationMinutes returns the old "limited_time_multiplier_duration_minutes" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLimitedTimeMultiplierDurationMinutes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLimitedTimeMultiplierDurationMinutes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLimitedTimeMultiplierDurationMinutes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLimitedTimeMultiplierDurationMinutes: %w", err)
+	}
+	return oldValue.LimitedTimeMultiplierDurationMinutes, nil
+}
+
+// AddLimitedTimeMultiplierDurationMinutes adds i to the "limited_time_multiplier_duration_minutes" field.
+func (m *GroupMutation) AddLimitedTimeMultiplierDurationMinutes(i int) {
+	if m.addlimited_time_multiplier_duration_minutes != nil {
+		*m.addlimited_time_multiplier_duration_minutes += i
+	} else {
+		m.addlimited_time_multiplier_duration_minutes = &i
+	}
+}
+
+// AddedLimitedTimeMultiplierDurationMinutes returns the value that was added to the "limited_time_multiplier_duration_minutes" field in this mutation.
+func (m *GroupMutation) AddedLimitedTimeMultiplierDurationMinutes() (r int, exists bool) {
+	v := m.addlimited_time_multiplier_duration_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetLimitedTimeMultiplierDurationMinutes resets all changes to the "limited_time_multiplier_duration_minutes" field.
+func (m *GroupMutation) ResetLimitedTimeMultiplierDurationMinutes() {
+	m.limited_time_multiplier_duration_minutes = nil
+	m.addlimited_time_multiplier_duration_minutes = nil
+}
+
+// SetLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field.
+func (m *GroupMutation) SetLimitedTimeMultiplierValue(f float64) {
+	m.limited_time_multiplier_value = &f
+	m.addlimited_time_multiplier_value = nil
+}
+
+// LimitedTimeMultiplierValue returns the value of the "limited_time_multiplier_value" field in the mutation.
+func (m *GroupMutation) LimitedTimeMultiplierValue() (r float64, exists bool) {
+	v := m.limited_time_multiplier_value
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLimitedTimeMultiplierValue returns the old "limited_time_multiplier_value" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLimitedTimeMultiplierValue(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLimitedTimeMultiplierValue is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLimitedTimeMultiplierValue requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLimitedTimeMultiplierValue: %w", err)
+	}
+	return oldValue.LimitedTimeMultiplierValue, nil
+}
+
+// AddLimitedTimeMultiplierValue adds f to the "limited_time_multiplier_value" field.
+func (m *GroupMutation) AddLimitedTimeMultiplierValue(f float64) {
+	if m.addlimited_time_multiplier_value != nil {
+		*m.addlimited_time_multiplier_value += f
+	} else {
+		m.addlimited_time_multiplier_value = &f
+	}
+}
+
+// AddedLimitedTimeMultiplierValue returns the value that was added to the "limited_time_multiplier_value" field in this mutation.
+func (m *GroupMutation) AddedLimitedTimeMultiplierValue() (r float64, exists bool) {
+	v := m.addlimited_time_multiplier_value
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetLimitedTimeMultiplierValue resets all changes to the "limited_time_multiplier_value" field.
+func (m *GroupMutation) ResetLimitedTimeMultiplierValue() {
+	m.limited_time_multiplier_value = nil
+	m.addlimited_time_multiplier_value = nil
+}
+
+// SetLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field.
+func (m *GroupMutation) SetLimitedTimeRpmLimit(i int) {
+	m.limited_time_rpm_limit = &i
+	m.addlimited_time_rpm_limit = nil
+}
+
+// LimitedTimeRpmLimit returns the value of the "limited_time_rpm_limit" field in the mutation.
+func (m *GroupMutation) LimitedTimeRpmLimit() (r int, exists bool) {
+	v := m.limited_time_rpm_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLimitedTimeRpmLimit returns the old "limited_time_rpm_limit" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLimitedTimeRpmLimit(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLimitedTimeRpmLimit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLimitedTimeRpmLimit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLimitedTimeRpmLimit: %w", err)
+	}
+	return oldValue.LimitedTimeRpmLimit, nil
+}
+
+// AddLimitedTimeRpmLimit adds i to the "limited_time_rpm_limit" field.
+func (m *GroupMutation) AddLimitedTimeRpmLimit(i int) {
+	if m.addlimited_time_rpm_limit != nil {
+		*m.addlimited_time_rpm_limit += i
+	} else {
+		m.addlimited_time_rpm_limit = &i
+	}
+}
+
+// AddedLimitedTimeRpmLimit returns the value that was added to the "limited_time_rpm_limit" field in this mutation.
+func (m *GroupMutation) AddedLimitedTimeRpmLimit() (r int, exists bool) {
+	v := m.addlimited_time_rpm_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetLimitedTimeRpmLimit resets all changes to the "limited_time_rpm_limit" field.
+func (m *GroupMutation) ResetLimitedTimeRpmLimit() {
+	m.limited_time_rpm_limit = nil
+	m.addlimited_time_rpm_limit = nil
+}
+
+// SetLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field.
+func (m *GroupMutation) SetLimitedTimeUserConcurrencyLimit(i int) {
+	m.limited_time_user_concurrency_limit = &i
+	m.addlimited_time_user_concurrency_limit = nil
+}
+
+// LimitedTimeUserConcurrencyLimit returns the value of the "limited_time_user_concurrency_limit" field in the mutation.
+func (m *GroupMutation) LimitedTimeUserConcurrencyLimit() (r int, exists bool) {
+	v := m.limited_time_user_concurrency_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLimitedTimeUserConcurrencyLimit returns the old "limited_time_user_concurrency_limit" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLimitedTimeUserConcurrencyLimit(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLimitedTimeUserConcurrencyLimit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLimitedTimeUserConcurrencyLimit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLimitedTimeUserConcurrencyLimit: %w", err)
+	}
+	return oldValue.LimitedTimeUserConcurrencyLimit, nil
+}
+
+// AddLimitedTimeUserConcurrencyLimit adds i to the "limited_time_user_concurrency_limit" field.
+func (m *GroupMutation) AddLimitedTimeUserConcurrencyLimit(i int) {
+	if m.addlimited_time_user_concurrency_limit != nil {
+		*m.addlimited_time_user_concurrency_limit += i
+	} else {
+		m.addlimited_time_user_concurrency_limit = &i
+	}
+}
+
+// AddedLimitedTimeUserConcurrencyLimit returns the value that was added to the "limited_time_user_concurrency_limit" field in this mutation.
+func (m *GroupMutation) AddedLimitedTimeUserConcurrencyLimit() (r int, exists bool) {
+	v := m.addlimited_time_user_concurrency_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetLimitedTimeUserConcurrencyLimit resets all changes to the "limited_time_user_concurrency_limit" field.
+func (m *GroupMutation) ResetLimitedTimeUserConcurrencyLimit() {
+	m.limited_time_user_concurrency_limit = nil
+	m.addlimited_time_user_concurrency_limit = nil
 }
 
 // SetIsExclusive sets the "is_exclusive" field.
@@ -16712,6 +17020,62 @@ func (m *GroupMutation) ResetRpmLimit() {
 	m.addrpm_limit = nil
 }
 
+// SetUserConcurrencyLimit sets the "user_concurrency_limit" field.
+func (m *GroupMutation) SetUserConcurrencyLimit(i int) {
+	m.user_concurrency_limit = &i
+	m.adduser_concurrency_limit = nil
+}
+
+// UserConcurrencyLimit returns the value of the "user_concurrency_limit" field in the mutation.
+func (m *GroupMutation) UserConcurrencyLimit() (r int, exists bool) {
+	v := m.user_concurrency_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserConcurrencyLimit returns the old "user_concurrency_limit" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldUserConcurrencyLimit(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserConcurrencyLimit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserConcurrencyLimit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserConcurrencyLimit: %w", err)
+	}
+	return oldValue.UserConcurrencyLimit, nil
+}
+
+// AddUserConcurrencyLimit adds i to the "user_concurrency_limit" field.
+func (m *GroupMutation) AddUserConcurrencyLimit(i int) {
+	if m.adduser_concurrency_limit != nil {
+		*m.adduser_concurrency_limit += i
+	} else {
+		m.adduser_concurrency_limit = &i
+	}
+}
+
+// AddedUserConcurrencyLimit returns the value that was added to the "user_concurrency_limit" field in this mutation.
+func (m *GroupMutation) AddedUserConcurrencyLimit() (r int, exists bool) {
+	v := m.adduser_concurrency_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserConcurrencyLimit resets all changes to the "user_concurrency_limit" field.
+func (m *GroupMutation) ResetUserConcurrencyLimit() {
+	m.user_concurrency_limit = nil
+	m.adduser_concurrency_limit = nil
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by ids.
 func (m *GroupMutation) AddAPIKeyIDs(ids ...int64) {
 	if m.api_keys == nil {
@@ -17070,7 +17434,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 35)
+	fields := make([]string, 0, 42)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -17088,6 +17452,24 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
+	}
+	if m.limited_time_multiplier_enabled != nil {
+		fields = append(fields, group.FieldLimitedTimeMultiplierEnabled)
+	}
+	if m.limited_time_multiplier_cron != nil {
+		fields = append(fields, group.FieldLimitedTimeMultiplierCron)
+	}
+	if m.limited_time_multiplier_duration_minutes != nil {
+		fields = append(fields, group.FieldLimitedTimeMultiplierDurationMinutes)
+	}
+	if m.limited_time_multiplier_value != nil {
+		fields = append(fields, group.FieldLimitedTimeMultiplierValue)
+	}
+	if m.limited_time_rpm_limit != nil {
+		fields = append(fields, group.FieldLimitedTimeRpmLimit)
+	}
+	if m.limited_time_user_concurrency_limit != nil {
+		fields = append(fields, group.FieldLimitedTimeUserConcurrencyLimit)
 	}
 	if m.is_exclusive != nil {
 		fields = append(fields, group.FieldIsExclusive)
@@ -17176,6 +17558,9 @@ func (m *GroupMutation) Fields() []string {
 	if m.rpm_limit != nil {
 		fields = append(fields, group.FieldRpmLimit)
 	}
+	if m.user_concurrency_limit != nil {
+		fields = append(fields, group.FieldUserConcurrencyLimit)
+	}
 	return fields
 }
 
@@ -17196,6 +17581,18 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case group.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case group.FieldLimitedTimeMultiplierEnabled:
+		return m.LimitedTimeMultiplierEnabled()
+	case group.FieldLimitedTimeMultiplierCron:
+		return m.LimitedTimeMultiplierCron()
+	case group.FieldLimitedTimeMultiplierDurationMinutes:
+		return m.LimitedTimeMultiplierDurationMinutes()
+	case group.FieldLimitedTimeMultiplierValue:
+		return m.LimitedTimeMultiplierValue()
+	case group.FieldLimitedTimeRpmLimit:
+		return m.LimitedTimeRpmLimit()
+	case group.FieldLimitedTimeUserConcurrencyLimit:
+		return m.LimitedTimeUserConcurrencyLimit()
 	case group.FieldIsExclusive:
 		return m.IsExclusive()
 	case group.FieldStatus:
@@ -17254,6 +17651,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.ModelsListConfig()
 	case group.FieldRpmLimit:
 		return m.RpmLimit()
+	case group.FieldUserConcurrencyLimit:
+		return m.UserConcurrencyLimit()
 	}
 	return nil, false
 }
@@ -17275,6 +17674,18 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDescription(ctx)
 	case group.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case group.FieldLimitedTimeMultiplierEnabled:
+		return m.OldLimitedTimeMultiplierEnabled(ctx)
+	case group.FieldLimitedTimeMultiplierCron:
+		return m.OldLimitedTimeMultiplierCron(ctx)
+	case group.FieldLimitedTimeMultiplierDurationMinutes:
+		return m.OldLimitedTimeMultiplierDurationMinutes(ctx)
+	case group.FieldLimitedTimeMultiplierValue:
+		return m.OldLimitedTimeMultiplierValue(ctx)
+	case group.FieldLimitedTimeRpmLimit:
+		return m.OldLimitedTimeRpmLimit(ctx)
+	case group.FieldLimitedTimeUserConcurrencyLimit:
+		return m.OldLimitedTimeUserConcurrencyLimit(ctx)
 	case group.FieldIsExclusive:
 		return m.OldIsExclusive(ctx)
 	case group.FieldStatus:
@@ -17333,6 +17744,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldModelsListConfig(ctx)
 	case group.FieldRpmLimit:
 		return m.OldRpmLimit(ctx)
+	case group.FieldUserConcurrencyLimit:
+		return m.OldUserConcurrencyLimit(ctx)
 	}
 	return nil, fmt.Errorf("unknown Group field %s", name)
 }
@@ -17383,6 +17796,48 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
+		return nil
+	case group.FieldLimitedTimeMultiplierEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLimitedTimeMultiplierEnabled(v)
+		return nil
+	case group.FieldLimitedTimeMultiplierCron:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLimitedTimeMultiplierCron(v)
+		return nil
+	case group.FieldLimitedTimeMultiplierDurationMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLimitedTimeMultiplierDurationMinutes(v)
+		return nil
+	case group.FieldLimitedTimeMultiplierValue:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLimitedTimeMultiplierValue(v)
+		return nil
+	case group.FieldLimitedTimeRpmLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLimitedTimeRpmLimit(v)
+		return nil
+	case group.FieldLimitedTimeUserConcurrencyLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLimitedTimeUserConcurrencyLimit(v)
 		return nil
 	case group.FieldIsExclusive:
 		v, ok := value.(bool)
@@ -17587,6 +18042,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRpmLimit(v)
 		return nil
+	case group.FieldUserConcurrencyLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserConcurrencyLimit(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Group field %s", name)
 }
@@ -17597,6 +18059,18 @@ func (m *GroupMutation) AddedFields() []string {
 	var fields []string
 	if m.addrate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
+	}
+	if m.addlimited_time_multiplier_duration_minutes != nil {
+		fields = append(fields, group.FieldLimitedTimeMultiplierDurationMinutes)
+	}
+	if m.addlimited_time_multiplier_value != nil {
+		fields = append(fields, group.FieldLimitedTimeMultiplierValue)
+	}
+	if m.addlimited_time_rpm_limit != nil {
+		fields = append(fields, group.FieldLimitedTimeRpmLimit)
+	}
+	if m.addlimited_time_user_concurrency_limit != nil {
+		fields = append(fields, group.FieldLimitedTimeUserConcurrencyLimit)
 	}
 	if m.adddaily_limit_usd != nil {
 		fields = append(fields, group.FieldDailyLimitUsd)
@@ -17634,6 +18108,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addrpm_limit != nil {
 		fields = append(fields, group.FieldRpmLimit)
 	}
+	if m.adduser_concurrency_limit != nil {
+		fields = append(fields, group.FieldUserConcurrencyLimit)
+	}
 	return fields
 }
 
@@ -17644,6 +18121,14 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case group.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
+	case group.FieldLimitedTimeMultiplierDurationMinutes:
+		return m.AddedLimitedTimeMultiplierDurationMinutes()
+	case group.FieldLimitedTimeMultiplierValue:
+		return m.AddedLimitedTimeMultiplierValue()
+	case group.FieldLimitedTimeRpmLimit:
+		return m.AddedLimitedTimeRpmLimit()
+	case group.FieldLimitedTimeUserConcurrencyLimit:
+		return m.AddedLimitedTimeUserConcurrencyLimit()
 	case group.FieldDailyLimitUsd:
 		return m.AddedDailyLimitUsd()
 	case group.FieldWeeklyLimitUsd:
@@ -17668,6 +18153,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedSortOrder()
 	case group.FieldRpmLimit:
 		return m.AddedRpmLimit()
+	case group.FieldUserConcurrencyLimit:
+		return m.AddedUserConcurrencyLimit()
 	}
 	return nil, false
 }
@@ -17683,6 +18170,34 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRateMultiplier(v)
+		return nil
+	case group.FieldLimitedTimeMultiplierDurationMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddLimitedTimeMultiplierDurationMinutes(v)
+		return nil
+	case group.FieldLimitedTimeMultiplierValue:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddLimitedTimeMultiplierValue(v)
+		return nil
+	case group.FieldLimitedTimeRpmLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddLimitedTimeRpmLimit(v)
+		return nil
+	case group.FieldLimitedTimeUserConcurrencyLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddLimitedTimeUserConcurrencyLimit(v)
 		return nil
 	case group.FieldDailyLimitUsd:
 		v, ok := value.(float64)
@@ -17767,6 +18282,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRpmLimit(v)
+		return nil
+	case group.FieldUserConcurrencyLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserConcurrencyLimit(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Group numeric field %s", name)
@@ -17882,6 +18404,24 @@ func (m *GroupMutation) ResetField(name string) error {
 	case group.FieldRateMultiplier:
 		m.ResetRateMultiplier()
 		return nil
+	case group.FieldLimitedTimeMultiplierEnabled:
+		m.ResetLimitedTimeMultiplierEnabled()
+		return nil
+	case group.FieldLimitedTimeMultiplierCron:
+		m.ResetLimitedTimeMultiplierCron()
+		return nil
+	case group.FieldLimitedTimeMultiplierDurationMinutes:
+		m.ResetLimitedTimeMultiplierDurationMinutes()
+		return nil
+	case group.FieldLimitedTimeMultiplierValue:
+		m.ResetLimitedTimeMultiplierValue()
+		return nil
+	case group.FieldLimitedTimeRpmLimit:
+		m.ResetLimitedTimeRpmLimit()
+		return nil
+	case group.FieldLimitedTimeUserConcurrencyLimit:
+		m.ResetLimitedTimeUserConcurrencyLimit()
+		return nil
 	case group.FieldIsExclusive:
 		m.ResetIsExclusive()
 		return nil
@@ -17968,6 +18508,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldRpmLimit:
 		m.ResetRpmLimit()
+		return nil
+	case group.FieldUserConcurrencyLimit:
+		m.ResetUserConcurrencyLimit()
 		return nil
 	}
 	return fmt.Errorf("unknown Group field %s", name)
@@ -30823,31 +31366,43 @@ func (m *SettingMutation) ResetEdge(name string) error {
 // SubscriptionPlanMutation represents an operation that mutates the SubscriptionPlan nodes in the graph.
 type SubscriptionPlanMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *int64
-	group_id          *int64
-	addgroup_id       *int64
-	name              *string
-	description       *string
-	price             *float64
-	addprice          *float64
-	original_price    *float64
-	addoriginal_price *float64
-	validity_days     *int
-	addvalidity_days  *int
-	validity_unit     *string
-	features          *string
-	product_name      *string
-	for_sale          *bool
-	sort_order        *int
-	addsort_order     *int
-	created_at        *time.Time
-	updated_at        *time.Time
-	clearedFields     map[string]struct{}
-	done              bool
-	oldValue          func(context.Context) (*SubscriptionPlan, error)
-	predicates        []predicate.SubscriptionPlan
+	op                               Op
+	typ                              string
+	id                               *int64
+	group_id                         *int64
+	addgroup_id                      *int64
+	name                             *string
+	description                      *string
+	price                            *float64
+	addprice                         *float64
+	original_price                   *float64
+	addoriginal_price                *float64
+	validity_days                    *int
+	addvalidity_days                 *int
+	validity_unit                    *string
+	features                         *string
+	product_name                     *string
+	for_sale                         *bool
+	listed_at                        *time.Time
+	off_sale_at                      *time.Time
+	new_user_only                    *bool
+	purchase_limit_count             *int
+	addpurchase_limit_count          *int
+	ip_purchase_limit_count          *int
+	addip_purchase_limit_count       *int
+	stock_count                      *int
+	addstock_count                   *int
+	first_purchase_discount_enabled  *bool
+	first_purchase_discount_price    *float64
+	addfirst_purchase_discount_price *float64
+	sort_order                       *int
+	addsort_order                    *int
+	created_at                       *time.Time
+	updated_at                       *time.Time
+	clearedFields                    map[string]struct{}
+	done                             bool
+	oldValue                         func(context.Context) (*SubscriptionPlan, error)
+	predicates                       []predicate.SubscriptionPlan
 }
 
 var _ ent.Mutation = (*SubscriptionPlanMutation)(nil)
@@ -31402,6 +31957,414 @@ func (m *SubscriptionPlanMutation) ResetForSale() {
 	m.for_sale = nil
 }
 
+// SetListedAt sets the "listed_at" field.
+func (m *SubscriptionPlanMutation) SetListedAt(t time.Time) {
+	m.listed_at = &t
+}
+
+// ListedAt returns the value of the "listed_at" field in the mutation.
+func (m *SubscriptionPlanMutation) ListedAt() (r time.Time, exists bool) {
+	v := m.listed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldListedAt returns the old "listed_at" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldListedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldListedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldListedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldListedAt: %w", err)
+	}
+	return oldValue.ListedAt, nil
+}
+
+// ClearListedAt clears the value of the "listed_at" field.
+func (m *SubscriptionPlanMutation) ClearListedAt() {
+	m.listed_at = nil
+	m.clearedFields[subscriptionplan.FieldListedAt] = struct{}{}
+}
+
+// ListedAtCleared returns if the "listed_at" field was cleared in this mutation.
+func (m *SubscriptionPlanMutation) ListedAtCleared() bool {
+	_, ok := m.clearedFields[subscriptionplan.FieldListedAt]
+	return ok
+}
+
+// ResetListedAt resets all changes to the "listed_at" field.
+func (m *SubscriptionPlanMutation) ResetListedAt() {
+	m.listed_at = nil
+	delete(m.clearedFields, subscriptionplan.FieldListedAt)
+}
+
+// SetOffSaleAt sets the "off_sale_at" field.
+func (m *SubscriptionPlanMutation) SetOffSaleAt(t time.Time) {
+	m.off_sale_at = &t
+}
+
+// OffSaleAt returns the value of the "off_sale_at" field in the mutation.
+func (m *SubscriptionPlanMutation) OffSaleAt() (r time.Time, exists bool) {
+	v := m.off_sale_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOffSaleAt returns the old "off_sale_at" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldOffSaleAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOffSaleAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOffSaleAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOffSaleAt: %w", err)
+	}
+	return oldValue.OffSaleAt, nil
+}
+
+// ClearOffSaleAt clears the value of the "off_sale_at" field.
+func (m *SubscriptionPlanMutation) ClearOffSaleAt() {
+	m.off_sale_at = nil
+	m.clearedFields[subscriptionplan.FieldOffSaleAt] = struct{}{}
+}
+
+// OffSaleAtCleared returns if the "off_sale_at" field was cleared in this mutation.
+func (m *SubscriptionPlanMutation) OffSaleAtCleared() bool {
+	_, ok := m.clearedFields[subscriptionplan.FieldOffSaleAt]
+	return ok
+}
+
+// ResetOffSaleAt resets all changes to the "off_sale_at" field.
+func (m *SubscriptionPlanMutation) ResetOffSaleAt() {
+	m.off_sale_at = nil
+	delete(m.clearedFields, subscriptionplan.FieldOffSaleAt)
+}
+
+// SetNewUserOnly sets the "new_user_only" field.
+func (m *SubscriptionPlanMutation) SetNewUserOnly(b bool) {
+	m.new_user_only = &b
+}
+
+// NewUserOnly returns the value of the "new_user_only" field in the mutation.
+func (m *SubscriptionPlanMutation) NewUserOnly() (r bool, exists bool) {
+	v := m.new_user_only
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNewUserOnly returns the old "new_user_only" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldNewUserOnly(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNewUserOnly is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNewUserOnly requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNewUserOnly: %w", err)
+	}
+	return oldValue.NewUserOnly, nil
+}
+
+// ResetNewUserOnly resets all changes to the "new_user_only" field.
+func (m *SubscriptionPlanMutation) ResetNewUserOnly() {
+	m.new_user_only = nil
+}
+
+// SetPurchaseLimitCount sets the "purchase_limit_count" field.
+func (m *SubscriptionPlanMutation) SetPurchaseLimitCount(i int) {
+	m.purchase_limit_count = &i
+	m.addpurchase_limit_count = nil
+}
+
+// PurchaseLimitCount returns the value of the "purchase_limit_count" field in the mutation.
+func (m *SubscriptionPlanMutation) PurchaseLimitCount() (r int, exists bool) {
+	v := m.purchase_limit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPurchaseLimitCount returns the old "purchase_limit_count" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldPurchaseLimitCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPurchaseLimitCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPurchaseLimitCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPurchaseLimitCount: %w", err)
+	}
+	return oldValue.PurchaseLimitCount, nil
+}
+
+// AddPurchaseLimitCount adds i to the "purchase_limit_count" field.
+func (m *SubscriptionPlanMutation) AddPurchaseLimitCount(i int) {
+	if m.addpurchase_limit_count != nil {
+		*m.addpurchase_limit_count += i
+	} else {
+		m.addpurchase_limit_count = &i
+	}
+}
+
+// AddedPurchaseLimitCount returns the value that was added to the "purchase_limit_count" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedPurchaseLimitCount() (r int, exists bool) {
+	v := m.addpurchase_limit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPurchaseLimitCount resets all changes to the "purchase_limit_count" field.
+func (m *SubscriptionPlanMutation) ResetPurchaseLimitCount() {
+	m.purchase_limit_count = nil
+	m.addpurchase_limit_count = nil
+}
+
+// SetIPPurchaseLimitCount sets the "ip_purchase_limit_count" field.
+func (m *SubscriptionPlanMutation) SetIPPurchaseLimitCount(i int) {
+	m.ip_purchase_limit_count = &i
+	m.addip_purchase_limit_count = nil
+}
+
+// IPPurchaseLimitCount returns the value of the "ip_purchase_limit_count" field in the mutation.
+func (m *SubscriptionPlanMutation) IPPurchaseLimitCount() (r int, exists bool) {
+	v := m.ip_purchase_limit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIPPurchaseLimitCount returns the old "ip_purchase_limit_count" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldIPPurchaseLimitCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIPPurchaseLimitCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIPPurchaseLimitCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIPPurchaseLimitCount: %w", err)
+	}
+	return oldValue.IPPurchaseLimitCount, nil
+}
+
+// AddIPPurchaseLimitCount adds i to the "ip_purchase_limit_count" field.
+func (m *SubscriptionPlanMutation) AddIPPurchaseLimitCount(i int) {
+	if m.addip_purchase_limit_count != nil {
+		*m.addip_purchase_limit_count += i
+	} else {
+		m.addip_purchase_limit_count = &i
+	}
+}
+
+// AddedIPPurchaseLimitCount returns the value that was added to the "ip_purchase_limit_count" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedIPPurchaseLimitCount() (r int, exists bool) {
+	v := m.addip_purchase_limit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetIPPurchaseLimitCount resets all changes to the "ip_purchase_limit_count" field.
+func (m *SubscriptionPlanMutation) ResetIPPurchaseLimitCount() {
+	m.ip_purchase_limit_count = nil
+	m.addip_purchase_limit_count = nil
+}
+
+// SetStockCount sets the "stock_count" field.
+func (m *SubscriptionPlanMutation) SetStockCount(i int) {
+	m.stock_count = &i
+	m.addstock_count = nil
+}
+
+// StockCount returns the value of the "stock_count" field in the mutation.
+func (m *SubscriptionPlanMutation) StockCount() (r int, exists bool) {
+	v := m.stock_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStockCount returns the old "stock_count" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldStockCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStockCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStockCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStockCount: %w", err)
+	}
+	return oldValue.StockCount, nil
+}
+
+// AddStockCount adds i to the "stock_count" field.
+func (m *SubscriptionPlanMutation) AddStockCount(i int) {
+	if m.addstock_count != nil {
+		*m.addstock_count += i
+	} else {
+		m.addstock_count = &i
+	}
+}
+
+// AddedStockCount returns the value that was added to the "stock_count" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedStockCount() (r int, exists bool) {
+	v := m.addstock_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetStockCount resets all changes to the "stock_count" field.
+func (m *SubscriptionPlanMutation) ResetStockCount() {
+	m.stock_count = nil
+	m.addstock_count = nil
+}
+
+// SetFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field.
+func (m *SubscriptionPlanMutation) SetFirstPurchaseDiscountEnabled(b bool) {
+	m.first_purchase_discount_enabled = &b
+}
+
+// FirstPurchaseDiscountEnabled returns the value of the "first_purchase_discount_enabled" field in the mutation.
+func (m *SubscriptionPlanMutation) FirstPurchaseDiscountEnabled() (r bool, exists bool) {
+	v := m.first_purchase_discount_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFirstPurchaseDiscountEnabled returns the old "first_purchase_discount_enabled" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldFirstPurchaseDiscountEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFirstPurchaseDiscountEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFirstPurchaseDiscountEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFirstPurchaseDiscountEnabled: %w", err)
+	}
+	return oldValue.FirstPurchaseDiscountEnabled, nil
+}
+
+// ResetFirstPurchaseDiscountEnabled resets all changes to the "first_purchase_discount_enabled" field.
+func (m *SubscriptionPlanMutation) ResetFirstPurchaseDiscountEnabled() {
+	m.first_purchase_discount_enabled = nil
+}
+
+// SetFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field.
+func (m *SubscriptionPlanMutation) SetFirstPurchaseDiscountPrice(f float64) {
+	m.first_purchase_discount_price = &f
+	m.addfirst_purchase_discount_price = nil
+}
+
+// FirstPurchaseDiscountPrice returns the value of the "first_purchase_discount_price" field in the mutation.
+func (m *SubscriptionPlanMutation) FirstPurchaseDiscountPrice() (r float64, exists bool) {
+	v := m.first_purchase_discount_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFirstPurchaseDiscountPrice returns the old "first_purchase_discount_price" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldFirstPurchaseDiscountPrice(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFirstPurchaseDiscountPrice is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFirstPurchaseDiscountPrice requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFirstPurchaseDiscountPrice: %w", err)
+	}
+	return oldValue.FirstPurchaseDiscountPrice, nil
+}
+
+// AddFirstPurchaseDiscountPrice adds f to the "first_purchase_discount_price" field.
+func (m *SubscriptionPlanMutation) AddFirstPurchaseDiscountPrice(f float64) {
+	if m.addfirst_purchase_discount_price != nil {
+		*m.addfirst_purchase_discount_price += f
+	} else {
+		m.addfirst_purchase_discount_price = &f
+	}
+}
+
+// AddedFirstPurchaseDiscountPrice returns the value that was added to the "first_purchase_discount_price" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedFirstPurchaseDiscountPrice() (r float64, exists bool) {
+	v := m.addfirst_purchase_discount_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearFirstPurchaseDiscountPrice clears the value of the "first_purchase_discount_price" field.
+func (m *SubscriptionPlanMutation) ClearFirstPurchaseDiscountPrice() {
+	m.first_purchase_discount_price = nil
+	m.addfirst_purchase_discount_price = nil
+	m.clearedFields[subscriptionplan.FieldFirstPurchaseDiscountPrice] = struct{}{}
+}
+
+// FirstPurchaseDiscountPriceCleared returns if the "first_purchase_discount_price" field was cleared in this mutation.
+func (m *SubscriptionPlanMutation) FirstPurchaseDiscountPriceCleared() bool {
+	_, ok := m.clearedFields[subscriptionplan.FieldFirstPurchaseDiscountPrice]
+	return ok
+}
+
+// ResetFirstPurchaseDiscountPrice resets all changes to the "first_purchase_discount_price" field.
+func (m *SubscriptionPlanMutation) ResetFirstPurchaseDiscountPrice() {
+	m.first_purchase_discount_price = nil
+	m.addfirst_purchase_discount_price = nil
+	delete(m.clearedFields, subscriptionplan.FieldFirstPurchaseDiscountPrice)
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (m *SubscriptionPlanMutation) SetSortOrder(i int) {
 	m.sort_order = &i
@@ -31564,7 +32527,7 @@ func (m *SubscriptionPlanMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubscriptionPlanMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 21)
 	if m.group_id != nil {
 		fields = append(fields, subscriptionplan.FieldGroupID)
 	}
@@ -31594,6 +32557,30 @@ func (m *SubscriptionPlanMutation) Fields() []string {
 	}
 	if m.for_sale != nil {
 		fields = append(fields, subscriptionplan.FieldForSale)
+	}
+	if m.listed_at != nil {
+		fields = append(fields, subscriptionplan.FieldListedAt)
+	}
+	if m.off_sale_at != nil {
+		fields = append(fields, subscriptionplan.FieldOffSaleAt)
+	}
+	if m.new_user_only != nil {
+		fields = append(fields, subscriptionplan.FieldNewUserOnly)
+	}
+	if m.purchase_limit_count != nil {
+		fields = append(fields, subscriptionplan.FieldPurchaseLimitCount)
+	}
+	if m.ip_purchase_limit_count != nil {
+		fields = append(fields, subscriptionplan.FieldIPPurchaseLimitCount)
+	}
+	if m.stock_count != nil {
+		fields = append(fields, subscriptionplan.FieldStockCount)
+	}
+	if m.first_purchase_discount_enabled != nil {
+		fields = append(fields, subscriptionplan.FieldFirstPurchaseDiscountEnabled)
+	}
+	if m.first_purchase_discount_price != nil {
+		fields = append(fields, subscriptionplan.FieldFirstPurchaseDiscountPrice)
 	}
 	if m.sort_order != nil {
 		fields = append(fields, subscriptionplan.FieldSortOrder)
@@ -31632,6 +32619,22 @@ func (m *SubscriptionPlanMutation) Field(name string) (ent.Value, bool) {
 		return m.ProductName()
 	case subscriptionplan.FieldForSale:
 		return m.ForSale()
+	case subscriptionplan.FieldListedAt:
+		return m.ListedAt()
+	case subscriptionplan.FieldOffSaleAt:
+		return m.OffSaleAt()
+	case subscriptionplan.FieldNewUserOnly:
+		return m.NewUserOnly()
+	case subscriptionplan.FieldPurchaseLimitCount:
+		return m.PurchaseLimitCount()
+	case subscriptionplan.FieldIPPurchaseLimitCount:
+		return m.IPPurchaseLimitCount()
+	case subscriptionplan.FieldStockCount:
+		return m.StockCount()
+	case subscriptionplan.FieldFirstPurchaseDiscountEnabled:
+		return m.FirstPurchaseDiscountEnabled()
+	case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+		return m.FirstPurchaseDiscountPrice()
 	case subscriptionplan.FieldSortOrder:
 		return m.SortOrder()
 	case subscriptionplan.FieldCreatedAt:
@@ -31667,6 +32670,22 @@ func (m *SubscriptionPlanMutation) OldField(ctx context.Context, name string) (e
 		return m.OldProductName(ctx)
 	case subscriptionplan.FieldForSale:
 		return m.OldForSale(ctx)
+	case subscriptionplan.FieldListedAt:
+		return m.OldListedAt(ctx)
+	case subscriptionplan.FieldOffSaleAt:
+		return m.OldOffSaleAt(ctx)
+	case subscriptionplan.FieldNewUserOnly:
+		return m.OldNewUserOnly(ctx)
+	case subscriptionplan.FieldPurchaseLimitCount:
+		return m.OldPurchaseLimitCount(ctx)
+	case subscriptionplan.FieldIPPurchaseLimitCount:
+		return m.OldIPPurchaseLimitCount(ctx)
+	case subscriptionplan.FieldStockCount:
+		return m.OldStockCount(ctx)
+	case subscriptionplan.FieldFirstPurchaseDiscountEnabled:
+		return m.OldFirstPurchaseDiscountEnabled(ctx)
+	case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+		return m.OldFirstPurchaseDiscountPrice(ctx)
 	case subscriptionplan.FieldSortOrder:
 		return m.OldSortOrder(ctx)
 	case subscriptionplan.FieldCreatedAt:
@@ -31752,6 +32771,62 @@ func (m *SubscriptionPlanMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetForSale(v)
 		return nil
+	case subscriptionplan.FieldListedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetListedAt(v)
+		return nil
+	case subscriptionplan.FieldOffSaleAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOffSaleAt(v)
+		return nil
+	case subscriptionplan.FieldNewUserOnly:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNewUserOnly(v)
+		return nil
+	case subscriptionplan.FieldPurchaseLimitCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPurchaseLimitCount(v)
+		return nil
+	case subscriptionplan.FieldIPPurchaseLimitCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIPPurchaseLimitCount(v)
+		return nil
+	case subscriptionplan.FieldStockCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStockCount(v)
+		return nil
+	case subscriptionplan.FieldFirstPurchaseDiscountEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFirstPurchaseDiscountEnabled(v)
+		return nil
+	case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFirstPurchaseDiscountPrice(v)
+		return nil
 	case subscriptionplan.FieldSortOrder:
 		v, ok := value.(int)
 		if !ok {
@@ -31793,6 +32868,18 @@ func (m *SubscriptionPlanMutation) AddedFields() []string {
 	if m.addvalidity_days != nil {
 		fields = append(fields, subscriptionplan.FieldValidityDays)
 	}
+	if m.addpurchase_limit_count != nil {
+		fields = append(fields, subscriptionplan.FieldPurchaseLimitCount)
+	}
+	if m.addip_purchase_limit_count != nil {
+		fields = append(fields, subscriptionplan.FieldIPPurchaseLimitCount)
+	}
+	if m.addstock_count != nil {
+		fields = append(fields, subscriptionplan.FieldStockCount)
+	}
+	if m.addfirst_purchase_discount_price != nil {
+		fields = append(fields, subscriptionplan.FieldFirstPurchaseDiscountPrice)
+	}
 	if m.addsort_order != nil {
 		fields = append(fields, subscriptionplan.FieldSortOrder)
 	}
@@ -31812,6 +32899,14 @@ func (m *SubscriptionPlanMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedOriginalPrice()
 	case subscriptionplan.FieldValidityDays:
 		return m.AddedValidityDays()
+	case subscriptionplan.FieldPurchaseLimitCount:
+		return m.AddedPurchaseLimitCount()
+	case subscriptionplan.FieldIPPurchaseLimitCount:
+		return m.AddedIPPurchaseLimitCount()
+	case subscriptionplan.FieldStockCount:
+		return m.AddedStockCount()
+	case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+		return m.AddedFirstPurchaseDiscountPrice()
 	case subscriptionplan.FieldSortOrder:
 		return m.AddedSortOrder()
 	}
@@ -31851,6 +32946,34 @@ func (m *SubscriptionPlanMutation) AddField(name string, value ent.Value) error 
 		}
 		m.AddValidityDays(v)
 		return nil
+	case subscriptionplan.FieldPurchaseLimitCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPurchaseLimitCount(v)
+		return nil
+	case subscriptionplan.FieldIPPurchaseLimitCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddIPPurchaseLimitCount(v)
+		return nil
+	case subscriptionplan.FieldStockCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddStockCount(v)
+		return nil
+	case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFirstPurchaseDiscountPrice(v)
+		return nil
 	case subscriptionplan.FieldSortOrder:
 		v, ok := value.(int)
 		if !ok {
@@ -31869,6 +32992,15 @@ func (m *SubscriptionPlanMutation) ClearedFields() []string {
 	if m.FieldCleared(subscriptionplan.FieldOriginalPrice) {
 		fields = append(fields, subscriptionplan.FieldOriginalPrice)
 	}
+	if m.FieldCleared(subscriptionplan.FieldListedAt) {
+		fields = append(fields, subscriptionplan.FieldListedAt)
+	}
+	if m.FieldCleared(subscriptionplan.FieldOffSaleAt) {
+		fields = append(fields, subscriptionplan.FieldOffSaleAt)
+	}
+	if m.FieldCleared(subscriptionplan.FieldFirstPurchaseDiscountPrice) {
+		fields = append(fields, subscriptionplan.FieldFirstPurchaseDiscountPrice)
+	}
 	return fields
 }
 
@@ -31885,6 +33017,15 @@ func (m *SubscriptionPlanMutation) ClearField(name string) error {
 	switch name {
 	case subscriptionplan.FieldOriginalPrice:
 		m.ClearOriginalPrice()
+		return nil
+	case subscriptionplan.FieldListedAt:
+		m.ClearListedAt()
+		return nil
+	case subscriptionplan.FieldOffSaleAt:
+		m.ClearOffSaleAt()
+		return nil
+	case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+		m.ClearFirstPurchaseDiscountPrice()
 		return nil
 	}
 	return fmt.Errorf("unknown SubscriptionPlan nullable field %s", name)
@@ -31923,6 +33064,30 @@ func (m *SubscriptionPlanMutation) ResetField(name string) error {
 		return nil
 	case subscriptionplan.FieldForSale:
 		m.ResetForSale()
+		return nil
+	case subscriptionplan.FieldListedAt:
+		m.ResetListedAt()
+		return nil
+	case subscriptionplan.FieldOffSaleAt:
+		m.ResetOffSaleAt()
+		return nil
+	case subscriptionplan.FieldNewUserOnly:
+		m.ResetNewUserOnly()
+		return nil
+	case subscriptionplan.FieldPurchaseLimitCount:
+		m.ResetPurchaseLimitCount()
+		return nil
+	case subscriptionplan.FieldIPPurchaseLimitCount:
+		m.ResetIPPurchaseLimitCount()
+		return nil
+	case subscriptionplan.FieldStockCount:
+		m.ResetStockCount()
+		return nil
+	case subscriptionplan.FieldFirstPurchaseDiscountEnabled:
+		m.ResetFirstPurchaseDiscountEnabled()
+		return nil
+	case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+		m.ResetFirstPurchaseDiscountPrice()
 		return nil
 	case subscriptionplan.FieldSortOrder:
 		m.ResetSortOrder()

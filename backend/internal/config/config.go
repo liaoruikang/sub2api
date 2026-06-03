@@ -1363,6 +1363,7 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 
 	// 环境变量支持
 	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// 默认值
@@ -1470,16 +1471,27 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	}
 
 	originalJWTSecret := cfg.JWT.Secret
-	if allowMissingJWTSecret && originalJWTSecret == "" {
-		// 启动阶段允许先无 JWT 密钥，后续在数据库初始化后补齐。
-		cfg.JWT.Secret = strings.Repeat("0", 32)
+	bootstrapClearedJWTSecret := false
+	if allowMissingJWTSecret {
+		if envJWTSecret, ok := os.LookupEnv("JWT_SECRET"); ok {
+			trimmed := strings.TrimSpace(envJWTSecret)
+			if trimmed == "" {
+				bootstrapClearedJWTSecret = true
+			} else {
+				cfg.JWT.Secret = trimmed
+			}
+		}
+		if cfg.JWT.Secret == "" {
+			// 启动阶段允许先无 JWT 密钥，后续在数据库初始化后补齐。
+			cfg.JWT.Secret = strings.Repeat("0", 32)
+		}
 	}
 
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config error: %w", err)
 	}
 
-	if allowMissingJWTSecret && originalJWTSecret == "" {
+	if allowMissingJWTSecret && (originalJWTSecret == "" || bootstrapClearedJWTSecret) {
 		cfg.JWT.Secret = ""
 	}
 

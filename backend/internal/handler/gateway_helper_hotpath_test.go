@@ -69,6 +69,14 @@ func (s *helperConcurrencyCacheStub) GetAccountWaitingCount(ctx context.Context,
 	return 0, nil
 }
 
+func (s *helperConcurrencyCacheStub) AcquireGroupUserSlot(ctx context.Context, groupID, userID int64, maxConcurrency int, requestID string) (bool, error) {
+	return true, nil
+}
+
+func (s *helperConcurrencyCacheStub) ReleaseGroupUserSlot(ctx context.Context, groupID, userID int64, requestID string) error {
+	return nil
+}
+
 func (s *helperConcurrencyCacheStub) AcquireUserSlot(ctx context.Context, userID int64, maxConcurrency int, requestID string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -138,6 +138,118 @@ func (_c *SubscriptionPlanCreate) SetNillableForSale(v *bool) *SubscriptionPlanC
 	return _c
 }
 
+// SetListedAt sets the "listed_at" field.
+func (_c *SubscriptionPlanCreate) SetListedAt(v time.Time) *SubscriptionPlanCreate {
+	_c.mutation.SetListedAt(v)
+	return _c
+}
+
+// SetNillableListedAt sets the "listed_at" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableListedAt(v *time.Time) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetListedAt(*v)
+	}
+	return _c
+}
+
+// SetOffSaleAt sets the "off_sale_at" field.
+func (_c *SubscriptionPlanCreate) SetOffSaleAt(v time.Time) *SubscriptionPlanCreate {
+	_c.mutation.SetOffSaleAt(v)
+	return _c
+}
+
+// SetNillableOffSaleAt sets the "off_sale_at" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableOffSaleAt(v *time.Time) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetOffSaleAt(*v)
+	}
+	return _c
+}
+
+// SetNewUserOnly sets the "new_user_only" field.
+func (_c *SubscriptionPlanCreate) SetNewUserOnly(v bool) *SubscriptionPlanCreate {
+	_c.mutation.SetNewUserOnly(v)
+	return _c
+}
+
+// SetNillableNewUserOnly sets the "new_user_only" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableNewUserOnly(v *bool) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetNewUserOnly(*v)
+	}
+	return _c
+}
+
+// SetPurchaseLimitCount sets the "purchase_limit_count" field.
+func (_c *SubscriptionPlanCreate) SetPurchaseLimitCount(v int) *SubscriptionPlanCreate {
+	_c.mutation.SetPurchaseLimitCount(v)
+	return _c
+}
+
+// SetNillablePurchaseLimitCount sets the "purchase_limit_count" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillablePurchaseLimitCount(v *int) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetPurchaseLimitCount(*v)
+	}
+	return _c
+}
+
+// SetIPPurchaseLimitCount sets the "ip_purchase_limit_count" field.
+func (_c *SubscriptionPlanCreate) SetIPPurchaseLimitCount(v int) *SubscriptionPlanCreate {
+	_c.mutation.SetIPPurchaseLimitCount(v)
+	return _c
+}
+
+// SetNillableIPPurchaseLimitCount sets the "ip_purchase_limit_count" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableIPPurchaseLimitCount(v *int) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetIPPurchaseLimitCount(*v)
+	}
+	return _c
+}
+
+// SetStockCount sets the "stock_count" field.
+func (_c *SubscriptionPlanCreate) SetStockCount(v int) *SubscriptionPlanCreate {
+	_c.mutation.SetStockCount(v)
+	return _c
+}
+
+// SetNillableStockCount sets the "stock_count" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableStockCount(v *int) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetStockCount(*v)
+	}
+	return _c
+}
+
+// SetFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field.
+func (_c *SubscriptionPlanCreate) SetFirstPurchaseDiscountEnabled(v bool) *SubscriptionPlanCreate {
+	_c.mutation.SetFirstPurchaseDiscountEnabled(v)
+	return _c
+}
+
+// SetNillableFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableFirstPurchaseDiscountEnabled(v *bool) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetFirstPurchaseDiscountEnabled(*v)
+	}
+	return _c
+}
+
+// SetFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field.
+func (_c *SubscriptionPlanCreate) SetFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanCreate {
+	_c.mutation.SetFirstPurchaseDiscountPrice(v)
+	return _c
+}
+
+// SetNillableFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableFirstPurchaseDiscountPrice(v *float64) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetFirstPurchaseDiscountPrice(*v)
+	}
+	return _c
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (_c *SubscriptionPlanCreate) SetSortOrder(v int) *SubscriptionPlanCreate {
 	_c.mutation.SetSortOrder(v)
@@ -239,6 +351,26 @@ func (_c *SubscriptionPlanCreate) defaults() {
 		v := subscriptionplan.DefaultForSale
 		_c.mutation.SetForSale(v)
 	}
+	if _, ok := _c.mutation.NewUserOnly(); !ok {
+		v := subscriptionplan.DefaultNewUserOnly
+		_c.mutation.SetNewUserOnly(v)
+	}
+	if _, ok := _c.mutation.PurchaseLimitCount(); !ok {
+		v := subscriptionplan.DefaultPurchaseLimitCount
+		_c.mutation.SetPurchaseLimitCount(v)
+	}
+	if _, ok := _c.mutation.IPPurchaseLimitCount(); !ok {
+		v := subscriptionplan.DefaultIPPurchaseLimitCount
+		_c.mutation.SetIPPurchaseLimitCount(v)
+	}
+	if _, ok := _c.mutation.StockCount(); !ok {
+		v := subscriptionplan.DefaultStockCount
+		_c.mutation.SetStockCount(v)
+	}
+	if _, ok := _c.mutation.FirstPurchaseDiscountEnabled(); !ok {
+		v := subscriptionplan.DefaultFirstPurchaseDiscountEnabled
+		_c.mutation.SetFirstPurchaseDiscountEnabled(v)
+	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
 		v := subscriptionplan.DefaultSortOrder
 		_c.mutation.SetSortOrder(v)
@@ -296,6 +428,21 @@ func (_c *SubscriptionPlanCreate) check() error {
 	}
 	if _, ok := _c.mutation.ForSale(); !ok {
 		return &ValidationError{Name: "for_sale", err: errors.New(`ent: missing required field "SubscriptionPlan.for_sale"`)}
+	}
+	if _, ok := _c.mutation.NewUserOnly(); !ok {
+		return &ValidationError{Name: "new_user_only", err: errors.New(`ent: missing required field "SubscriptionPlan.new_user_only"`)}
+	}
+	if _, ok := _c.mutation.PurchaseLimitCount(); !ok {
+		return &ValidationError{Name: "purchase_limit_count", err: errors.New(`ent: missing required field "SubscriptionPlan.purchase_limit_count"`)}
+	}
+	if _, ok := _c.mutation.IPPurchaseLimitCount(); !ok {
+		return &ValidationError{Name: "ip_purchase_limit_count", err: errors.New(`ent: missing required field "SubscriptionPlan.ip_purchase_limit_count"`)}
+	}
+	if _, ok := _c.mutation.StockCount(); !ok {
+		return &ValidationError{Name: "stock_count", err: errors.New(`ent: missing required field "SubscriptionPlan.stock_count"`)}
+	}
+	if _, ok := _c.mutation.FirstPurchaseDiscountEnabled(); !ok {
+		return &ValidationError{Name: "first_purchase_discount_enabled", err: errors.New(`ent: missing required field "SubscriptionPlan.first_purchase_discount_enabled"`)}
 	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
 		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "SubscriptionPlan.sort_order"`)}
@@ -372,6 +519,38 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 	if value, ok := _c.mutation.ForSale(); ok {
 		_spec.SetField(subscriptionplan.FieldForSale, field.TypeBool, value)
 		_node.ForSale = value
+	}
+	if value, ok := _c.mutation.ListedAt(); ok {
+		_spec.SetField(subscriptionplan.FieldListedAt, field.TypeTime, value)
+		_node.ListedAt = &value
+	}
+	if value, ok := _c.mutation.OffSaleAt(); ok {
+		_spec.SetField(subscriptionplan.FieldOffSaleAt, field.TypeTime, value)
+		_node.OffSaleAt = &value
+	}
+	if value, ok := _c.mutation.NewUserOnly(); ok {
+		_spec.SetField(subscriptionplan.FieldNewUserOnly, field.TypeBool, value)
+		_node.NewUserOnly = value
+	}
+	if value, ok := _c.mutation.PurchaseLimitCount(); ok {
+		_spec.SetField(subscriptionplan.FieldPurchaseLimitCount, field.TypeInt, value)
+		_node.PurchaseLimitCount = value
+	}
+	if value, ok := _c.mutation.IPPurchaseLimitCount(); ok {
+		_spec.SetField(subscriptionplan.FieldIPPurchaseLimitCount, field.TypeInt, value)
+		_node.IPPurchaseLimitCount = value
+	}
+	if value, ok := _c.mutation.StockCount(); ok {
+		_spec.SetField(subscriptionplan.FieldStockCount, field.TypeInt, value)
+		_node.StockCount = value
+	}
+	if value, ok := _c.mutation.FirstPurchaseDiscountEnabled(); ok {
+		_spec.SetField(subscriptionplan.FieldFirstPurchaseDiscountEnabled, field.TypeBool, value)
+		_node.FirstPurchaseDiscountEnabled = value
+	}
+	if value, ok := _c.mutation.FirstPurchaseDiscountPrice(); ok {
+		_spec.SetField(subscriptionplan.FieldFirstPurchaseDiscountPrice, field.TypeFloat64, value)
+		_node.FirstPurchaseDiscountPrice = &value
 	}
 	if value, ok := _c.mutation.SortOrder(); ok {
 		_spec.SetField(subscriptionplan.FieldSortOrder, field.TypeInt, value)
@@ -584,6 +763,144 @@ func (u *SubscriptionPlanUpsert) SetForSale(v bool) *SubscriptionPlanUpsert {
 // UpdateForSale sets the "for_sale" field to the value that was provided on create.
 func (u *SubscriptionPlanUpsert) UpdateForSale() *SubscriptionPlanUpsert {
 	u.SetExcluded(subscriptionplan.FieldForSale)
+	return u
+}
+
+// SetListedAt sets the "listed_at" field.
+func (u *SubscriptionPlanUpsert) SetListedAt(v time.Time) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldListedAt, v)
+	return u
+}
+
+// UpdateListedAt sets the "listed_at" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateListedAt() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldListedAt)
+	return u
+}
+
+// ClearListedAt clears the value of the "listed_at" field.
+func (u *SubscriptionPlanUpsert) ClearListedAt() *SubscriptionPlanUpsert {
+	u.SetNull(subscriptionplan.FieldListedAt)
+	return u
+}
+
+// SetOffSaleAt sets the "off_sale_at" field.
+func (u *SubscriptionPlanUpsert) SetOffSaleAt(v time.Time) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldOffSaleAt, v)
+	return u
+}
+
+// UpdateOffSaleAt sets the "off_sale_at" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateOffSaleAt() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldOffSaleAt)
+	return u
+}
+
+// ClearOffSaleAt clears the value of the "off_sale_at" field.
+func (u *SubscriptionPlanUpsert) ClearOffSaleAt() *SubscriptionPlanUpsert {
+	u.SetNull(subscriptionplan.FieldOffSaleAt)
+	return u
+}
+
+// SetNewUserOnly sets the "new_user_only" field.
+func (u *SubscriptionPlanUpsert) SetNewUserOnly(v bool) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldNewUserOnly, v)
+	return u
+}
+
+// UpdateNewUserOnly sets the "new_user_only" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateNewUserOnly() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldNewUserOnly)
+	return u
+}
+
+// SetPurchaseLimitCount sets the "purchase_limit_count" field.
+func (u *SubscriptionPlanUpsert) SetPurchaseLimitCount(v int) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldPurchaseLimitCount, v)
+	return u
+}
+
+// UpdatePurchaseLimitCount sets the "purchase_limit_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdatePurchaseLimitCount() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldPurchaseLimitCount)
+	return u
+}
+
+// AddPurchaseLimitCount adds v to the "purchase_limit_count" field.
+func (u *SubscriptionPlanUpsert) AddPurchaseLimitCount(v int) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldPurchaseLimitCount, v)
+	return u
+}
+
+// SetIPPurchaseLimitCount sets the "ip_purchase_limit_count" field.
+func (u *SubscriptionPlanUpsert) SetIPPurchaseLimitCount(v int) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldIPPurchaseLimitCount, v)
+	return u
+}
+
+// UpdateIPPurchaseLimitCount sets the "ip_purchase_limit_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateIPPurchaseLimitCount() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldIPPurchaseLimitCount)
+	return u
+}
+
+// AddIPPurchaseLimitCount adds v to the "ip_purchase_limit_count" field.
+func (u *SubscriptionPlanUpsert) AddIPPurchaseLimitCount(v int) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldIPPurchaseLimitCount, v)
+	return u
+}
+
+// SetStockCount sets the "stock_count" field.
+func (u *SubscriptionPlanUpsert) SetStockCount(v int) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldStockCount, v)
+	return u
+}
+
+// UpdateStockCount sets the "stock_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateStockCount() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldStockCount)
+	return u
+}
+
+// AddStockCount adds v to the "stock_count" field.
+func (u *SubscriptionPlanUpsert) AddStockCount(v int) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldStockCount, v)
+	return u
+}
+
+// SetFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field.
+func (u *SubscriptionPlanUpsert) SetFirstPurchaseDiscountEnabled(v bool) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldFirstPurchaseDiscountEnabled, v)
+	return u
+}
+
+// UpdateFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateFirstPurchaseDiscountEnabled() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldFirstPurchaseDiscountEnabled)
+	return u
+}
+
+// SetFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsert) SetFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldFirstPurchaseDiscountPrice, v)
+	return u
+}
+
+// UpdateFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateFirstPurchaseDiscountPrice() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldFirstPurchaseDiscountPrice)
+	return u
+}
+
+// AddFirstPurchaseDiscountPrice adds v to the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsert) AddFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldFirstPurchaseDiscountPrice, v)
+	return u
+}
+
+// ClearFirstPurchaseDiscountPrice clears the value of the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsert) ClearFirstPurchaseDiscountPrice() *SubscriptionPlanUpsert {
+	u.SetNull(subscriptionplan.FieldFirstPurchaseDiscountPrice)
 	return u
 }
 
@@ -834,6 +1151,167 @@ func (u *SubscriptionPlanUpsertOne) SetForSale(v bool) *SubscriptionPlanUpsertOn
 func (u *SubscriptionPlanUpsertOne) UpdateForSale() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateForSale()
+	})
+}
+
+// SetListedAt sets the "listed_at" field.
+func (u *SubscriptionPlanUpsertOne) SetListedAt(v time.Time) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetListedAt(v)
+	})
+}
+
+// UpdateListedAt sets the "listed_at" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateListedAt() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateListedAt()
+	})
+}
+
+// ClearListedAt clears the value of the "listed_at" field.
+func (u *SubscriptionPlanUpsertOne) ClearListedAt() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearListedAt()
+	})
+}
+
+// SetOffSaleAt sets the "off_sale_at" field.
+func (u *SubscriptionPlanUpsertOne) SetOffSaleAt(v time.Time) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetOffSaleAt(v)
+	})
+}
+
+// UpdateOffSaleAt sets the "off_sale_at" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateOffSaleAt() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateOffSaleAt()
+	})
+}
+
+// ClearOffSaleAt clears the value of the "off_sale_at" field.
+func (u *SubscriptionPlanUpsertOne) ClearOffSaleAt() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearOffSaleAt()
+	})
+}
+
+// SetNewUserOnly sets the "new_user_only" field.
+func (u *SubscriptionPlanUpsertOne) SetNewUserOnly(v bool) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetNewUserOnly(v)
+	})
+}
+
+// UpdateNewUserOnly sets the "new_user_only" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateNewUserOnly() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateNewUserOnly()
+	})
+}
+
+// SetPurchaseLimitCount sets the "purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertOne) SetPurchaseLimitCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetPurchaseLimitCount(v)
+	})
+}
+
+// AddPurchaseLimitCount adds v to the "purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertOne) AddPurchaseLimitCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddPurchaseLimitCount(v)
+	})
+}
+
+// UpdatePurchaseLimitCount sets the "purchase_limit_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdatePurchaseLimitCount() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdatePurchaseLimitCount()
+	})
+}
+
+// SetIPPurchaseLimitCount sets the "ip_purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertOne) SetIPPurchaseLimitCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetIPPurchaseLimitCount(v)
+	})
+}
+
+// AddIPPurchaseLimitCount adds v to the "ip_purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertOne) AddIPPurchaseLimitCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddIPPurchaseLimitCount(v)
+	})
+}
+
+// UpdateIPPurchaseLimitCount sets the "ip_purchase_limit_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateIPPurchaseLimitCount() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateIPPurchaseLimitCount()
+	})
+}
+
+// SetStockCount sets the "stock_count" field.
+func (u *SubscriptionPlanUpsertOne) SetStockCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetStockCount(v)
+	})
+}
+
+// AddStockCount adds v to the "stock_count" field.
+func (u *SubscriptionPlanUpsertOne) AddStockCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddStockCount(v)
+	})
+}
+
+// UpdateStockCount sets the "stock_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateStockCount() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateStockCount()
+	})
+}
+
+// SetFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field.
+func (u *SubscriptionPlanUpsertOne) SetFirstPurchaseDiscountEnabled(v bool) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetFirstPurchaseDiscountEnabled(v)
+	})
+}
+
+// UpdateFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateFirstPurchaseDiscountEnabled() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateFirstPurchaseDiscountEnabled()
+	})
+}
+
+// SetFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsertOne) SetFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetFirstPurchaseDiscountPrice(v)
+	})
+}
+
+// AddFirstPurchaseDiscountPrice adds v to the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsertOne) AddFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddFirstPurchaseDiscountPrice(v)
+	})
+}
+
+// UpdateFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateFirstPurchaseDiscountPrice() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateFirstPurchaseDiscountPrice()
+	})
+}
+
+// ClearFirstPurchaseDiscountPrice clears the value of the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsertOne) ClearFirstPurchaseDiscountPrice() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearFirstPurchaseDiscountPrice()
 	})
 }
 
@@ -1255,6 +1733,167 @@ func (u *SubscriptionPlanUpsertBulk) SetForSale(v bool) *SubscriptionPlanUpsertB
 func (u *SubscriptionPlanUpsertBulk) UpdateForSale() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateForSale()
+	})
+}
+
+// SetListedAt sets the "listed_at" field.
+func (u *SubscriptionPlanUpsertBulk) SetListedAt(v time.Time) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetListedAt(v)
+	})
+}
+
+// UpdateListedAt sets the "listed_at" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateListedAt() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateListedAt()
+	})
+}
+
+// ClearListedAt clears the value of the "listed_at" field.
+func (u *SubscriptionPlanUpsertBulk) ClearListedAt() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearListedAt()
+	})
+}
+
+// SetOffSaleAt sets the "off_sale_at" field.
+func (u *SubscriptionPlanUpsertBulk) SetOffSaleAt(v time.Time) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetOffSaleAt(v)
+	})
+}
+
+// UpdateOffSaleAt sets the "off_sale_at" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateOffSaleAt() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateOffSaleAt()
+	})
+}
+
+// ClearOffSaleAt clears the value of the "off_sale_at" field.
+func (u *SubscriptionPlanUpsertBulk) ClearOffSaleAt() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearOffSaleAt()
+	})
+}
+
+// SetNewUserOnly sets the "new_user_only" field.
+func (u *SubscriptionPlanUpsertBulk) SetNewUserOnly(v bool) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetNewUserOnly(v)
+	})
+}
+
+// UpdateNewUserOnly sets the "new_user_only" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateNewUserOnly() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateNewUserOnly()
+	})
+}
+
+// SetPurchaseLimitCount sets the "purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertBulk) SetPurchaseLimitCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetPurchaseLimitCount(v)
+	})
+}
+
+// AddPurchaseLimitCount adds v to the "purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertBulk) AddPurchaseLimitCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddPurchaseLimitCount(v)
+	})
+}
+
+// UpdatePurchaseLimitCount sets the "purchase_limit_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdatePurchaseLimitCount() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdatePurchaseLimitCount()
+	})
+}
+
+// SetIPPurchaseLimitCount sets the "ip_purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertBulk) SetIPPurchaseLimitCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetIPPurchaseLimitCount(v)
+	})
+}
+
+// AddIPPurchaseLimitCount adds v to the "ip_purchase_limit_count" field.
+func (u *SubscriptionPlanUpsertBulk) AddIPPurchaseLimitCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddIPPurchaseLimitCount(v)
+	})
+}
+
+// UpdateIPPurchaseLimitCount sets the "ip_purchase_limit_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateIPPurchaseLimitCount() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateIPPurchaseLimitCount()
+	})
+}
+
+// SetStockCount sets the "stock_count" field.
+func (u *SubscriptionPlanUpsertBulk) SetStockCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetStockCount(v)
+	})
+}
+
+// AddStockCount adds v to the "stock_count" field.
+func (u *SubscriptionPlanUpsertBulk) AddStockCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddStockCount(v)
+	})
+}
+
+// UpdateStockCount sets the "stock_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateStockCount() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateStockCount()
+	})
+}
+
+// SetFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field.
+func (u *SubscriptionPlanUpsertBulk) SetFirstPurchaseDiscountEnabled(v bool) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetFirstPurchaseDiscountEnabled(v)
+	})
+}
+
+// UpdateFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateFirstPurchaseDiscountEnabled() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateFirstPurchaseDiscountEnabled()
+	})
+}
+
+// SetFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsertBulk) SetFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetFirstPurchaseDiscountPrice(v)
+	})
+}
+
+// AddFirstPurchaseDiscountPrice adds v to the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsertBulk) AddFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddFirstPurchaseDiscountPrice(v)
+	})
+}
+
+// UpdateFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateFirstPurchaseDiscountPrice() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateFirstPurchaseDiscountPrice()
+	})
+}
+
+// ClearFirstPurchaseDiscountPrice clears the value of the "first_purchase_discount_price" field.
+func (u *SubscriptionPlanUpsertBulk) ClearFirstPurchaseDiscountPrice() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearFirstPurchaseDiscountPrice()
 	})
 }
 

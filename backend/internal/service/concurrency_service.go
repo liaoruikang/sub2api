@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"strconv"
 	"sync"
@@ -36,6 +37,11 @@ type ConcurrencyCache interface {
 	AcquireUserSlot(ctx context.Context, userID int64, maxConcurrency int, requestID string) (bool, error)
 	ReleaseUserSlot(ctx context.Context, userID int64, requestID string) error
 	GetUserConcurrency(ctx context.Context, userID int64) (int, error)
+
+	// 分组内用户槽位管理
+	// 键格式: concurrency:group_user:{groupID}:{userID}（有序集合，成员为 requestID）
+	AcquireGroupUserSlot(ctx context.Context, groupID, userID int64, maxConcurrency int, requestID string) (bool, error)
+	ReleaseGroupUserSlot(ctx context.Context, groupID, userID int64, requestID string) error
 
 	// 等待队列计数（只在首次创建时设置 TTL）
 	IncrementWaitCount(ctx context.Context, userID int64, maxWait int) (bool, error)
@@ -202,6 +208,22 @@ func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID i
 // If the user is at max concurrency, it waits until a slot is available or timeout.
 // Returns a release function that MUST be called when the request completes.
 func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, maxConcurrency int) (*AcquireResult, error) {
+	return s.acquireSlot(ctx, maxConcurrency, func(requestID string) (bool, error) {
+		return s.cache.AcquireUserSlot(ctx, userID, maxConcurrency, requestID)
+	}, func(requestID string) error {
+		return s.cache.ReleaseUserSlot(context.Background(), userID, requestID)
+	}, fmt.Sprintf("user %d", userID))
+}
+
+func (s *ConcurrencyService) AcquireGroupUserSlot(ctx context.Context, groupID, userID int64, maxConcurrency int) (*AcquireResult, error) {
+	return s.acquireSlot(ctx, maxConcurrency, func(requestID string) (bool, error) {
+		return s.cache.AcquireGroupUserSlot(ctx, groupID, userID, maxConcurrency, requestID)
+	}, func(requestID string) error {
+		return s.cache.ReleaseGroupUserSlot(context.Background(), groupID, userID, requestID)
+	}, fmt.Sprintf("group-user %d/%d", groupID, userID))
+}
+
+func (s *ConcurrencyService) acquireSlot(ctx context.Context, maxConcurrency int, acquire func(string) (bool, error), release func(string) error, label string) (*AcquireResult, error) {
 	// If maxConcurrency is 0 or negative, no limit
 	if maxConcurrency <= 0 {
 		return &AcquireResult{
@@ -210,10 +232,9 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 		}, nil
 	}
 
-	// Generate unique request ID for this slot
 	requestID := generateRequestID()
 
-	acquired, err := s.cache.AcquireUserSlot(ctx, userID, maxConcurrency, requestID)
+	acquired, err := acquire(requestID)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +245,8 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 			ReleaseFunc: func() {
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				if err := s.cache.ReleaseUserSlot(bgCtx, userID, requestID); err != nil {
-					logger.LegacyPrintf("service.concurrency", "Warning: failed to release user slot for %d (req=%s): %v", userID, requestID, err)
+				if err := releaseWithContext(bgCtx, release, requestID); err != nil {
+					logger.LegacyPrintf("service.concurrency", "Warning: failed to release slot for %s (req=%s): %v", label, requestID, err)
 				}
 			},
 		}, nil
@@ -235,6 +256,17 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 		Acquired:    false,
 		ReleaseFunc: nil,
 	}, nil
+}
+
+func releaseWithContext(ctx context.Context, release func(string) error, requestID string) error {
+	done := make(chan error, 1)
+	go func() { done <- release(requestID) }()
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // ============================================

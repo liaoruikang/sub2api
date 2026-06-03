@@ -193,6 +193,7 @@ func (PaymentOrder) Indexes() []ent.Index {
 		index.Fields("expires_at"),
 		index.Fields("created_at"),
 		index.Fields("paid_at"),
+		index.Fields("plan_id", "client_ip", "paid_at"),
 		index.Fields("payment_type", "paid_at"),
 		index.Fields("order_type"),
 	}

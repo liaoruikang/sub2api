@@ -15,11 +15,17 @@ func resetViperWithJWTSecret(t *testing.T) {
 	t.Helper()
 	viper.Reset()
 	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
+	isolatedConfigDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(isolatedConfigDir, "config.yaml"), []byte("{}\n"), 0o644))
+	t.Setenv("DATA_DIR", isolatedConfigDir)
 }
 
 func TestLoadForBootstrapAllowsMissingJWTSecret(t *testing.T) {
 	viper.Reset()
 	t.Setenv("JWT_SECRET", "")
+	isolatedConfigDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(isolatedConfigDir, "config.yaml"), []byte("{}\n"), 0o644))
+	t.Setenv("DATA_DIR", isolatedConfigDir)
 
 	cfg, err := LoadForBootstrap()
 	if err != nil {

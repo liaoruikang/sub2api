@@ -232,6 +232,19 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 	}()
 
+	if apiKey.Group != nil && apiKey.Group.EffectiveUserConcurrencyLimitAt(time.Now()) > 0 {
+		groupUserReleaseFunc, err := h.concurrencyHelper.AcquireGroupUserSlotWithWait(c, apiKey.Group.ID, subject.UserID, apiKey.Group.EffectiveUserConcurrencyLimitAt(time.Now()), reqStream, &streamStarted)
+		if err != nil {
+			reqLog.Warn("gateway.group_user_slot_acquire_failed", zap.Int64("group_id", apiKey.Group.ID), zap.Error(err))
+			h.handleConcurrencyError(c, err, "group_user", streamStarted)
+			return
+		}
+		groupUserReleaseFunc = wrapReleaseOnDone(c.Request.Context(), groupUserReleaseFunc)
+		if groupUserReleaseFunc != nil {
+			defer groupUserReleaseFunc()
+		}
+	}
+
 	// 1. 首先获取用户并发槽位
 	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)
 	if err != nil {

@@ -95,6 +95,9 @@ func RegisterAdminRoutes(
 		// 风控中心
 		registerContentModerationRoutes(admin, h)
 
+		// 邮箱验证码校验
+		registerEmailVerificationRoutes(admin, h)
+
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
 	}
@@ -111,6 +114,13 @@ func registerContentModerationRoutes(admin *gin.RouterGroup, h *handler.Handlers
 		risk.POST("/users/:user_id/unban", h.Admin.ContentModeration.UnbanUser)
 		risk.DELETE("/hashes", h.Admin.ContentModeration.DeleteFlaggedHash)
 		risk.DELETE("/hashes/all", h.Admin.ContentModeration.ClearFlaggedHashes)
+	}
+}
+
+func registerEmailVerificationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	verifications := admin.Group("/email-verifications")
+	{
+		verifications.POST("/verify", h.Admin.EmailVerification.Verify)
 	}
 }
 
@@ -270,6 +280,8 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		groups.DELETE("/:id/rate-multipliers", h.Admin.Group.ClearGroupRateMultipliers)
 		groups.PUT("/:id/rpm-overrides", h.Admin.Group.BatchSetGroupRPMOverrides)
 		groups.DELETE("/:id/rpm-overrides", h.Admin.Group.ClearGroupRPMOverrides)
+		groups.PUT("/:id/limited-time-rpm-overrides", h.Admin.Group.BatchSetGroupLimitedTimeRPMOverrides)
+		groups.DELETE("/:id/limited-time-rpm-overrides", h.Admin.Group.ClearGroupLimitedTimeRPMOverrides)
 		groups.GET("/:id/api-keys", h.Admin.Group.GetGroupAPIKeys)
 	}
 }

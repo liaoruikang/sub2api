@@ -105,6 +105,90 @@ func (_c *GroupCreate) SetNillableRateMultiplier(v *float64) *GroupCreate {
 	return _c
 }
 
+// SetLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field.
+func (_c *GroupCreate) SetLimitedTimeMultiplierEnabled(v bool) *GroupCreate {
+	_c.mutation.SetLimitedTimeMultiplierEnabled(v)
+	return _c
+}
+
+// SetNillableLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableLimitedTimeMultiplierEnabled(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetLimitedTimeMultiplierEnabled(*v)
+	}
+	return _c
+}
+
+// SetLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field.
+func (_c *GroupCreate) SetLimitedTimeMultiplierCron(v string) *GroupCreate {
+	_c.mutation.SetLimitedTimeMultiplierCron(v)
+	return _c
+}
+
+// SetNillableLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableLimitedTimeMultiplierCron(v *string) *GroupCreate {
+	if v != nil {
+		_c.SetLimitedTimeMultiplierCron(*v)
+	}
+	return _c
+}
+
+// SetLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field.
+func (_c *GroupCreate) SetLimitedTimeMultiplierDurationMinutes(v int) *GroupCreate {
+	_c.mutation.SetLimitedTimeMultiplierDurationMinutes(v)
+	return _c
+}
+
+// SetNillableLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableLimitedTimeMultiplierDurationMinutes(v *int) *GroupCreate {
+	if v != nil {
+		_c.SetLimitedTimeMultiplierDurationMinutes(*v)
+	}
+	return _c
+}
+
+// SetLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field.
+func (_c *GroupCreate) SetLimitedTimeMultiplierValue(v float64) *GroupCreate {
+	_c.mutation.SetLimitedTimeMultiplierValue(v)
+	return _c
+}
+
+// SetNillableLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableLimitedTimeMultiplierValue(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetLimitedTimeMultiplierValue(*v)
+	}
+	return _c
+}
+
+// SetLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field.
+func (_c *GroupCreate) SetLimitedTimeRpmLimit(v int) *GroupCreate {
+	_c.mutation.SetLimitedTimeRpmLimit(v)
+	return _c
+}
+
+// SetNillableLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableLimitedTimeRpmLimit(v *int) *GroupCreate {
+	if v != nil {
+		_c.SetLimitedTimeRpmLimit(*v)
+	}
+	return _c
+}
+
+// SetLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field.
+func (_c *GroupCreate) SetLimitedTimeUserConcurrencyLimit(v int) *GroupCreate {
+	_c.mutation.SetLimitedTimeUserConcurrencyLimit(v)
+	return _c
+}
+
+// SetNillableLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableLimitedTimeUserConcurrencyLimit(v *int) *GroupCreate {
+	if v != nil {
+		_c.SetLimitedTimeUserConcurrencyLimit(*v)
+	}
+	return _c
+}
+
 // SetIsExclusive sets the "is_exclusive" field.
 func (_c *GroupCreate) SetIsExclusive(v bool) *GroupCreate {
 	_c.mutation.SetIsExclusive(v)
@@ -495,6 +579,20 @@ func (_c *GroupCreate) SetNillableRpmLimit(v *int) *GroupCreate {
 	return _c
 }
 
+// SetUserConcurrencyLimit sets the "user_concurrency_limit" field.
+func (_c *GroupCreate) SetUserConcurrencyLimit(v int) *GroupCreate {
+	_c.mutation.SetUserConcurrencyLimit(v)
+	return _c
+}
+
+// SetNillableUserConcurrencyLimit sets the "user_concurrency_limit" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableUserConcurrencyLimit(v *int) *GroupCreate {
+	if v != nil {
+		_c.SetUserConcurrencyLimit(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *GroupCreate) AddAPIKeyIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -640,6 +738,30 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierEnabled(); !ok {
+		v := group.DefaultLimitedTimeMultiplierEnabled
+		_c.mutation.SetLimitedTimeMultiplierEnabled(v)
+	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierCron(); !ok {
+		v := group.DefaultLimitedTimeMultiplierCron
+		_c.mutation.SetLimitedTimeMultiplierCron(v)
+	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierDurationMinutes(); !ok {
+		v := group.DefaultLimitedTimeMultiplierDurationMinutes
+		_c.mutation.SetLimitedTimeMultiplierDurationMinutes(v)
+	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierValue(); !ok {
+		v := group.DefaultLimitedTimeMultiplierValue
+		_c.mutation.SetLimitedTimeMultiplierValue(v)
+	}
+	if _, ok := _c.mutation.LimitedTimeRpmLimit(); !ok {
+		v := group.DefaultLimitedTimeRpmLimit
+		_c.mutation.SetLimitedTimeRpmLimit(v)
+	}
+	if _, ok := _c.mutation.LimitedTimeUserConcurrencyLimit(); !ok {
+		v := group.DefaultLimitedTimeUserConcurrencyLimit
+		_c.mutation.SetLimitedTimeUserConcurrencyLimit(v)
+	}
 	if _, ok := _c.mutation.IsExclusive(); !ok {
 		v := group.DefaultIsExclusive
 		_c.mutation.SetIsExclusive(v)
@@ -720,6 +842,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
 	}
+	if _, ok := _c.mutation.UserConcurrencyLimit(); !ok {
+		v := group.DefaultUserConcurrencyLimit
+		_c.mutation.SetUserConcurrencyLimit(v)
+	}
 	return nil
 }
 
@@ -741,6 +867,29 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
+	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierEnabled(); !ok {
+		return &ValidationError{Name: "limited_time_multiplier_enabled", err: errors.New(`ent: missing required field "Group.limited_time_multiplier_enabled"`)}
+	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierCron(); !ok {
+		return &ValidationError{Name: "limited_time_multiplier_cron", err: errors.New(`ent: missing required field "Group.limited_time_multiplier_cron"`)}
+	}
+	if v, ok := _c.mutation.LimitedTimeMultiplierCron(); ok {
+		if err := group.LimitedTimeMultiplierCronValidator(v); err != nil {
+			return &ValidationError{Name: "limited_time_multiplier_cron", err: fmt.Errorf(`ent: validator failed for field "Group.limited_time_multiplier_cron": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierDurationMinutes(); !ok {
+		return &ValidationError{Name: "limited_time_multiplier_duration_minutes", err: errors.New(`ent: missing required field "Group.limited_time_multiplier_duration_minutes"`)}
+	}
+	if _, ok := _c.mutation.LimitedTimeMultiplierValue(); !ok {
+		return &ValidationError{Name: "limited_time_multiplier_value", err: errors.New(`ent: missing required field "Group.limited_time_multiplier_value"`)}
+	}
+	if _, ok := _c.mutation.LimitedTimeRpmLimit(); !ok {
+		return &ValidationError{Name: "limited_time_rpm_limit", err: errors.New(`ent: missing required field "Group.limited_time_rpm_limit"`)}
+	}
+	if _, ok := _c.mutation.LimitedTimeUserConcurrencyLimit(); !ok {
+		return &ValidationError{Name: "limited_time_user_concurrency_limit", err: errors.New(`ent: missing required field "Group.limited_time_user_concurrency_limit"`)}
 	}
 	if _, ok := _c.mutation.IsExclusive(); !ok {
 		return &ValidationError{Name: "is_exclusive", err: errors.New(`ent: missing required field "Group.is_exclusive"`)}
@@ -822,6 +971,9 @@ func (_c *GroupCreate) check() error {
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "Group.rpm_limit"`)}
 	}
+	if _, ok := _c.mutation.UserConcurrencyLimit(); !ok {
+		return &ValidationError{Name: "user_concurrency_limit", err: errors.New(`ent: missing required field "Group.user_concurrency_limit"`)}
+	}
 	return nil
 }
 
@@ -872,6 +1024,30 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
+	}
+	if value, ok := _c.mutation.LimitedTimeMultiplierEnabled(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierEnabled, field.TypeBool, value)
+		_node.LimitedTimeMultiplierEnabled = value
+	}
+	if value, ok := _c.mutation.LimitedTimeMultiplierCron(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierCron, field.TypeString, value)
+		_node.LimitedTimeMultiplierCron = value
+	}
+	if value, ok := _c.mutation.LimitedTimeMultiplierDurationMinutes(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierDurationMinutes, field.TypeInt, value)
+		_node.LimitedTimeMultiplierDurationMinutes = value
+	}
+	if value, ok := _c.mutation.LimitedTimeMultiplierValue(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierValue, field.TypeFloat64, value)
+		_node.LimitedTimeMultiplierValue = value
+	}
+	if value, ok := _c.mutation.LimitedTimeRpmLimit(); ok {
+		_spec.SetField(group.FieldLimitedTimeRpmLimit, field.TypeInt, value)
+		_node.LimitedTimeRpmLimit = value
+	}
+	if value, ok := _c.mutation.LimitedTimeUserConcurrencyLimit(); ok {
+		_spec.SetField(group.FieldLimitedTimeUserConcurrencyLimit, field.TypeInt, value)
+		_node.LimitedTimeUserConcurrencyLimit = value
 	}
 	if value, ok := _c.mutation.IsExclusive(); ok {
 		_spec.SetField(group.FieldIsExclusive, field.TypeBool, value)
@@ -988,6 +1164,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
 		_node.RpmLimit = value
+	}
+	if value, ok := _c.mutation.UserConcurrencyLimit(); ok {
+		_spec.SetField(group.FieldUserConcurrencyLimit, field.TypeInt, value)
+		_node.UserConcurrencyLimit = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1220,6 +1400,102 @@ func (u *GroupUpsert) UpdateRateMultiplier() *GroupUpsert {
 // AddRateMultiplier adds v to the "rate_multiplier" field.
 func (u *GroupUpsert) AddRateMultiplier(v float64) *GroupUpsert {
 	u.Add(group.FieldRateMultiplier, v)
+	return u
+}
+
+// SetLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field.
+func (u *GroupUpsert) SetLimitedTimeMultiplierEnabled(v bool) *GroupUpsert {
+	u.Set(group.FieldLimitedTimeMultiplierEnabled, v)
+	return u
+}
+
+// UpdateLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateLimitedTimeMultiplierEnabled() *GroupUpsert {
+	u.SetExcluded(group.FieldLimitedTimeMultiplierEnabled)
+	return u
+}
+
+// SetLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field.
+func (u *GroupUpsert) SetLimitedTimeMultiplierCron(v string) *GroupUpsert {
+	u.Set(group.FieldLimitedTimeMultiplierCron, v)
+	return u
+}
+
+// UpdateLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateLimitedTimeMultiplierCron() *GroupUpsert {
+	u.SetExcluded(group.FieldLimitedTimeMultiplierCron)
+	return u
+}
+
+// SetLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field.
+func (u *GroupUpsert) SetLimitedTimeMultiplierDurationMinutes(v int) *GroupUpsert {
+	u.Set(group.FieldLimitedTimeMultiplierDurationMinutes, v)
+	return u
+}
+
+// UpdateLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateLimitedTimeMultiplierDurationMinutes() *GroupUpsert {
+	u.SetExcluded(group.FieldLimitedTimeMultiplierDurationMinutes)
+	return u
+}
+
+// AddLimitedTimeMultiplierDurationMinutes adds v to the "limited_time_multiplier_duration_minutes" field.
+func (u *GroupUpsert) AddLimitedTimeMultiplierDurationMinutes(v int) *GroupUpsert {
+	u.Add(group.FieldLimitedTimeMultiplierDurationMinutes, v)
+	return u
+}
+
+// SetLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field.
+func (u *GroupUpsert) SetLimitedTimeMultiplierValue(v float64) *GroupUpsert {
+	u.Set(group.FieldLimitedTimeMultiplierValue, v)
+	return u
+}
+
+// UpdateLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateLimitedTimeMultiplierValue() *GroupUpsert {
+	u.SetExcluded(group.FieldLimitedTimeMultiplierValue)
+	return u
+}
+
+// AddLimitedTimeMultiplierValue adds v to the "limited_time_multiplier_value" field.
+func (u *GroupUpsert) AddLimitedTimeMultiplierValue(v float64) *GroupUpsert {
+	u.Add(group.FieldLimitedTimeMultiplierValue, v)
+	return u
+}
+
+// SetLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field.
+func (u *GroupUpsert) SetLimitedTimeRpmLimit(v int) *GroupUpsert {
+	u.Set(group.FieldLimitedTimeRpmLimit, v)
+	return u
+}
+
+// UpdateLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateLimitedTimeRpmLimit() *GroupUpsert {
+	u.SetExcluded(group.FieldLimitedTimeRpmLimit)
+	return u
+}
+
+// AddLimitedTimeRpmLimit adds v to the "limited_time_rpm_limit" field.
+func (u *GroupUpsert) AddLimitedTimeRpmLimit(v int) *GroupUpsert {
+	u.Add(group.FieldLimitedTimeRpmLimit, v)
+	return u
+}
+
+// SetLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field.
+func (u *GroupUpsert) SetLimitedTimeUserConcurrencyLimit(v int) *GroupUpsert {
+	u.Set(group.FieldLimitedTimeUserConcurrencyLimit, v)
+	return u
+}
+
+// UpdateLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateLimitedTimeUserConcurrencyLimit() *GroupUpsert {
+	u.SetExcluded(group.FieldLimitedTimeUserConcurrencyLimit)
+	return u
+}
+
+// AddLimitedTimeUserConcurrencyLimit adds v to the "limited_time_user_concurrency_limit" field.
+func (u *GroupUpsert) AddLimitedTimeUserConcurrencyLimit(v int) *GroupUpsert {
+	u.Add(group.FieldLimitedTimeUserConcurrencyLimit, v)
 	return u
 }
 
@@ -1697,6 +1973,24 @@ func (u *GroupUpsert) AddRpmLimit(v int) *GroupUpsert {
 	return u
 }
 
+// SetUserConcurrencyLimit sets the "user_concurrency_limit" field.
+func (u *GroupUpsert) SetUserConcurrencyLimit(v int) *GroupUpsert {
+	u.Set(group.FieldUserConcurrencyLimit, v)
+	return u
+}
+
+// UpdateUserConcurrencyLimit sets the "user_concurrency_limit" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateUserConcurrencyLimit() *GroupUpsert {
+	u.SetExcluded(group.FieldUserConcurrencyLimit)
+	return u
+}
+
+// AddUserConcurrencyLimit adds v to the "user_concurrency_limit" field.
+func (u *GroupUpsert) AddUserConcurrencyLimit(v int) *GroupUpsert {
+	u.Add(group.FieldUserConcurrencyLimit, v)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1830,6 +2124,118 @@ func (u *GroupUpsertOne) AddRateMultiplier(v float64) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateRateMultiplier() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field.
+func (u *GroupUpsertOne) SetLimitedTimeMultiplierEnabled(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierEnabled(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateLimitedTimeMultiplierEnabled() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierEnabled()
+	})
+}
+
+// SetLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field.
+func (u *GroupUpsertOne) SetLimitedTimeMultiplierCron(v string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierCron(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateLimitedTimeMultiplierCron() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierCron()
+	})
+}
+
+// SetLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field.
+func (u *GroupUpsertOne) SetLimitedTimeMultiplierDurationMinutes(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierDurationMinutes(v)
+	})
+}
+
+// AddLimitedTimeMultiplierDurationMinutes adds v to the "limited_time_multiplier_duration_minutes" field.
+func (u *GroupUpsertOne) AddLimitedTimeMultiplierDurationMinutes(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeMultiplierDurationMinutes(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateLimitedTimeMultiplierDurationMinutes() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierDurationMinutes()
+	})
+}
+
+// SetLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field.
+func (u *GroupUpsertOne) SetLimitedTimeMultiplierValue(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierValue(v)
+	})
+}
+
+// AddLimitedTimeMultiplierValue adds v to the "limited_time_multiplier_value" field.
+func (u *GroupUpsertOne) AddLimitedTimeMultiplierValue(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeMultiplierValue(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateLimitedTimeMultiplierValue() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierValue()
+	})
+}
+
+// SetLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field.
+func (u *GroupUpsertOne) SetLimitedTimeRpmLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeRpmLimit(v)
+	})
+}
+
+// AddLimitedTimeRpmLimit adds v to the "limited_time_rpm_limit" field.
+func (u *GroupUpsertOne) AddLimitedTimeRpmLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeRpmLimit(v)
+	})
+}
+
+// UpdateLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateLimitedTimeRpmLimit() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeRpmLimit()
+	})
+}
+
+// SetLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field.
+func (u *GroupUpsertOne) SetLimitedTimeUserConcurrencyLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeUserConcurrencyLimit(v)
+	})
+}
+
+// AddLimitedTimeUserConcurrencyLimit adds v to the "limited_time_user_concurrency_limit" field.
+func (u *GroupUpsertOne) AddLimitedTimeUserConcurrencyLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeUserConcurrencyLimit(v)
+	})
+}
+
+// UpdateLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateLimitedTimeUserConcurrencyLimit() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeUserConcurrencyLimit()
 	})
 }
 
@@ -2386,6 +2792,27 @@ func (u *GroupUpsertOne) UpdateRpmLimit() *GroupUpsertOne {
 	})
 }
 
+// SetUserConcurrencyLimit sets the "user_concurrency_limit" field.
+func (u *GroupUpsertOne) SetUserConcurrencyLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetUserConcurrencyLimit(v)
+	})
+}
+
+// AddUserConcurrencyLimit adds v to the "user_concurrency_limit" field.
+func (u *GroupUpsertOne) AddUserConcurrencyLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddUserConcurrencyLimit(v)
+	})
+}
+
+// UpdateUserConcurrencyLimit sets the "user_concurrency_limit" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateUserConcurrencyLimit() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateUserConcurrencyLimit()
+	})
+}
+
 // Exec executes the query.
 func (u *GroupUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
@@ -2685,6 +3112,118 @@ func (u *GroupUpsertBulk) AddRateMultiplier(v float64) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRateMultiplier() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field.
+func (u *GroupUpsertBulk) SetLimitedTimeMultiplierEnabled(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierEnabled(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateLimitedTimeMultiplierEnabled() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierEnabled()
+	})
+}
+
+// SetLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field.
+func (u *GroupUpsertBulk) SetLimitedTimeMultiplierCron(v string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierCron(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateLimitedTimeMultiplierCron() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierCron()
+	})
+}
+
+// SetLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field.
+func (u *GroupUpsertBulk) SetLimitedTimeMultiplierDurationMinutes(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierDurationMinutes(v)
+	})
+}
+
+// AddLimitedTimeMultiplierDurationMinutes adds v to the "limited_time_multiplier_duration_minutes" field.
+func (u *GroupUpsertBulk) AddLimitedTimeMultiplierDurationMinutes(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeMultiplierDurationMinutes(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateLimitedTimeMultiplierDurationMinutes() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierDurationMinutes()
+	})
+}
+
+// SetLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field.
+func (u *GroupUpsertBulk) SetLimitedTimeMultiplierValue(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeMultiplierValue(v)
+	})
+}
+
+// AddLimitedTimeMultiplierValue adds v to the "limited_time_multiplier_value" field.
+func (u *GroupUpsertBulk) AddLimitedTimeMultiplierValue(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeMultiplierValue(v)
+	})
+}
+
+// UpdateLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateLimitedTimeMultiplierValue() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeMultiplierValue()
+	})
+}
+
+// SetLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field.
+func (u *GroupUpsertBulk) SetLimitedTimeRpmLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeRpmLimit(v)
+	})
+}
+
+// AddLimitedTimeRpmLimit adds v to the "limited_time_rpm_limit" field.
+func (u *GroupUpsertBulk) AddLimitedTimeRpmLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeRpmLimit(v)
+	})
+}
+
+// UpdateLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateLimitedTimeRpmLimit() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeRpmLimit()
+	})
+}
+
+// SetLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field.
+func (u *GroupUpsertBulk) SetLimitedTimeUserConcurrencyLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLimitedTimeUserConcurrencyLimit(v)
+	})
+}
+
+// AddLimitedTimeUserConcurrencyLimit adds v to the "limited_time_user_concurrency_limit" field.
+func (u *GroupUpsertBulk) AddLimitedTimeUserConcurrencyLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddLimitedTimeUserConcurrencyLimit(v)
+	})
+}
+
+// UpdateLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateLimitedTimeUserConcurrencyLimit() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLimitedTimeUserConcurrencyLimit()
 	})
 }
 
@@ -3238,6 +3777,27 @@ func (u *GroupUpsertBulk) AddRpmLimit(v int) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRpmLimit() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetUserConcurrencyLimit sets the "user_concurrency_limit" field.
+func (u *GroupUpsertBulk) SetUserConcurrencyLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetUserConcurrencyLimit(v)
+	})
+}
+
+// AddUserConcurrencyLimit adds v to the "user_concurrency_limit" field.
+func (u *GroupUpsertBulk) AddUserConcurrencyLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddUserConcurrencyLimit(v)
+	})
+}
+
+// UpdateUserConcurrencyLimit sets the "user_concurrency_limit" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateUserConcurrencyLimit() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateUserConcurrencyLimit()
 	})
 }
 

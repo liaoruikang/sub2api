@@ -33,8 +33,29 @@
             <span v-if="row.original_price" class="ml-1 text-xs text-gray-400 line-through">${{ row.original_price.toFixed(2) }}</span>
           </div>
         </template>
+        <template #cell-purchase_limit_count="{ value }">
+          <span class="text-sm">{{ (value ?? 0) === 0 ? t('payment.planCard.unlimited') : value }}</span>
+        </template>
+        <template #cell-ip_purchase_limit_count="{ value }">
+          <span class="text-sm">{{ (value ?? 0) === 0 ? t('payment.planCard.unlimited') : value }}</span>
+        </template>
+        <template #cell-stock_count="{ value }">
+          <span class="text-sm">{{ (value ?? 0) <= 0 ? t('payment.admin.soldOut') : value }}</span>
+        </template>
+        <template #cell-new_user_only="{ value }">
+          <span :class="['badge', value ? 'badge-primary' : 'badge-secondary']">{{ value ? t('common.yes') : t('common.no') }}</span>
+        </template>
+        <template #cell-listed_at="{ value }">
+          <span class="text-sm">{{ value ? formatDateTime(value) : '-' }}</span>
+        </template>
+        <template #cell-first_purchase_discount_enabled="{ value, row }">
+          <span class="text-sm">{{ value && row.first_purchase_discount_price != null ? `$${row.first_purchase_discount_price.toFixed(2)}` : '-' }}</span>
+        </template>
         <template #cell-validity_days="{ value, row }">
           <span class="text-sm">{{ value }} {{ t('payment.admin.' + (row.validity_unit || 'days')) }}</span>
+        </template>
+        <template #cell-off_sale_at="{ value }">
+          <span class="text-sm">{{ value ? formatDateTime(value) : '-' }}</span>
         </template>
         <template #cell-for_sale="{ value, row }">
           <button
@@ -90,6 +111,7 @@ import Icon from '@/components/icons/Icon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import PlanEditDialog from './PlanEditDialog.vue'
 import { platformTextClass } from '@/utils/platformColors'
+import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -132,7 +154,14 @@ const planColumns = computed((): Column[] => [
   { key: 'name', label: t('payment.admin.planName') },
   { key: 'group_id', label: t('payment.admin.group') },
   { key: 'price', label: t('payment.admin.price') },
+  { key: 'purchase_limit_count', label: t('payment.admin.purchaseLimitCount') },
+  { key: 'ip_purchase_limit_count', label: t('payment.admin.ipPurchaseLimitCount') },
+  { key: 'stock_count', label: t('payment.admin.stockCount') },
+  { key: 'new_user_only', label: t('payment.admin.newUserOnly') },
+  { key: 'first_purchase_discount_enabled', label: t('payment.admin.firstPurchaseDiscountEnabled') },
   { key: 'validity_days', label: t('payment.admin.validityDays') },
+  { key: 'listed_at', label: t('payment.admin.listedAt') },
+  { key: 'off_sale_at', label: t('payment.admin.offSaleAt') },
   { key: 'for_sale', label: t('payment.admin.forSale') },
   { key: 'sort_order', label: t('payment.admin.sortOrder') },
   { key: 'actions', label: t('common.actions') },
@@ -162,9 +191,12 @@ function openPlanEdit(plan: SubscriptionPlan | null) {
 
 /** Quick toggle for_sale from the list */
 async function toggleForSale(plan: SubscriptionPlan) {
+  const nextForSale = !plan.for_sale
   try {
-    await adminPaymentAPI.updatePlan(plan.id, { for_sale: !plan.for_sale })
-    plan.for_sale = !plan.for_sale
+    const res = await adminPaymentAPI.updatePlan(plan.id, { for_sale: nextForSale })
+    plan.for_sale = nextForSale
+    plan.listed_at = res.data?.listed_at ?? null
+    plan.off_sale_at = res.data?.off_sale_at ?? null
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
   }

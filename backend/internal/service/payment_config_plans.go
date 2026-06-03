@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -12,7 +13,7 @@ import (
 )
 
 // validatePlanRequired checks that all required fields for a plan are provided.
-func validatePlanRequired(name string, groupID int64, price float64, validityDays int, validityUnit string, originalPrice *float64) error {
+func validatePlanRequired(name string, groupID int64, price float64, validityDays int, validityUnit string, originalPrice *float64, purchaseLimitCount int, ipPurchaseLimitCount int, stockCount int, firstPurchaseDiscountEnabled bool, firstPurchaseDiscountPrice *float64) error {
 	if strings.TrimSpace(name) == "" {
 		return infraerrors.BadRequest("PLAN_NAME_REQUIRED", "plan name is required")
 	}
@@ -30,6 +31,23 @@ func validatePlanRequired(name string, groupID int64, price float64, validityDay
 	}
 	if originalPrice != nil && *originalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
+	}
+	if purchaseLimitCount < 0 {
+		return infraerrors.BadRequest("PLAN_PURCHASE_LIMIT_INVALID", "purchase limit count must be >= 0")
+	}
+	if ipPurchaseLimitCount < 0 {
+		return infraerrors.BadRequest("PLAN_IP_PURCHASE_LIMIT_INVALID", "IP purchase limit count must be >= 0")
+	}
+	if stockCount < 0 {
+		return infraerrors.BadRequest("PLAN_STOCK_INVALID", "stock count must be >= 0")
+	}
+	if firstPurchaseDiscountEnabled {
+		if firstPurchaseDiscountPrice == nil || *firstPurchaseDiscountPrice <= 0 {
+			return infraerrors.BadRequest("PLAN_FIRST_PURCHASE_DISCOUNT_INVALID", "first purchase discount price must be > 0 when enabled")
+		}
+		if *firstPurchaseDiscountPrice >= price {
+			return infraerrors.BadRequest("PLAN_FIRST_PURCHASE_DISCOUNT_INVALID", "first purchase discount price must be less than price")
+		}
 	}
 	return nil
 }
@@ -53,6 +71,18 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 	}
 	if req.OriginalPrice != nil && *req.OriginalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
+	}
+	if req.PurchaseLimitCount != nil && *req.PurchaseLimitCount < 0 {
+		return infraerrors.BadRequest("PLAN_PURCHASE_LIMIT_INVALID", "purchase limit count must be >= 0")
+	}
+	if req.IPPurchaseLimitCount != nil && *req.IPPurchaseLimitCount < 0 {
+		return infraerrors.BadRequest("PLAN_IP_PURCHASE_LIMIT_INVALID", "IP purchase limit count must be >= 0")
+	}
+	if req.StockCount != nil && *req.StockCount < 0 {
+		return infraerrors.BadRequest("PLAN_STOCK_INVALID", "stock count must be >= 0")
+	}
+	if req.FirstPurchaseDiscountPrice != nil && *req.FirstPurchaseDiscountPrice <= 0 {
+		return infraerrors.BadRequest("PLAN_FIRST_PURCHASE_DISCOUNT_INVALID", "first purchase discount price must be > 0")
 	}
 	return nil
 }
@@ -113,26 +143,107 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 }
 
 func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Order(subscriptionplan.BySortOrder()).All(ctx)
+	plans, err := s.entClient.SubscriptionPlan.Query().Order(subscriptionplan.BySortOrder()).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.hydratePlanStockCounts(ctx, plans); err != nil {
+		return nil, err
+	}
+	applyCurrentPlanSaleState(plans)
+	return plans, nil
 }
 
 func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).Order(subscriptionplan.BySortOrder()).All(ctx)
+	now := time.Now()
+	plans, err := s.entClient.SubscriptionPlan.Query().Where(
+		subscriptionplan.ForSaleEQ(true),
+		subscriptionplan.Or(
+			subscriptionplan.OffSaleAtIsNil(),
+			subscriptionplan.OffSaleAtGT(now),
+		),
+	).Order(subscriptionplan.BySortOrder()).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.hydratePlanStockCounts(ctx, plans); err != nil {
+		return nil, err
+	}
+	return plans, nil
+}
+
+func IsSubscriptionPlanCurrentlyForSale(plan *dbent.SubscriptionPlan) bool {
+	if plan == nil || !plan.ForSale {
+		return false
+	}
+	return plan.OffSaleAt == nil || time.Now().Before(*plan.OffSaleAt)
+}
+
+func applyCurrentPlanSaleState(plans []*dbent.SubscriptionPlan) {
+	now := time.Now()
+	for _, plan := range plans {
+		if plan.OffSaleAt != nil && !now.Before(*plan.OffSaleAt) {
+			plan.ForSale = false
+		}
+	}
+}
+
+func shouldRefreshPlanListedAt(existing *dbent.SubscriptionPlan, req UpdatePlanRequest) bool {
+	if existing == nil {
+		return false
+	}
+	forSale := existing.ForSale
+	if req.ForSale != nil {
+		forSale = *req.ForSale
+	}
+	if !forSale {
+		return false
+	}
+	newUserOnly := existing.NewUserOnly
+	if req.NewUserOnly != nil {
+		newUserOnly = *req.NewUserOnly
+	}
+	if newUserOnly && (existing.ListedAt == nil || (req.ListedAt.Set && !req.ListedAt.Valid)) {
+		return true
+	}
+	return req.ForSale != nil && *req.ForSale && (!existing.ForSale || (existing.OffSaleAt != nil && !time.Now().Before(*existing.OffSaleAt)))
 }
 
 func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {
-	if err := validatePlanRequired(req.Name, req.GroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
+	if err := validatePlanRequired(req.Name, req.GroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice, req.PurchaseLimitCount, req.IPPurchaseLimitCount, req.StockCount, req.FirstPurchaseDiscountEnabled, req.FirstPurchaseDiscountPrice); err != nil {
 		return nil, err
 	}
 	b := s.entClient.SubscriptionPlan.Create().
 		SetGroupID(req.GroupID).SetName(req.Name).SetDescription(req.Description).
 		SetPrice(req.Price).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
 		SetFeatures(req.Features).SetProductName(req.ProductName).
-		SetForSale(req.ForSale).SetSortOrder(req.SortOrder)
+		SetForSale(req.ForSale).SetNewUserOnly(req.NewUserOnly).SetPurchaseLimitCount(req.PurchaseLimitCount).
+		SetIPPurchaseLimitCount(req.IPPurchaseLimitCount).
+		SetFirstPurchaseDiscountEnabled(req.FirstPurchaseDiscountEnabled).
+		SetSortOrder(req.SortOrder)
 	if req.OriginalPrice != nil {
 		b.SetOriginalPrice(*req.OriginalPrice)
 	}
-	return b.Save(ctx)
+	if req.ListedAt != nil {
+		b.SetListedAt(*req.ListedAt)
+	} else if req.ForSale {
+		b.SetListedAt(time.Now())
+	}
+	if req.OffSaleAt != nil {
+		b.SetOffSaleAt(*req.OffSaleAt)
+	}
+	if req.FirstPurchaseDiscountEnabled && req.FirstPurchaseDiscountPrice != nil {
+		b.SetFirstPurchaseDiscountPrice(*req.FirstPurchaseDiscountPrice)
+	}
+	plan, err := b.Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.setPlanStockCount(ctx, plan.ID, req.StockCount); err != nil {
+		return nil, err
+	}
+	plan.StockCount = req.StockCount
+	return plan, nil
 }
 
 // UpdatePlan updates a subscription plan by ID (patch semantics).
@@ -141,6 +252,15 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req UpdatePlanRequest) (*dbent.SubscriptionPlan, error) {
 	if err := validatePlanPatch(req); err != nil {
 		return nil, err
+	}
+	var existing *dbent.SubscriptionPlan
+	needsExisting := req.ForSale != nil || req.NewUserOnly != nil || req.ListedAt.Set
+	if needsExisting {
+		plan, err := s.entClient.SubscriptionPlan.Get(ctx, id)
+		if err != nil {
+			return nil, infraerrors.NotFound("PLAN_NOT_FOUND", "subscription plan not found")
+		}
+		existing = plan
 	}
 	u := s.entClient.SubscriptionPlan.UpdateOneID(id)
 	if req.GroupID != nil {
@@ -172,11 +292,61 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	}
 	if req.ForSale != nil {
 		u.SetForSale(*req.ForSale)
+		if existing != nil && existing.OffSaleAt != nil && !time.Now().Before(*existing.OffSaleAt) {
+			u.ClearOffSaleAt()
+		}
+	}
+	if req.NewUserOnly != nil {
+		u.SetNewUserOnly(*req.NewUserOnly)
+	}
+	refreshListedAt := shouldRefreshPlanListedAt(existing, req)
+	if req.ListedAt.Set {
+		if req.ListedAt.Valid {
+			u.SetListedAt(req.ListedAt.Time)
+		} else if refreshListedAt {
+			u.SetListedAt(time.Now())
+		} else {
+			u.ClearListedAt()
+		}
+	} else if refreshListedAt {
+		u.SetListedAt(time.Now())
+	}
+	if req.OffSaleAt.Set {
+		if req.OffSaleAt.Valid {
+			u.SetOffSaleAt(req.OffSaleAt.Time)
+		} else {
+			u.ClearOffSaleAt()
+		}
+	}
+	if req.PurchaseLimitCount != nil {
+		u.SetPurchaseLimitCount(*req.PurchaseLimitCount)
+	}
+	if req.IPPurchaseLimitCount != nil {
+		u.SetIPPurchaseLimitCount(*req.IPPurchaseLimitCount)
+	}
+	if req.FirstPurchaseDiscountEnabled != nil {
+		u.SetFirstPurchaseDiscountEnabled(*req.FirstPurchaseDiscountEnabled)
+		if !*req.FirstPurchaseDiscountEnabled {
+			u.ClearFirstPurchaseDiscountPrice()
+		}
+	}
+	if req.FirstPurchaseDiscountPrice != nil {
+		u.SetFirstPurchaseDiscountPrice(*req.FirstPurchaseDiscountPrice)
 	}
 	if req.SortOrder != nil {
 		u.SetSortOrder(*req.SortOrder)
 	}
-	return u.Save(ctx)
+	plan, err := u.Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.StockCount != nil {
+		if err := s.setPlanStockCount(ctx, id, *req.StockCount); err != nil {
+			return nil, err
+		}
+		plan.StockCount = *req.StockCount
+	}
+	return plan, nil
 }
 
 func (s *PaymentConfigService) DeletePlan(ctx context.Context, id int64) error {
@@ -197,5 +367,44 @@ func (s *PaymentConfigService) GetPlan(ctx context.Context, id int64) (*dbent.Su
 	if err != nil {
 		return nil, infraerrors.NotFound("PLAN_NOT_FOUND", "subscription plan not found")
 	}
+	stockCount, err := s.getPlanStockCount(ctx, id)
+	if err == nil {
+		plan.StockCount = stockCount
+	}
 	return plan, nil
+}
+
+func (s *PaymentConfigService) setPlanStockCount(ctx context.Context, planID int64, stockCount int) error {
+	_, err := s.entClient.ExecContext(ctx, `UPDATE subscription_plans SET stock_count = $1 WHERE id = $2`, stockCount, planID)
+	if err != nil {
+		return fmt.Errorf("set plan stock count: %w", err)
+	}
+	return nil
+}
+
+func (s *PaymentConfigService) getPlanStockCount(ctx context.Context, planID int64) (int, error) {
+	rows, err := s.entClient.QueryContext(ctx, `SELECT stock_count FROM subscription_plans WHERE id = $1`, planID)
+	if err != nil {
+		return 0, fmt.Errorf("query plan stock count: %w", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return 0, infraerrors.NotFound("PLAN_NOT_FOUND", "subscription plan not found")
+	}
+	var stockCount int
+	if err := rows.Scan(&stockCount); err != nil {
+		return 0, fmt.Errorf("scan plan stock count: %w", err)
+	}
+	return stockCount, rows.Err()
+}
+
+func (s *PaymentConfigService) hydratePlanStockCounts(ctx context.Context, plans []*dbent.SubscriptionPlan) error {
+	for _, plan := range plans {
+		stockCount, err := s.getPlanStockCount(ctx, plan.ID)
+		if err != nil {
+			return err
+		}
+		plan.StockCount = stockCount
+	}
+	return nil
 }

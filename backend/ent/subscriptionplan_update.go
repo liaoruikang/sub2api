@@ -202,6 +202,164 @@ func (_u *SubscriptionPlanUpdate) SetNillableForSale(v *bool) *SubscriptionPlanU
 	return _u
 }
 
+// SetListedAt sets the "listed_at" field.
+func (_u *SubscriptionPlanUpdate) SetListedAt(v time.Time) *SubscriptionPlanUpdate {
+	_u.mutation.SetListedAt(v)
+	return _u
+}
+
+// SetNillableListedAt sets the "listed_at" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableListedAt(v *time.Time) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetListedAt(*v)
+	}
+	return _u
+}
+
+// ClearListedAt clears the value of the "listed_at" field.
+func (_u *SubscriptionPlanUpdate) ClearListedAt() *SubscriptionPlanUpdate {
+	_u.mutation.ClearListedAt()
+	return _u
+}
+
+// SetOffSaleAt sets the "off_sale_at" field.
+func (_u *SubscriptionPlanUpdate) SetOffSaleAt(v time.Time) *SubscriptionPlanUpdate {
+	_u.mutation.SetOffSaleAt(v)
+	return _u
+}
+
+// SetNillableOffSaleAt sets the "off_sale_at" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableOffSaleAt(v *time.Time) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetOffSaleAt(*v)
+	}
+	return _u
+}
+
+// ClearOffSaleAt clears the value of the "off_sale_at" field.
+func (_u *SubscriptionPlanUpdate) ClearOffSaleAt() *SubscriptionPlanUpdate {
+	_u.mutation.ClearOffSaleAt()
+	return _u
+}
+
+// SetNewUserOnly sets the "new_user_only" field.
+func (_u *SubscriptionPlanUpdate) SetNewUserOnly(v bool) *SubscriptionPlanUpdate {
+	_u.mutation.SetNewUserOnly(v)
+	return _u
+}
+
+// SetNillableNewUserOnly sets the "new_user_only" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableNewUserOnly(v *bool) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetNewUserOnly(*v)
+	}
+	return _u
+}
+
+// SetPurchaseLimitCount sets the "purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdate) SetPurchaseLimitCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.ResetPurchaseLimitCount()
+	_u.mutation.SetPurchaseLimitCount(v)
+	return _u
+}
+
+// SetNillablePurchaseLimitCount sets the "purchase_limit_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillablePurchaseLimitCount(v *int) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetPurchaseLimitCount(*v)
+	}
+	return _u
+}
+
+// AddPurchaseLimitCount adds value to the "purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdate) AddPurchaseLimitCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.AddPurchaseLimitCount(v)
+	return _u
+}
+
+// SetIPPurchaseLimitCount sets the "ip_purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdate) SetIPPurchaseLimitCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.ResetIPPurchaseLimitCount()
+	_u.mutation.SetIPPurchaseLimitCount(v)
+	return _u
+}
+
+// SetNillableIPPurchaseLimitCount sets the "ip_purchase_limit_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableIPPurchaseLimitCount(v *int) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetIPPurchaseLimitCount(*v)
+	}
+	return _u
+}
+
+// AddIPPurchaseLimitCount adds value to the "ip_purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdate) AddIPPurchaseLimitCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.AddIPPurchaseLimitCount(v)
+	return _u
+}
+
+// SetStockCount sets the "stock_count" field.
+func (_u *SubscriptionPlanUpdate) SetStockCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.ResetStockCount()
+	_u.mutation.SetStockCount(v)
+	return _u
+}
+
+// SetNillableStockCount sets the "stock_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableStockCount(v *int) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetStockCount(*v)
+	}
+	return _u
+}
+
+// AddStockCount adds value to the "stock_count" field.
+func (_u *SubscriptionPlanUpdate) AddStockCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.AddStockCount(v)
+	return _u
+}
+
+// SetFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field.
+func (_u *SubscriptionPlanUpdate) SetFirstPurchaseDiscountEnabled(v bool) *SubscriptionPlanUpdate {
+	_u.mutation.SetFirstPurchaseDiscountEnabled(v)
+	return _u
+}
+
+// SetNillableFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableFirstPurchaseDiscountEnabled(v *bool) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetFirstPurchaseDiscountEnabled(*v)
+	}
+	return _u
+}
+
+// SetFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field.
+func (_u *SubscriptionPlanUpdate) SetFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.ResetFirstPurchaseDiscountPrice()
+	_u.mutation.SetFirstPurchaseDiscountPrice(v)
+	return _u
+}
+
+// SetNillableFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableFirstPurchaseDiscountPrice(v *float64) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetFirstPurchaseDiscountPrice(*v)
+	}
+	return _u
+}
+
+// AddFirstPurchaseDiscountPrice adds value to the "first_purchase_discount_price" field.
+func (_u *SubscriptionPlanUpdate) AddFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.AddFirstPurchaseDiscountPrice(v)
+	return _u
+}
+
+// ClearFirstPurchaseDiscountPrice clears the value of the "first_purchase_discount_price" field.
+func (_u *SubscriptionPlanUpdate) ClearFirstPurchaseDiscountPrice() *SubscriptionPlanUpdate {
+	_u.mutation.ClearFirstPurchaseDiscountPrice()
+	return _u
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (_u *SubscriptionPlanUpdate) SetSortOrder(v int) *SubscriptionPlanUpdate {
 	_u.mutation.ResetSortOrder()
@@ -346,6 +504,51 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.ForSale(); ok {
 		_spec.SetField(subscriptionplan.FieldForSale, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ListedAt(); ok {
+		_spec.SetField(subscriptionplan.FieldListedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ListedAtCleared() {
+		_spec.ClearField(subscriptionplan.FieldListedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.OffSaleAt(); ok {
+		_spec.SetField(subscriptionplan.FieldOffSaleAt, field.TypeTime, value)
+	}
+	if _u.mutation.OffSaleAtCleared() {
+		_spec.ClearField(subscriptionplan.FieldOffSaleAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.NewUserOnly(); ok {
+		_spec.SetField(subscriptionplan.FieldNewUserOnly, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PurchaseLimitCount(); ok {
+		_spec.SetField(subscriptionplan.FieldPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedPurchaseLimitCount(); ok {
+		_spec.AddField(subscriptionplan.FieldPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.IPPurchaseLimitCount(); ok {
+		_spec.SetField(subscriptionplan.FieldIPPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedIPPurchaseLimitCount(); ok {
+		_spec.AddField(subscriptionplan.FieldIPPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.StockCount(); ok {
+		_spec.SetField(subscriptionplan.FieldStockCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedStockCount(); ok {
+		_spec.AddField(subscriptionplan.FieldStockCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.FirstPurchaseDiscountEnabled(); ok {
+		_spec.SetField(subscriptionplan.FieldFirstPurchaseDiscountEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.FirstPurchaseDiscountPrice(); ok {
+		_spec.SetField(subscriptionplan.FieldFirstPurchaseDiscountPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFirstPurchaseDiscountPrice(); ok {
+		_spec.AddField(subscriptionplan.FieldFirstPurchaseDiscountPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.FirstPurchaseDiscountPriceCleared() {
+		_spec.ClearField(subscriptionplan.FieldFirstPurchaseDiscountPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.SortOrder(); ok {
 		_spec.SetField(subscriptionplan.FieldSortOrder, field.TypeInt, value)
@@ -550,6 +753,164 @@ func (_u *SubscriptionPlanUpdateOne) SetNillableForSale(v *bool) *SubscriptionPl
 	return _u
 }
 
+// SetListedAt sets the "listed_at" field.
+func (_u *SubscriptionPlanUpdateOne) SetListedAt(v time.Time) *SubscriptionPlanUpdateOne {
+	_u.mutation.SetListedAt(v)
+	return _u
+}
+
+// SetNillableListedAt sets the "listed_at" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableListedAt(v *time.Time) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetListedAt(*v)
+	}
+	return _u
+}
+
+// ClearListedAt clears the value of the "listed_at" field.
+func (_u *SubscriptionPlanUpdateOne) ClearListedAt() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearListedAt()
+	return _u
+}
+
+// SetOffSaleAt sets the "off_sale_at" field.
+func (_u *SubscriptionPlanUpdateOne) SetOffSaleAt(v time.Time) *SubscriptionPlanUpdateOne {
+	_u.mutation.SetOffSaleAt(v)
+	return _u
+}
+
+// SetNillableOffSaleAt sets the "off_sale_at" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableOffSaleAt(v *time.Time) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetOffSaleAt(*v)
+	}
+	return _u
+}
+
+// ClearOffSaleAt clears the value of the "off_sale_at" field.
+func (_u *SubscriptionPlanUpdateOne) ClearOffSaleAt() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearOffSaleAt()
+	return _u
+}
+
+// SetNewUserOnly sets the "new_user_only" field.
+func (_u *SubscriptionPlanUpdateOne) SetNewUserOnly(v bool) *SubscriptionPlanUpdateOne {
+	_u.mutation.SetNewUserOnly(v)
+	return _u
+}
+
+// SetNillableNewUserOnly sets the "new_user_only" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableNewUserOnly(v *bool) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetNewUserOnly(*v)
+	}
+	return _u
+}
+
+// SetPurchaseLimitCount sets the "purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdateOne) SetPurchaseLimitCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetPurchaseLimitCount()
+	_u.mutation.SetPurchaseLimitCount(v)
+	return _u
+}
+
+// SetNillablePurchaseLimitCount sets the "purchase_limit_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillablePurchaseLimitCount(v *int) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetPurchaseLimitCount(*v)
+	}
+	return _u
+}
+
+// AddPurchaseLimitCount adds value to the "purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdateOne) AddPurchaseLimitCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddPurchaseLimitCount(v)
+	return _u
+}
+
+// SetIPPurchaseLimitCount sets the "ip_purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdateOne) SetIPPurchaseLimitCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetIPPurchaseLimitCount()
+	_u.mutation.SetIPPurchaseLimitCount(v)
+	return _u
+}
+
+// SetNillableIPPurchaseLimitCount sets the "ip_purchase_limit_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableIPPurchaseLimitCount(v *int) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetIPPurchaseLimitCount(*v)
+	}
+	return _u
+}
+
+// AddIPPurchaseLimitCount adds value to the "ip_purchase_limit_count" field.
+func (_u *SubscriptionPlanUpdateOne) AddIPPurchaseLimitCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddIPPurchaseLimitCount(v)
+	return _u
+}
+
+// SetStockCount sets the "stock_count" field.
+func (_u *SubscriptionPlanUpdateOne) SetStockCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetStockCount()
+	_u.mutation.SetStockCount(v)
+	return _u
+}
+
+// SetNillableStockCount sets the "stock_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableStockCount(v *int) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetStockCount(*v)
+	}
+	return _u
+}
+
+// AddStockCount adds value to the "stock_count" field.
+func (_u *SubscriptionPlanUpdateOne) AddStockCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddStockCount(v)
+	return _u
+}
+
+// SetFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field.
+func (_u *SubscriptionPlanUpdateOne) SetFirstPurchaseDiscountEnabled(v bool) *SubscriptionPlanUpdateOne {
+	_u.mutation.SetFirstPurchaseDiscountEnabled(v)
+	return _u
+}
+
+// SetNillableFirstPurchaseDiscountEnabled sets the "first_purchase_discount_enabled" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableFirstPurchaseDiscountEnabled(v *bool) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetFirstPurchaseDiscountEnabled(*v)
+	}
+	return _u
+}
+
+// SetFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field.
+func (_u *SubscriptionPlanUpdateOne) SetFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetFirstPurchaseDiscountPrice()
+	_u.mutation.SetFirstPurchaseDiscountPrice(v)
+	return _u
+}
+
+// SetNillableFirstPurchaseDiscountPrice sets the "first_purchase_discount_price" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableFirstPurchaseDiscountPrice(v *float64) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetFirstPurchaseDiscountPrice(*v)
+	}
+	return _u
+}
+
+// AddFirstPurchaseDiscountPrice adds value to the "first_purchase_discount_price" field.
+func (_u *SubscriptionPlanUpdateOne) AddFirstPurchaseDiscountPrice(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddFirstPurchaseDiscountPrice(v)
+	return _u
+}
+
+// ClearFirstPurchaseDiscountPrice clears the value of the "first_purchase_discount_price" field.
+func (_u *SubscriptionPlanUpdateOne) ClearFirstPurchaseDiscountPrice() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearFirstPurchaseDiscountPrice()
+	return _u
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (_u *SubscriptionPlanUpdateOne) SetSortOrder(v int) *SubscriptionPlanUpdateOne {
 	_u.mutation.ResetSortOrder()
@@ -724,6 +1085,51 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	}
 	if value, ok := _u.mutation.ForSale(); ok {
 		_spec.SetField(subscriptionplan.FieldForSale, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ListedAt(); ok {
+		_spec.SetField(subscriptionplan.FieldListedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ListedAtCleared() {
+		_spec.ClearField(subscriptionplan.FieldListedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.OffSaleAt(); ok {
+		_spec.SetField(subscriptionplan.FieldOffSaleAt, field.TypeTime, value)
+	}
+	if _u.mutation.OffSaleAtCleared() {
+		_spec.ClearField(subscriptionplan.FieldOffSaleAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.NewUserOnly(); ok {
+		_spec.SetField(subscriptionplan.FieldNewUserOnly, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PurchaseLimitCount(); ok {
+		_spec.SetField(subscriptionplan.FieldPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedPurchaseLimitCount(); ok {
+		_spec.AddField(subscriptionplan.FieldPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.IPPurchaseLimitCount(); ok {
+		_spec.SetField(subscriptionplan.FieldIPPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedIPPurchaseLimitCount(); ok {
+		_spec.AddField(subscriptionplan.FieldIPPurchaseLimitCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.StockCount(); ok {
+		_spec.SetField(subscriptionplan.FieldStockCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedStockCount(); ok {
+		_spec.AddField(subscriptionplan.FieldStockCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.FirstPurchaseDiscountEnabled(); ok {
+		_spec.SetField(subscriptionplan.FieldFirstPurchaseDiscountEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.FirstPurchaseDiscountPrice(); ok {
+		_spec.SetField(subscriptionplan.FieldFirstPurchaseDiscountPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFirstPurchaseDiscountPrice(); ok {
+		_spec.AddField(subscriptionplan.FieldFirstPurchaseDiscountPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.FirstPurchaseDiscountPriceCleared() {
+		_spec.ClearField(subscriptionplan.FieldFirstPurchaseDiscountPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.SortOrder(); ok {
 		_spec.SetField(subscriptionplan.FieldSortOrder, field.TypeInt, value)

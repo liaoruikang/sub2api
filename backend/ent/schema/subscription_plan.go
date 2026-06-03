@@ -56,6 +56,28 @@ func (SubscriptionPlan) Fields() []ent.Field {
 			Default(""),
 		field.Bool("for_sale").
 			Default(true),
+		field.Time("listed_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("off_sale_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Bool("new_user_only").
+			Default(false),
+		field.Int("purchase_limit_count").
+			Default(0),
+		field.Int("ip_purchase_limit_count").
+			Default(0),
+		field.Int("stock_count").
+			Default(0),
+		field.Bool("first_purchase_discount_enabled").
+			Default(false),
+		field.Float("first_purchase_discount_price").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
+			Optional().
+			Nillable(),
 		field.Int("sort_order").
 			Default(0),
 		field.Time("created_at").

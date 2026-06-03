@@ -183,6 +183,7 @@ export interface GroupRateMultiplierEntry {
   user_status: string
   rate_multiplier?: number | null
   rpm_override?: number | null
+  limited_time_rpm_override?: number | null
 }
 
 /**
@@ -291,6 +292,65 @@ export async function clearGroupRPMOverrides(id: number): Promise<{ message: str
 }
 
 /**
+ * Get limited-time RPM overrides for users in a group.
+ */
+export interface GroupLimitedTimeRPMOverrideEntry {
+  user_id: number
+  user_name: string
+  user_email: string
+  user_notes: string
+  user_status: string
+  limited_time_rpm_override: number
+}
+
+/**
+ * Get limited-time RPM overrides for users in a group (subset of rate-multipliers endpoint).
+ */
+export async function getGroupLimitedTimeRPMOverrides(
+  id: number
+): Promise<GroupLimitedTimeRPMOverrideEntry[]> {
+  const { data } = await apiClient.get<GroupRateMultiplierEntry[]>(
+    `/admin/groups/${id}/rate-multipliers`
+  )
+  return data
+    .filter(e => e.limited_time_rpm_override != null)
+    .map(e => ({
+      user_id: e.user_id,
+      user_name: e.user_name,
+      user_email: e.user_email,
+      user_notes: e.user_notes,
+      user_status: e.user_status,
+      limited_time_rpm_override: e.limited_time_rpm_override as number
+    }))
+}
+
+/**
+ * Batch set limited-time RPM overrides for users in a group.
+ */
+export async function batchSetGroupLimitedTimeRPMOverrides(
+  id: number,
+  entries: Array<{ user_id: number; limited_time_rpm_override: number | null }>
+): Promise<{ message: string }> {
+  const { data } = await apiClient.put<{ message: string }>(
+    `/admin/groups/${id}/limited-time-rpm-overrides`,
+    { entries }
+  )
+  return data
+}
+
+/**
+ * Clear all limited-time RPM overrides for a group.
+ */
+export async function clearGroupLimitedTimeRPMOverrides(
+  id: number
+): Promise<{ message: string }> {
+  const { data } = await apiClient.delete<{ message: string }>(
+    `/admin/groups/${id}/limited-time-rpm-overrides`
+  )
+  return data
+}
+
+/**
  * Get usage summary (today + cumulative cost) for all groups
  * @param timezone - IANA timezone string (e.g. "Asia/Shanghai")
  * @returns Array of group usage summaries
@@ -336,6 +396,9 @@ export const groupsAPI = {
   getGroupRPMOverrides,
   clearGroupRPMOverrides,
   batchSetGroupRPMOverrides,
+  getGroupLimitedTimeRPMOverrides,
+  clearGroupLimitedTimeRPMOverrides,
+  batchSetGroupLimitedTimeRPMOverrides,
   updateSortOrder,
   getUsageSummary,
   getCapacitySummary

@@ -85,6 +85,36 @@ func RateMultiplier(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRateMultiplier, v))
 }
 
+// LimitedTimeMultiplierEnabled applies equality check predicate on the "limited_time_multiplier_enabled" field. It's identical to LimitedTimeMultiplierEnabledEQ.
+func LimitedTimeMultiplierEnabled(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierEnabled, v))
+}
+
+// LimitedTimeMultiplierCron applies equality check predicate on the "limited_time_multiplier_cron" field. It's identical to LimitedTimeMultiplierCronEQ.
+func LimitedTimeMultiplierCron(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierDurationMinutes applies equality check predicate on the "limited_time_multiplier_duration_minutes" field. It's identical to LimitedTimeMultiplierDurationMinutesEQ.
+func LimitedTimeMultiplierDurationMinutes(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierDurationMinutes, v))
+}
+
+// LimitedTimeMultiplierValue applies equality check predicate on the "limited_time_multiplier_value" field. It's identical to LimitedTimeMultiplierValueEQ.
+func LimitedTimeMultiplierValue(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierValue, v))
+}
+
+// LimitedTimeRpmLimit applies equality check predicate on the "limited_time_rpm_limit" field. It's identical to LimitedTimeRpmLimitEQ.
+func LimitedTimeRpmLimit(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeRpmLimit, v))
+}
+
+// LimitedTimeUserConcurrencyLimit applies equality check predicate on the "limited_time_user_concurrency_limit" field. It's identical to LimitedTimeUserConcurrencyLimitEQ.
+func LimitedTimeUserConcurrencyLimit(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeUserConcurrencyLimit, v))
+}
+
 // IsExclusive applies equality check predicate on the "is_exclusive" field. It's identical to IsExclusiveEQ.
 func IsExclusive(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldIsExclusive, v))
@@ -208,6 +238,11 @@ func DefaultMappedModel(v string) predicate.Group {
 // RpmLimit applies equality check predicate on the "rpm_limit" field. It's identical to RpmLimitEQ.
 func RpmLimit(v int) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
+}
+
+// UserConcurrencyLimit applies equality check predicate on the "user_concurrency_limit" field. It's identical to UserConcurrencyLimitEQ.
+func UserConcurrencyLimit(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldUserConcurrencyLimit, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -518,6 +553,241 @@ func RateMultiplierLT(v float64) predicate.Group {
 // RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
 func RateMultiplierLTE(v float64) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldRateMultiplier, v))
+}
+
+// LimitedTimeMultiplierEnabledEQ applies the EQ predicate on the "limited_time_multiplier_enabled" field.
+func LimitedTimeMultiplierEnabledEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierEnabled, v))
+}
+
+// LimitedTimeMultiplierEnabledNEQ applies the NEQ predicate on the "limited_time_multiplier_enabled" field.
+func LimitedTimeMultiplierEnabledNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldLimitedTimeMultiplierEnabled, v))
+}
+
+// LimitedTimeMultiplierCronEQ applies the EQ predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronNEQ applies the NEQ predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronNEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronIn applies the In predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldLimitedTimeMultiplierCron, vs...))
+}
+
+// LimitedTimeMultiplierCronNotIn applies the NotIn predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronNotIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldLimitedTimeMultiplierCron, vs...))
+}
+
+// LimitedTimeMultiplierCronGT applies the GT predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronGT(v string) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronGTE applies the GTE predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronGTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronLT applies the LT predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronLT(v string) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronLTE applies the LTE predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronLTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronContains applies the Contains predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronContains(v string) predicate.Group {
+	return predicate.Group(sql.FieldContains(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronHasPrefix applies the HasPrefix predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronHasPrefix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasPrefix(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronHasSuffix applies the HasSuffix predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronHasSuffix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasSuffix(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronEqualFold applies the EqualFold predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronEqualFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldEqualFold(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierCronContainsFold applies the ContainsFold predicate on the "limited_time_multiplier_cron" field.
+func LimitedTimeMultiplierCronContainsFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldContainsFold(FieldLimitedTimeMultiplierCron, v))
+}
+
+// LimitedTimeMultiplierDurationMinutesEQ applies the EQ predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierDurationMinutes, v))
+}
+
+// LimitedTimeMultiplierDurationMinutesNEQ applies the NEQ predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesNEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldLimitedTimeMultiplierDurationMinutes, v))
+}
+
+// LimitedTimeMultiplierDurationMinutesIn applies the In predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldLimitedTimeMultiplierDurationMinutes, vs...))
+}
+
+// LimitedTimeMultiplierDurationMinutesNotIn applies the NotIn predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesNotIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldLimitedTimeMultiplierDurationMinutes, vs...))
+}
+
+// LimitedTimeMultiplierDurationMinutesGT applies the GT predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesGT(v int) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldLimitedTimeMultiplierDurationMinutes, v))
+}
+
+// LimitedTimeMultiplierDurationMinutesGTE applies the GTE predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesGTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldLimitedTimeMultiplierDurationMinutes, v))
+}
+
+// LimitedTimeMultiplierDurationMinutesLT applies the LT predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesLT(v int) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldLimitedTimeMultiplierDurationMinutes, v))
+}
+
+// LimitedTimeMultiplierDurationMinutesLTE applies the LTE predicate on the "limited_time_multiplier_duration_minutes" field.
+func LimitedTimeMultiplierDurationMinutesLTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldLimitedTimeMultiplierDurationMinutes, v))
+}
+
+// LimitedTimeMultiplierValueEQ applies the EQ predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeMultiplierValue, v))
+}
+
+// LimitedTimeMultiplierValueNEQ applies the NEQ predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueNEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldLimitedTimeMultiplierValue, v))
+}
+
+// LimitedTimeMultiplierValueIn applies the In predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldLimitedTimeMultiplierValue, vs...))
+}
+
+// LimitedTimeMultiplierValueNotIn applies the NotIn predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueNotIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldLimitedTimeMultiplierValue, vs...))
+}
+
+// LimitedTimeMultiplierValueGT applies the GT predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueGT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldLimitedTimeMultiplierValue, v))
+}
+
+// LimitedTimeMultiplierValueGTE applies the GTE predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueGTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldLimitedTimeMultiplierValue, v))
+}
+
+// LimitedTimeMultiplierValueLT applies the LT predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueLT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldLimitedTimeMultiplierValue, v))
+}
+
+// LimitedTimeMultiplierValueLTE applies the LTE predicate on the "limited_time_multiplier_value" field.
+func LimitedTimeMultiplierValueLTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldLimitedTimeMultiplierValue, v))
+}
+
+// LimitedTimeRpmLimitEQ applies the EQ predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeRpmLimit, v))
+}
+
+// LimitedTimeRpmLimitNEQ applies the NEQ predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitNEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldLimitedTimeRpmLimit, v))
+}
+
+// LimitedTimeRpmLimitIn applies the In predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldLimitedTimeRpmLimit, vs...))
+}
+
+// LimitedTimeRpmLimitNotIn applies the NotIn predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitNotIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldLimitedTimeRpmLimit, vs...))
+}
+
+// LimitedTimeRpmLimitGT applies the GT predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitGT(v int) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldLimitedTimeRpmLimit, v))
+}
+
+// LimitedTimeRpmLimitGTE applies the GTE predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitGTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldLimitedTimeRpmLimit, v))
+}
+
+// LimitedTimeRpmLimitLT applies the LT predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitLT(v int) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldLimitedTimeRpmLimit, v))
+}
+
+// LimitedTimeRpmLimitLTE applies the LTE predicate on the "limited_time_rpm_limit" field.
+func LimitedTimeRpmLimitLTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldLimitedTimeRpmLimit, v))
+}
+
+// LimitedTimeUserConcurrencyLimitEQ applies the EQ predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldLimitedTimeUserConcurrencyLimit, v))
+}
+
+// LimitedTimeUserConcurrencyLimitNEQ applies the NEQ predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitNEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldLimitedTimeUserConcurrencyLimit, v))
+}
+
+// LimitedTimeUserConcurrencyLimitIn applies the In predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldLimitedTimeUserConcurrencyLimit, vs...))
+}
+
+// LimitedTimeUserConcurrencyLimitNotIn applies the NotIn predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitNotIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldLimitedTimeUserConcurrencyLimit, vs...))
+}
+
+// LimitedTimeUserConcurrencyLimitGT applies the GT predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitGT(v int) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldLimitedTimeUserConcurrencyLimit, v))
+}
+
+// LimitedTimeUserConcurrencyLimitGTE applies the GTE predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitGTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldLimitedTimeUserConcurrencyLimit, v))
+}
+
+// LimitedTimeUserConcurrencyLimitLT applies the LT predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitLT(v int) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldLimitedTimeUserConcurrencyLimit, v))
+}
+
+// LimitedTimeUserConcurrencyLimitLTE applies the LTE predicate on the "limited_time_user_concurrency_limit" field.
+func LimitedTimeUserConcurrencyLimitLTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldLimitedTimeUserConcurrencyLimit, v))
 }
 
 // IsExclusiveEQ applies the EQ predicate on the "is_exclusive" field.
@@ -1438,6 +1708,46 @@ func RpmLimitLT(v int) predicate.Group {
 // RpmLimitLTE applies the LTE predicate on the "rpm_limit" field.
 func RpmLimitLTE(v int) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldRpmLimit, v))
+}
+
+// UserConcurrencyLimitEQ applies the EQ predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldUserConcurrencyLimit, v))
+}
+
+// UserConcurrencyLimitNEQ applies the NEQ predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitNEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldUserConcurrencyLimit, v))
+}
+
+// UserConcurrencyLimitIn applies the In predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldUserConcurrencyLimit, vs...))
+}
+
+// UserConcurrencyLimitNotIn applies the NotIn predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitNotIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldUserConcurrencyLimit, vs...))
+}
+
+// UserConcurrencyLimitGT applies the GT predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitGT(v int) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldUserConcurrencyLimit, v))
+}
+
+// UserConcurrencyLimitGTE applies the GTE predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitGTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldUserConcurrencyLimit, v))
+}
+
+// UserConcurrencyLimitLT applies the LT predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitLT(v int) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldUserConcurrencyLimit, v))
+}
+
+// UserConcurrencyLimitLTE applies the LTE predicate on the "user_concurrency_limit" field.
+func UserConcurrencyLimitLTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldUserConcurrencyLimit, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

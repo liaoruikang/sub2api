@@ -8739,8 +8739,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		multiplier = s.cfg.Default.RateMultiplier
 	}
 	if apiKey.GroupID != nil && apiKey.Group != nil {
-		groupDefault := apiKey.Group.RateMultiplier
-		multiplier = s.getUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, groupDefault)
+		now := time.Now()
+		baseMultiplier := s.getUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+		multiplier = apiKey.Group.BillingRateMultiplierForBaseAt(baseMultiplier, now)
 	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 

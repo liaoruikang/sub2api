@@ -27,7 +27,10 @@
             <h3 class="font-semibold text-primary-800 dark:text-primary-200">
               {{ t('common.contactSupport') }}
             </h3>
-            <p class="text-sm font-medium">{{ contactInfo }}</p>
+            <p
+              class="text-sm font-medium [&_a]:text-primary-700 [&_a]:underline dark:[&_a]:text-primary-300"
+              v-html="contactInfoHtml"
+            ></p>
           </div>
         </div>
       </div>
@@ -51,6 +54,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import DOMPurify from 'dompurify'
 import { Icon } from '@/components/icons'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ProfileBalanceNotifyCard from '@/components/user/profile/ProfileBalanceNotifyCard.vue'
@@ -67,6 +71,7 @@ const authStore = useAuthStore()
 const user = computed(() => authStore.user)
 
 const contactInfo = ref('')
+const contactInfoHtml = computed(() => DOMPurify.sanitize(contactInfo.value, { ADD_ATTR: ['target'] }))
 const balanceLowNotifyEnabled = ref(false)
 const systemDefaultThreshold = ref(0)
 const linuxdoOAuthEnabled = ref(false)

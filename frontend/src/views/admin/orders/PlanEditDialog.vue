@@ -42,8 +42,74 @@
         <div><label class="input-label">{{ t('payment.admin.validityDays') }} <span class="text-red-500">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" required /></div>
         <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-red-500">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" /></div>
       </div>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div>
+          <label class="input-label">{{ t('payment.admin.purchaseLimitCount') }}</label>
+          <input v-model.number="planForm.purchase_limit_count" type="number" min="0" class="input" />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.purchaseLimitCountHint') }}</p>
+        </div>
+        <div>
+          <label class="input-label">{{ t('payment.admin.ipPurchaseLimitCount') }}</label>
+          <input v-model.number="planForm.ip_purchase_limit_count" type="number" min="0" class="input" />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.ipPurchaseLimitCountHint') }}</p>
+        </div>
+        <div><label class="input-label">{{ t('payment.admin.stockCount') }}</label><input v-model.number="planForm.stock_count" type="number" min="0" class="input" /></div>
         <div><label class="input-label">{{ t('payment.admin.sortOrder') }}</label><input v-model.number="planForm.sort_order" type="number" min="0" class="input" /></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="input-label">{{ t('payment.admin.listedAt') }}</label>
+          <input v-model="planForm.listed_at" type="datetime-local" class="input" />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.listedAtHint') }}</p>
+        </div>
+        <div>
+          <label class="input-label">{{ t('payment.admin.offSaleAt') }}</label>
+          <input v-model="planForm.off_sale_at" type="datetime-local" class="input" />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.offSaleAtHint') }}</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white/70 px-3 py-2 dark:border-dark-500 dark:bg-dark-900/30">
+        <div>
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('payment.admin.newUserOnly') }}</label>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.newUserOnlyHint') }}</p>
+        </div>
+        <button
+          type="button"
+          :class="[
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+            planForm.new_user_only ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
+          ]"
+          @click="planForm.new_user_only = !planForm.new_user_only"
+        >
+          <span :class="[
+            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+            planForm.new_user_only ? 'translate-x-5' : 'translate-x-0'
+          ]" />
+        </button>
+      </div>
+      <div class="rounded-xl border border-gray-200 bg-gray-50/80 p-4 shadow-sm dark:border-dark-600 dark:bg-dark-800/60">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] lg:items-end">
+          <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white/70 px-3 py-2 dark:border-dark-500 dark:bg-dark-900/30">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('payment.admin.firstPurchaseDiscountEnabled') }}</label>
+            <button
+              type="button"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                planForm.first_purchase_discount_enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
+              ]"
+              @click="planForm.first_purchase_discount_enabled = !planForm.first_purchase_discount_enabled"
+            >
+              <span :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                planForm.first_purchase_discount_enabled ? 'translate-x-5' : 'translate-x-0'
+              ]" />
+            </button>
+          </div>
+          <div :class="!planForm.first_purchase_discount_enabled ? 'opacity-60' : ''">
+            <label class="input-label">{{ t('payment.admin.firstPurchaseDiscountPrice') }}</label>
+            <input v-model.number="planForm.first_purchase_discount_price" type="number" step="0.01" min="0.01" class="input" :disabled="!planForm.first_purchase_discount_enabled" />
+          </div>
+        </div>
       </div>
       <div>
         <label class="input-label">{{ t('payment.admin.features') }}</label>
@@ -58,7 +124,7 @@
             'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
             planForm.for_sale ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
           ]"
-          @click="planForm.for_sale = !planForm.for_sale"
+          @click="toggleForSale"
         >
           <span :class="[
             'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
@@ -83,6 +149,7 @@ import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { SubscriptionPlan } from '@/types/payment'
+import type { AdminCreatePlanRequest, AdminUpdatePlanRequest } from '@/api/admin/payment'
 import type { AdminGroup } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -105,7 +172,7 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const saving = ref(false)
-const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true, listed_at: '', off_sale_at: '', new_user_only: false, purchase_limit_count: 0, ip_purchase_limit_count: 0, stock_count: 0, first_purchase_discount_enabled: false, first_purchase_discount_price: 0 })
 const planFeaturesText = ref('')
 
 const validityUnitOptions = computed(() => [
@@ -129,31 +196,61 @@ const selectedGroupInfo = computed(() => {
   return props.groups.find(g => g.id === planForm.group_id) || null
 })
 
+function toDateTimeLocal(value?: string | null): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function fromDateTimeLocal(value: string): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
+}
+
+function toggleForSale() {
+  planForm.for_sale = !planForm.for_sale
+  if (planForm.for_sale) {
+    planForm.off_sale_at = ''
+  }
+}
+
 // Reset form when dialog opens
 watch(() => props.show, (visible) => {
   if (!visible) return
   if (props.plan) {
-    Object.assign(planForm, { name: props.plan.name, group_id: props.plan.group_id, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0, validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days', sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale })
+    Object.assign(planForm, { name: props.plan.name, group_id: props.plan.group_id, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0, validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days', sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale, listed_at: toDateTimeLocal(props.plan.listed_at), off_sale_at: toDateTimeLocal(props.plan.off_sale_at), new_user_only: props.plan.new_user_only || false, purchase_limit_count: props.plan.purchase_limit_count || 0, ip_purchase_limit_count: props.plan.ip_purchase_limit_count || 0, stock_count: props.plan.stock_count || 0, first_purchase_discount_enabled: props.plan.first_purchase_discount_enabled, first_purchase_discount_price: props.plan.first_purchase_discount_price || 0 })
     planFeaturesText.value = (props.plan.features || []).join('\n')
   } else {
-    Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+    Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true, listed_at: '', off_sale_at: '', new_user_only: false, purchase_limit_count: 0, ip_purchase_limit_count: 0, stock_count: 0, first_purchase_discount_enabled: false, first_purchase_discount_price: 0 })
     planFeaturesText.value = ''
   }
 })
 
 /** Build request payload with snake_case keys matching backend JSON tags */
-function buildPlanPayload() {
+function buildPlanPayload(): AdminCreatePlanRequest | AdminUpdatePlanRequest {
   const features = planFeaturesText.value.split('\n').map(f => f.trim()).filter(Boolean).join('\n')
   return {
     name: planForm.name,
-    group_id: planForm.group_id,
+    group_id: planForm.group_id ?? undefined,
     description: planForm.description,
     price: planForm.price,
-    original_price: planForm.original_price || 0,
+    original_price: planForm.original_price || undefined,
     validity_days: planForm.validity_days,
     validity_unit: planForm.validity_unit,
     sort_order: planForm.sort_order,
     for_sale: planForm.for_sale,
+    listed_at: fromDateTimeLocal(planForm.listed_at),
+    off_sale_at: fromDateTimeLocal(planForm.off_sale_at),
+    new_user_only: planForm.new_user_only,
+    purchase_limit_count: planForm.purchase_limit_count,
+    ip_purchase_limit_count: planForm.ip_purchase_limit_count,
+    stock_count: planForm.stock_count,
+    first_purchase_discount_enabled: planForm.first_purchase_discount_enabled,
+    first_purchase_discount_price: planForm.first_purchase_discount_enabled ? planForm.first_purchase_discount_price : undefined,
     features,
   }
 }
@@ -167,6 +264,12 @@ async function handleSavePlan() {
     appStore.showError(t('payment.admin.priceRequired'))
     return
   }
+  if (planForm.first_purchase_discount_enabled) {
+    if (!planForm.first_purchase_discount_price || planForm.first_purchase_discount_price <= 0 || planForm.first_purchase_discount_price >= planForm.price) {
+      appStore.showError(t('payment.admin.firstPurchaseDiscountPriceInvalid'))
+      return
+    }
+  }
   if (!planForm.validity_days || planForm.validity_days < 1) {
     appStore.showError(t('payment.admin.validityDaysRequired'))
     return
@@ -175,7 +278,7 @@ async function handleSavePlan() {
   try {
     const data = buildPlanPayload()
     if (props.plan) { await adminPaymentAPI.updatePlan(props.plan.id, data) }
-    else { await adminPaymentAPI.createPlan(data) }
+    else { await adminPaymentAPI.createPlan(data as AdminCreatePlanRequest) }
     appStore.showSuccess(t('common.saved'))
     emit('close')
     emit('saved')

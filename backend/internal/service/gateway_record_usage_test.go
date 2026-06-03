@@ -193,6 +193,98 @@ func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testin
 	require.Equal(t, mappedModel, *usageRepo.lastLog.UpstreamModel)
 }
 
+func TestGatewayServiceRecordUsage_LimitedTimeMultiplierCapsUserSpecificGroupRate(t *testing.T) {
+	groupID := int64(801)
+	groupRate := 1.4
+	userRate := 1.8
+	limitedRate := 0.5
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	rateRepo := &openAIUserGroupRateRepoStub{rate: &userRate}
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
+	svc.userGroupRateResolver = newUserGroupRateResolver(rateRepo, nil, 0, nil, "service.gateway.test")
+
+	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
+		Result: &ForwardResult{
+			RequestID: "gateway_limited_time_user_group_rate",
+			Usage: ClaudeUsage{
+				InputTokens:  10,
+				OutputTokens: 6,
+			},
+			Model:    "claude-sonnet-4",
+			Duration: time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      501,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                                   groupID,
+				RateMultiplier:                       groupRate,
+				SubscriptionType:                     SubscriptionTypeStandard,
+				LimitedTimeMultiplierEnabled:         true,
+				LimitedTimeMultiplierCron:            "* * * * *",
+				LimitedTimeMultiplierDurationMinutes: 2,
+				LimitedTimeMultiplierValue:           limitedRate,
+			},
+		},
+		User:    &User{ID: 601},
+		Account: &Account{ID: 701},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, rateRepo.calls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, limitedRate, usageRepo.lastLog.RateMultiplier)
+	require.InDelta(t, usageRepo.lastLog.ActualCost, userRepo.lastAmount, 1e-12)
+}
+
+func TestGatewayServiceRecordUsage_LimitedTimeMultiplierDoesNotRaiseLowerUserSpecificGroupRate(t *testing.T) {
+	groupID := int64(802)
+	groupRate := 1.4
+	userRate := 0.4
+	limitedRate := 0.5
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	rateRepo := &openAIUserGroupRateRepoStub{rate: &userRate}
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
+	svc.userGroupRateResolver = newUserGroupRateResolver(rateRepo, nil, 0, nil, "service.gateway.test")
+
+	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
+		Result: &ForwardResult{
+			RequestID: "gateway_limited_time_lower_user_group_rate",
+			Usage: ClaudeUsage{
+				InputTokens:  10,
+				OutputTokens: 6,
+			},
+			Model:    "claude-sonnet-4",
+			Duration: time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      502,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                                   groupID,
+				RateMultiplier:                       groupRate,
+				SubscriptionType:                     SubscriptionTypeStandard,
+				LimitedTimeMultiplierEnabled:         true,
+				LimitedTimeMultiplierCron:            "* * * * *",
+				LimitedTimeMultiplierDurationMinutes: 2,
+				LimitedTimeMultiplierValue:           limitedRate,
+			},
+		},
+		User:    &User{ID: 602},
+		Account: &Account{ID: 702},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, rateRepo.calls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, userRate, usageRepo.lastLog.RateMultiplier)
+	require.InDelta(t, usageRepo.lastLog.ActualCost, userRepo.lastAmount, 1e-12)
+}
+
 func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
 	imagePrice2K := 0.19
 	groupID := int64(901)

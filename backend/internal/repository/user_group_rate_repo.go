@@ -94,10 +94,11 @@ func (r *userGroupRateRepository) GetByUserIDs(ctx context.Context, userIDs []in
 	return result, nil
 }
 
-// GetByGroupID 获取指定分组下所有用户的专属配置（rate 与 rpm_override 任一非 NULL 即返回）
+// GetByGroupID 获取指定分组下所有用户的专属配置（rate、rpm_override 与 limited_time_rpm_override 任一非 NULL 即返回）
 func (r *userGroupRateRepository) GetByGroupID(ctx context.Context, groupID int64) ([]service.UserGroupRateEntry, error) {
 	query := `
-		SELECT ugr.user_id, u.username, u.email, COALESCE(u.notes, ''), u.status, ugr.rate_multiplier, ugr.rpm_override
+		SELECT ugr.user_id, u.username, u.email, COALESCE(u.notes, ''), u.status,
+		       ugr.rate_multiplier, ugr.rpm_override, ugr.limited_time_rpm_override
 		FROM user_group_rate_multipliers ugr
 		JOIN users u ON u.id = ugr.user_id AND u.deleted_at IS NULL
 		WHERE ugr.group_id = $1
@@ -114,7 +115,8 @@ func (r *userGroupRateRepository) GetByGroupID(ctx context.Context, groupID int6
 		var entry service.UserGroupRateEntry
 		var rate sql.NullFloat64
 		var rpm sql.NullInt32
-		if err := rows.Scan(&entry.UserID, &entry.UserName, &entry.UserEmail, &entry.UserNotes, &entry.UserStatus, &rate, &rpm); err != nil {
+		var limitedTimeRPM sql.NullInt32
+		if err := rows.Scan(&entry.UserID, &entry.UserName, &entry.UserEmail, &entry.UserNotes, &entry.UserStatus, &rate, &rpm, &limitedTimeRPM); err != nil {
 			return nil, err
 		}
 		if rate.Valid {
@@ -124,6 +126,10 @@ func (r *userGroupRateRepository) GetByGroupID(ctx context.Context, groupID int6
 		if rpm.Valid {
 			v := int(rpm.Int32)
 			entry.RPMOverride = &v
+		}
+		if limitedTimeRPM.Valid {
+			v := int(limitedTimeRPM.Int32)
+			entry.LimitedTimeRPMOverride = &v
 		}
 		result = append(result, entry)
 	}
@@ -153,26 +159,34 @@ func (r *userGroupRateRepository) GetByUserAndGroup(ctx context.Context, userID,
 
 // GetRPMOverrideByUserAndGroup 获取用户在特定分组的 rpm_override（NULL 返回 nil）
 func (r *userGroupRateRepository) GetRPMOverrideByUserAndGroup(ctx context.Context, userID, groupID int64) (*int, error) {
-	query := `SELECT rpm_override FROM user_group_rate_multipliers WHERE user_id = $1 AND group_id = $2`
-	var rpm sql.NullInt32
-	err := scanSingleRow(ctx, r.sql, query, []any{userID, groupID}, &rpm)
+	return r.getNullableInt(ctx, `SELECT rpm_override FROM user_group_rate_multipliers WHERE user_id = $1 AND group_id = $2`, userID, groupID)
+}
+
+// GetLimitedTimeRPMOverrideByUserAndGroup 获取用户在特定分组的 limited_time_rpm_override（NULL 返回 nil）
+func (r *userGroupRateRepository) GetLimitedTimeRPMOverrideByUserAndGroup(ctx context.Context, userID, groupID int64) (*int, error) {
+	return r.getNullableInt(ctx, `SELECT limited_time_rpm_override FROM user_group_rate_multipliers WHERE user_id = $1 AND group_id = $2`, userID, groupID)
+}
+
+func (r *userGroupRateRepository) getNullableInt(ctx context.Context, query string, args ...any) (*int, error) {
+	var value sql.NullInt32
+	err := scanSingleRow(ctx, r.sql, query, args, &value)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if !rpm.Valid {
+	if !value.Valid {
 		return nil, nil
 	}
-	v := int(rpm.Int32)
+	v := int(value.Int32)
 	return &v, nil
 }
 
 // SyncUserGroupRates 同步用户的分组专属 rate_multiplier。
-//   - 传入空 map：清空该用户所有行的 rate_multiplier；若 rpm_override 也为 NULL 则整行删除。
-//   - 值为 nil：清空对应行的 rate_multiplier（保留 rpm_override）。
-//   - 值非 nil：upsert rate_multiplier（保留已有 rpm_override）。
+//   - 传入空 map：清空该用户所有行的 rate_multiplier；若其它专属字段也为 NULL 则整行删除。
+//   - 值为 nil：清空对应行的 rate_multiplier（保留其它专属字段）。
+//   - 值非 nil：upsert rate_multiplier（保留已有其它专属字段）。
 func (r *userGroupRateRepository) SyncUserGroupRates(ctx context.Context, userID int64, rates map[int64]*float64) error {
 	if len(rates) == 0 {
 		if _, err := r.sql.ExecContext(ctx, `
@@ -182,9 +196,7 @@ func (r *userGroupRateRepository) SyncUserGroupRates(ctx context.Context, userID
 		`, userID); err != nil {
 			return err
 		}
-		_, err := r.sql.ExecContext(ctx,
-			`DELETE FROM user_group_rate_multipliers WHERE user_id = $1 AND rate_multiplier IS NULL AND rpm_override IS NULL`,
-			userID)
+		_, err := r.sql.ExecContext(ctx, deleteEmptyUserGroupRatesByUserSQL, userID)
 		return err
 	}
 
@@ -208,9 +220,7 @@ func (r *userGroupRateRepository) SyncUserGroupRates(ctx context.Context, userID
 		`, userID, pq.Array(clearGroupIDs)); err != nil {
 			return err
 		}
-		if _, err := r.sql.ExecContext(ctx,
-			`DELETE FROM user_group_rate_multipliers WHERE user_id = $1 AND group_id = ANY($2) AND rate_multiplier IS NULL AND rpm_override IS NULL`,
-			userID, pq.Array(clearGroupIDs)); err != nil {
+		if _, err := r.sql.ExecContext(ctx, deleteEmptyUserGroupRatesByUserAndGroupsSQL, userID, pq.Array(clearGroupIDs)); err != nil {
 			return err
 		}
 	}
@@ -239,9 +249,9 @@ func (r *userGroupRateRepository) SyncUserGroupRates(ctx context.Context, userID
 	return nil
 }
 
-// SyncGroupRateMultipliers 同步分组的 rate_multiplier 部分（不触动 rpm_override）。
+// SyncGroupRateMultipliers 同步分组的 rate_multiplier 部分（不触动 RPM 字段）。
 // 语义：
-//   - 未出现在 entries 中的用户行：rate_multiplier 归 NULL；若 rpm_override 也为 NULL 则整行删除。
+//   - 未出现在 entries 中的用户行：rate_multiplier 归 NULL；若其它专属字段也为 NULL 则整行删除。
 //   - 出现的用户行：upsert rate_multiplier。
 func (r *userGroupRateRepository) SyncGroupRateMultipliers(ctx context.Context, groupID int64, entries []service.GroupRateMultiplierInput) error {
 	keepUserIDs := make([]int64, 0, len(entries))
@@ -249,7 +259,6 @@ func (r *userGroupRateRepository) SyncGroupRateMultipliers(ctx context.Context, 
 		keepUserIDs = append(keepUserIDs, e.UserID)
 	}
 
-	// 未在 entries 列表中的行：清空 rate_multiplier。
 	if len(keepUserIDs) == 0 {
 		if _, err := r.sql.ExecContext(ctx, `
 			UPDATE user_group_rate_multipliers
@@ -268,11 +277,7 @@ func (r *userGroupRateRepository) SyncGroupRateMultipliers(ctx context.Context, 
 		}
 	}
 
-	// 清空后若整行 NULL 则删除。
-	if _, err := r.sql.ExecContext(ctx, `
-		DELETE FROM user_group_rate_multipliers
-		WHERE group_id = $1 AND rate_multiplier IS NULL AND rpm_override IS NULL
-	`, groupID); err != nil {
+	if _, err := r.deleteEmptyRowsByGroup(ctx, groupID); err != nil {
 		return err
 	}
 
@@ -297,11 +302,27 @@ func (r *userGroupRateRepository) SyncGroupRateMultipliers(ctx context.Context, 
 	return err
 }
 
-// SyncGroupRPMOverrides 同步分组的 rpm_override 部分（不触动 rate_multiplier）。
-// 语义：
-//   - 未出现的用户行：rpm_override 归 NULL；若 rate_multiplier 也为 NULL 则整行删除。
-//   - 出现的用户行：若 RPMOverride 为 nil 则清空；非 nil 则 upsert。
+// SyncGroupRPMOverrides 同步分组的 rpm_override 部分（不触动 rate_multiplier 与 limited_time_rpm_override）。
 func (r *userGroupRateRepository) SyncGroupRPMOverrides(ctx context.Context, groupID int64, entries []service.GroupRPMOverrideInput) error {
+	return r.syncGroupRPMOverride(ctx, groupID, entries)
+}
+
+// ClearGroupRPMOverrides 清空指定分组所有行的 rpm_override。
+func (r *userGroupRateRepository) ClearGroupRPMOverrides(ctx context.Context, groupID int64) error {
+	return r.clearGroupRPMOverride(ctx, groupID)
+}
+
+// SyncGroupLimitedTimeRPMOverrides 同步分组的 limited_time_rpm_override 部分（不触动其它专属字段）。
+func (r *userGroupRateRepository) SyncGroupLimitedTimeRPMOverrides(ctx context.Context, groupID int64, entries []service.GroupLimitedTimeRPMOverrideInput) error {
+	return r.syncGroupLimitedTimeRPMOverride(ctx, groupID, entries)
+}
+
+// ClearGroupLimitedTimeRPMOverrides 清空指定分组所有行的 limited_time_rpm_override。
+func (r *userGroupRateRepository) ClearGroupLimitedTimeRPMOverrides(ctx context.Context, groupID int64) error {
+	return r.clearGroupLimitedTimeRPMOverride(ctx, groupID)
+}
+
+func (r *userGroupRateRepository) syncGroupRPMOverride(ctx context.Context, groupID int64, entries []service.GroupRPMOverrideInput) error {
 	keepUserIDs := make([]int64, 0, len(entries))
 	var clearUserIDs []int64
 	upsertUserIDs := make([]int64, 0, len(entries))
@@ -316,7 +337,6 @@ func (r *userGroupRateRepository) SyncGroupRPMOverrides(ctx context.Context, gro
 		}
 	}
 
-	// 未在 entries 列表中的行：清空 rpm_override。
 	if len(keepUserIDs) == 0 {
 		if _, err := r.sql.ExecContext(ctx, `
 			UPDATE user_group_rate_multipliers
@@ -335,7 +355,6 @@ func (r *userGroupRateRepository) SyncGroupRPMOverrides(ctx context.Context, gro
 		}
 	}
 
-	// 显式 clear 的行。
 	if len(clearUserIDs) > 0 {
 		if _, err := r.sql.ExecContext(ctx, `
 			UPDATE user_group_rate_multipliers
@@ -346,11 +365,7 @@ func (r *userGroupRateRepository) SyncGroupRPMOverrides(ctx context.Context, gro
 		}
 	}
 
-	// 清空后若整行 NULL 则删除。
-	if _, err := r.sql.ExecContext(ctx, `
-		DELETE FROM user_group_rate_multipliers
-		WHERE group_id = $1 AND rate_multiplier IS NULL AND rpm_override IS NULL
-	`, groupID); err != nil {
+	if _, err := r.deleteEmptyRowsByGroup(ctx, groupID); err != nil {
 		return err
 	}
 
@@ -358,8 +373,8 @@ func (r *userGroupRateRepository) SyncGroupRPMOverrides(ctx context.Context, gro
 		now := time.Now()
 		_, err := r.sql.ExecContext(ctx, `
 			INSERT INTO user_group_rate_multipliers (user_id, group_id, rpm_override, created_at, updated_at)
-			SELECT data.user_id, $1::bigint, data.rpm_override, $2::timestamptz, $2::timestamptz
-			FROM unnest($3::bigint[], $4::integer[]) AS data(user_id, rpm_override)
+			SELECT data.user_id, $1::bigint, data.override_value, $2::timestamptz, $2::timestamptz
+			FROM unnest($3::bigint[], $4::integer[]) AS data(user_id, override_value)
 			ON CONFLICT (user_id, group_id)
 			DO UPDATE SET rpm_override = EXCLUDED.rpm_override, updated_at = EXCLUDED.updated_at
 		`, groupID, now, pq.Array(upsertUserIDs), pq.Array(upsertValues))
@@ -371,8 +386,7 @@ func (r *userGroupRateRepository) SyncGroupRPMOverrides(ctx context.Context, gro
 	return nil
 }
 
-// ClearGroupRPMOverrides 清空指定分组所有行的 rpm_override。
-func (r *userGroupRateRepository) ClearGroupRPMOverrides(ctx context.Context, groupID int64) error {
+func (r *userGroupRateRepository) clearGroupRPMOverride(ctx context.Context, groupID int64) error {
 	if _, err := r.sql.ExecContext(ctx, `
 		UPDATE user_group_rate_multipliers
 		SET rpm_override = NULL, updated_at = NOW()
@@ -380,12 +394,114 @@ func (r *userGroupRateRepository) ClearGroupRPMOverrides(ctx context.Context, gr
 	`, groupID); err != nil {
 		return err
 	}
-	_, err := r.sql.ExecContext(ctx, `
-		DELETE FROM user_group_rate_multipliers
-		WHERE group_id = $1 AND rate_multiplier IS NULL AND rpm_override IS NULL
-	`, groupID)
+	_, err := r.deleteEmptyRowsByGroup(ctx, groupID)
 	return err
 }
+
+func (r *userGroupRateRepository) syncGroupLimitedTimeRPMOverride(ctx context.Context, groupID int64, entries []service.GroupLimitedTimeRPMOverrideInput) error {
+	keepUserIDs := make([]int64, 0, len(entries))
+	var clearUserIDs []int64
+	upsertUserIDs := make([]int64, 0, len(entries))
+	upsertValues := make([]int32, 0, len(entries))
+	for _, e := range entries {
+		keepUserIDs = append(keepUserIDs, e.UserID)
+		if e.LimitedTimeRPMOverride == nil {
+			clearUserIDs = append(clearUserIDs, e.UserID)
+		} else {
+			upsertUserIDs = append(upsertUserIDs, e.UserID)
+			upsertValues = append(upsertValues, int32(*e.LimitedTimeRPMOverride))
+		}
+	}
+
+	if len(keepUserIDs) == 0 {
+		if _, err := r.sql.ExecContext(ctx, `
+			UPDATE user_group_rate_multipliers
+			SET limited_time_rpm_override = NULL, updated_at = NOW()
+			WHERE group_id = $1
+		`, groupID); err != nil {
+			return err
+		}
+	} else {
+		if _, err := r.sql.ExecContext(ctx, `
+			UPDATE user_group_rate_multipliers
+			SET limited_time_rpm_override = NULL, updated_at = NOW()
+			WHERE group_id = $1 AND user_id <> ALL($2)
+		`, groupID, pq.Array(keepUserIDs)); err != nil {
+			return err
+		}
+	}
+
+	if len(clearUserIDs) > 0 {
+		if _, err := r.sql.ExecContext(ctx, `
+			UPDATE user_group_rate_multipliers
+			SET limited_time_rpm_override = NULL, updated_at = NOW()
+			WHERE group_id = $1 AND user_id = ANY($2)
+		`, groupID, pq.Array(clearUserIDs)); err != nil {
+			return err
+		}
+	}
+
+	if _, err := r.deleteEmptyRowsByGroup(ctx, groupID); err != nil {
+		return err
+	}
+
+	if len(upsertUserIDs) > 0 {
+		now := time.Now()
+		_, err := r.sql.ExecContext(ctx, `
+			INSERT INTO user_group_rate_multipliers (user_id, group_id, limited_time_rpm_override, created_at, updated_at)
+			SELECT data.user_id, $1::bigint, data.override_value, $2::timestamptz, $2::timestamptz
+			FROM unnest($3::bigint[], $4::integer[]) AS data(user_id, override_value)
+			ON CONFLICT (user_id, group_id)
+			DO UPDATE SET limited_time_rpm_override = EXCLUDED.limited_time_rpm_override, updated_at = EXCLUDED.updated_at
+		`, groupID, now, pq.Array(upsertUserIDs), pq.Array(upsertValues))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *userGroupRateRepository) clearGroupLimitedTimeRPMOverride(ctx context.Context, groupID int64) error {
+	if _, err := r.sql.ExecContext(ctx, `
+		UPDATE user_group_rate_multipliers
+		SET limited_time_rpm_override = NULL, updated_at = NOW()
+		WHERE group_id = $1
+	`, groupID); err != nil {
+		return err
+	}
+	_, err := r.deleteEmptyRowsByGroup(ctx, groupID)
+	return err
+}
+
+func (r *userGroupRateRepository) deleteEmptyRowsByGroup(ctx context.Context, groupID int64) (sql.Result, error) {
+	return r.sql.ExecContext(ctx, deleteEmptyUserGroupRatesByGroupSQL, groupID)
+}
+
+const deleteEmptyUserGroupRatesByGroupSQL = `
+	DELETE FROM user_group_rate_multipliers
+	WHERE group_id = $1
+	  AND rate_multiplier IS NULL
+	  AND rpm_override IS NULL
+	  AND limited_time_rpm_override IS NULL
+`
+
+const deleteEmptyUserGroupRatesByUserSQL = `
+	DELETE FROM user_group_rate_multipliers
+	WHERE user_id = $1
+	  AND rate_multiplier IS NULL
+	  AND rpm_override IS NULL
+	  AND limited_time_rpm_override IS NULL
+`
+
+const deleteEmptyUserGroupRatesByUserAndGroupsSQL = `
+	DELETE FROM user_group_rate_multipliers
+	WHERE user_id = $1
+	  AND group_id = ANY($2)
+	  AND rate_multiplier IS NULL
+	  AND rpm_override IS NULL
+	  AND limited_time_rpm_override IS NULL
+`
 
 // DeleteByGroupID 删除指定分组的所有用户专属条目
 func (r *userGroupRateRepository) DeleteByGroupID(ctx context.Context, groupID int64) error {

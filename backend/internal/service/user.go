@@ -58,6 +58,10 @@ type User struct {
 	// 避免每请求查 DB。字段不持久化到数据库。
 	UserGroupRPMOverride *int
 
+	// UserGroupLimitedTimeRPMOverride 来自 auth cache snapshot 的 (user, group) 限时窗口 RPM 覆盖值。
+	// 仅在分组限时倍率窗口激活时使用；nil 表示无 override。
+	UserGroupLimitedTimeRPMOverride *int
+
 	APIKeys       []APIKey
 	Subscriptions []UserSubscription
 }

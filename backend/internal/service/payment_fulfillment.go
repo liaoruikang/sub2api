@@ -435,12 +435,29 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
 		return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
 	}
+	if err := s.decrementSubscriptionPlanStock(ctx, o); err != nil {
+		return err
+	}
 	orderNote := fmt.Sprintf("payment order %d", o.ID)
 	_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
 	if err != nil {
 		return fmt.Errorf("assign subscription: %w", err)
 	}
 	return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+}
+
+func (s *PaymentService) decrementSubscriptionPlanStock(ctx context.Context, o *dbent.PaymentOrder) error {
+	if o.PlanID == nil {
+		return nil
+	}
+	result, err := s.entClient.ExecContext(ctx, `UPDATE subscription_plans SET stock_count = stock_count - 1 WHERE id = $1 AND stock_count > 0`, *o.PlanID)
+	if err != nil {
+		return fmt.Errorf("decrement subscription plan stock: %w", err)
+	}
+	if rows, err := result.RowsAffected(); err == nil && rows == 0 {
+		return infraerrors.TooManyRequests("PLAN_OUT_OF_STOCK", "plan is out of stock")
+	}
+	return nil
 }
 
 func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action string) bool {

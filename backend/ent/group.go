@@ -31,6 +31,18 @@ type Group struct {
 	Description *string `json:"description,omitempty"`
 	// RateMultiplier holds the value of the "rate_multiplier" field.
 	RateMultiplier float64 `json:"rate_multiplier,omitempty"`
+	// 是否启用分组限时倍率
+	LimitedTimeMultiplierEnabled bool `json:"limited_time_multiplier_enabled,omitempty"`
+	// 限时倍率开始时间 cron 表达式
+	LimitedTimeMultiplierCron string `json:"limited_time_multiplier_cron,omitempty"`
+	// 限时倍率持续时间（分钟）
+	LimitedTimeMultiplierDurationMinutes int `json:"limited_time_multiplier_duration_minutes,omitempty"`
+	// 限时倍率生效时使用的倍率值
+	LimitedTimeMultiplierValue float64 `json:"limited_time_multiplier_value,omitempty"`
+	// 限时倍率窗口内分组 RPM 上限，0 表示不设置专属限时 RPM
+	LimitedTimeRpmLimit int `json:"limited_time_rpm_limit,omitempty"`
+	// 限时倍率窗口内分组内每用户最大并发数，0 表示不设置专属限时并发
+	LimitedTimeUserConcurrencyLimit int `json:"limited_time_user_concurrency_limit,omitempty"`
 	// IsExclusive holds the value of the "is_exclusive" field.
 	IsExclusive bool `json:"is_exclusive,omitempty"`
 	// Status holds the value of the "status" field.
@@ -89,6 +101,8 @@ type Group struct {
 	ModelsListConfig domain.GroupModelsListConfig `json:"models_list_config,omitempty"`
 	// 分组 RPM 上限，0 表示不限制；设置后接管该分组用户的限流
 	RpmLimit int `json:"rpm_limit,omitempty"`
+	// per-user concurrency limit in group; 0 means unlimited
+	UserConcurrencyLimit int `json:"user_concurrency_limit,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GroupQuery when eager-loading is set.
 	Edges        GroupEdges `json:"edges"`
@@ -197,13 +211,13 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelsListConfig:
 			values[i] = new([]byte)
-		case group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldImageRateIndependent, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet:
+		case group.FieldLimitedTimeMultiplierEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldImageRateIndependent, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet:
 			values[i] = new(sql.NullBool)
-		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
+		case group.FieldRateMultiplier, group.FieldLimitedTimeMultiplierValue, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
 			values[i] = new(sql.NullFloat64)
-		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit:
+		case group.FieldID, group.FieldLimitedTimeMultiplierDurationMinutes, group.FieldLimitedTimeRpmLimit, group.FieldLimitedTimeUserConcurrencyLimit, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit, group.FieldUserConcurrencyLimit:
 			values[i] = new(sql.NullInt64)
-		case group.FieldName, group.FieldDescription, group.FieldStatus, group.FieldPlatform, group.FieldSubscriptionType, group.FieldDefaultMappedModel:
+		case group.FieldName, group.FieldDescription, group.FieldLimitedTimeMultiplierCron, group.FieldStatus, group.FieldPlatform, group.FieldSubscriptionType, group.FieldDefaultMappedModel:
 			values[i] = new(sql.NullString)
 		case group.FieldCreatedAt, group.FieldUpdatedAt, group.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -265,6 +279,42 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field rate_multiplier", values[i])
 			} else if value.Valid {
 				_m.RateMultiplier = value.Float64
+			}
+		case group.FieldLimitedTimeMultiplierEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field limited_time_multiplier_enabled", values[i])
+			} else if value.Valid {
+				_m.LimitedTimeMultiplierEnabled = value.Bool
+			}
+		case group.FieldLimitedTimeMultiplierCron:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field limited_time_multiplier_cron", values[i])
+			} else if value.Valid {
+				_m.LimitedTimeMultiplierCron = value.String
+			}
+		case group.FieldLimitedTimeMultiplierDurationMinutes:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field limited_time_multiplier_duration_minutes", values[i])
+			} else if value.Valid {
+				_m.LimitedTimeMultiplierDurationMinutes = int(value.Int64)
+			}
+		case group.FieldLimitedTimeMultiplierValue:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field limited_time_multiplier_value", values[i])
+			} else if value.Valid {
+				_m.LimitedTimeMultiplierValue = value.Float64
+			}
+		case group.FieldLimitedTimeRpmLimit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field limited_time_rpm_limit", values[i])
+			} else if value.Valid {
+				_m.LimitedTimeRpmLimit = int(value.Int64)
+			}
+		case group.FieldLimitedTimeUserConcurrencyLimit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field limited_time_user_concurrency_limit", values[i])
+			} else if value.Valid {
+				_m.LimitedTimeUserConcurrencyLimit = int(value.Int64)
 			}
 		case group.FieldIsExclusive:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -456,6 +506,12 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RpmLimit = int(value.Int64)
 			}
+		case group.FieldUserConcurrencyLimit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field user_concurrency_limit", values[i])
+			} else if value.Valid {
+				_m.UserConcurrencyLimit = int(value.Int64)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -553,6 +609,24 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rate_multiplier=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RateMultiplier))
+	builder.WriteString(", ")
+	builder.WriteString("limited_time_multiplier_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LimitedTimeMultiplierEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("limited_time_multiplier_cron=")
+	builder.WriteString(_m.LimitedTimeMultiplierCron)
+	builder.WriteString(", ")
+	builder.WriteString("limited_time_multiplier_duration_minutes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LimitedTimeMultiplierDurationMinutes))
+	builder.WriteString(", ")
+	builder.WriteString("limited_time_multiplier_value=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LimitedTimeMultiplierValue))
+	builder.WriteString(", ")
+	builder.WriteString("limited_time_rpm_limit=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LimitedTimeRpmLimit))
+	builder.WriteString(", ")
+	builder.WriteString("limited_time_user_concurrency_limit=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LimitedTimeUserConcurrencyLimit))
 	builder.WriteString(", ")
 	builder.WriteString("is_exclusive=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IsExclusive))
@@ -656,6 +730,9 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rpm_limit=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RpmLimit))
+	builder.WriteString(", ")
+	builder.WriteString("user_concurrency_limit=")
+	builder.WriteString(fmt.Sprintf("%v", _m.UserConcurrencyLimit))
 	builder.WriteByte(')')
 	return builder.String()
 }

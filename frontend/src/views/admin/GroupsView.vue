@@ -179,10 +179,16 @@
             </div>
           </template>
 
-          <template #cell-rate_multiplier="{ value }">
-            <span class="text-sm text-gray-700 dark:text-gray-300"
-              >{{ value }}x</span
-            >
+          <template #cell-rate_multiplier="{ value, row }">
+            <div class="space-y-0.5">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{{ value }}x</span>
+              <div
+                v-if="row.subscription_type !== 'subscription' && row.limited_time_multiplier_enabled"
+                class="text-xs text-amber-600 dark:text-amber-400"
+              >
+                {{ formatLimitedTimeMultiplierBadge(row) }}
+              </div>
+            </div>
           </template>
 
           <template #cell-is_exclusive="{ value }">
@@ -312,6 +318,15 @@
                 <Icon name="bolt" size="sm" />
                 <span class="text-xs">{{
                   t("admin.groups.rpmOverrides")
+                }}</span>
+              </button>
+              <button
+                @click="handleLimitedTimeRPMOverrides(row)"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-dark-700 dark:hover:text-amber-400"
+              >
+                <Icon name="clock" size="sm" />
+                <span class="text-xs">{{
+                  t("admin.groups.limitedTimeRpmOverrides")
                 }}</span>
               </button>
               <button
@@ -497,17 +512,159 @@
           />
           <p class="input-hint">{{ t("admin.groups.rateMultiplierHint") }}</p>
         </div>
-        <div>
-          <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
-          <input
-            v-model.number="createForm.rpm_limit"
-            type="number"
-            min="0"
-            step="1"
-            class="input"
-            :placeholder="t('admin.groups.form.rpmLimitPlaceholder')"
-          />
-          <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
+        <div
+          v-if="createForm.subscription_type !== 'subscription'"
+          class="space-y-4 rounded-xl border border-amber-200/80 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-900/10"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t("admin.groups.limitedTimeMultiplier.title") }}
+              </label>
+              <p class="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                {{ t("admin.groups.limitedTimeMultiplier.hint") }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="createForm.limited_time_multiplier_enabled = !createForm.limited_time_multiplier_enabled"
+              :class="[
+                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                createForm.limited_time_multiplier_enabled
+                  ? 'bg-primary-500'
+                  : 'bg-gray-300 dark:bg-dark-600',
+              ]"
+            >
+              <span
+                :class="[
+                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                  createForm.limited_time_multiplier_enabled ? 'translate-x-6' : 'translate-x-1',
+                ]"
+              />
+            </button>
+          </div>
+          <div v-if="createForm.limited_time_multiplier_enabled" class="space-y-4">
+            <div class="space-y-2 rounded-xl border border-gray-200/80 bg-white px-4 py-3 shadow-sm dark:border-dark-600 dark:bg-dark-800">
+              <span class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                {{ t("admin.groups.limitedTimeMultiplier.startTime") }}
+              </span>
+              <div
+                :class="[
+                  'grid gap-2',
+                  createForm.limited_time_multiplier_cron_frequency === 'daily'
+                    ? 'sm:grid-cols-3'
+                    : 'sm:grid-cols-2',
+                ]"
+              >
+                <Select
+                  v-model="createForm.limited_time_multiplier_cron_frequency"
+                  :options="limitedTimeCronFrequencyOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-if="createForm.limited_time_multiplier_cron_frequency === 'weekly'"
+                  v-model="createForm.limited_time_multiplier_cron_weekday"
+                  :options="limitedTimeWeekdayOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-if="createForm.limited_time_multiplier_cron_frequency === 'monthly'"
+                  v-model="createForm.limited_time_multiplier_cron_month_day"
+                  :options="limitedTimeMonthDayOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-model="createForm.limited_time_multiplier_cron_hour"
+                  :options="limitedTimeHourOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-model="createForm.limited_time_multiplier_cron_minute"
+                  :options="limitedTimeMinuteOptions"
+                  class="w-full"
+                />
+              </div>
+            </div>
+            <p class="input-hint">{{ t("admin.groups.limitedTimeMultiplier.startTimeHint") }}</p>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.value") }}</label>
+                <input
+                  v-model.number="createForm.limited_time_multiplier_value"
+                  type="number"
+                  step="0.001"
+                  min="0.001"
+                  class="input"
+                />
+              </div>
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.duration") }}</label>
+                <div class="grid grid-cols-[minmax(0,1fr)_104px] gap-2">
+                  <input
+                    v-model.number="createForm.limited_time_multiplier_duration_value"
+                    type="number"
+                    min="1"
+                    step="1"
+                    class="input"
+                  />
+                  <Select
+                    v-model="createForm.limited_time_multiplier_duration_unit"
+                    :options="limitedTimeDurationUnitOptions"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeRpmLimit") }}</label>
+                <input
+                  v-model.number="createForm.limited_time_rpm_limit"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input"
+                  :placeholder="t('admin.groups.limitedTimeMultiplier.limitedTimeRpmLimitPlaceholder')"
+                />
+                <p class="input-hint">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeRpmLimitHint") }}</p>
+              </div>
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeUserConcurrencyLimit") }}</label>
+                <input
+                  v-model.number="createForm.limited_time_user_concurrency_limit"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input"
+                  :placeholder="t('admin.groups.limitedTimeMultiplier.limitedTimeUserConcurrencyLimitPlaceholder')"
+                />
+                <p class="input-hint">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeUserConcurrencyLimitHint") }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
+            <input
+              v-model.number="createForm.rpm_limit"
+              type="number"
+              min="0"
+              step="1"
+              class="input"
+              :placeholder="t('admin.groups.form.rpmLimitPlaceholder')"
+            />
+            <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t("admin.groups.form.userConcurrencyLimit") }}</label>
+            <input
+              v-model.number="createForm.user_concurrency_limit"
+              type="number"
+              min="0"
+              step="1"
+              class="input"
+              :placeholder="t('admin.groups.form.userConcurrencyLimitPlaceholder')"
+            />
+            <p class="input-hint">{{ t("admin.groups.form.userConcurrencyLimitHint") }}</p>
+          </div>
         </div>
         <div
           v-if="createForm.subscription_type !== 'subscription'"
@@ -1783,17 +1940,159 @@
             data-tour="group-form-multiplier"
           />
         </div>
-        <div>
-          <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
-          <input
-            v-model.number="editForm.rpm_limit"
-            type="number"
-            min="0"
-            step="1"
-            class="input"
-            :placeholder="t('admin.groups.form.rpmLimitPlaceholder')"
-          />
-          <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
+        <div
+          v-if="editForm.subscription_type !== 'subscription'"
+          class="space-y-4 rounded-xl border border-amber-200/80 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-900/10"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t("admin.groups.limitedTimeMultiplier.title") }}
+              </label>
+              <p class="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                {{ t("admin.groups.limitedTimeMultiplier.hint") }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="editForm.limited_time_multiplier_enabled = !editForm.limited_time_multiplier_enabled"
+              :class="[
+                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                editForm.limited_time_multiplier_enabled
+                  ? 'bg-primary-500'
+                  : 'bg-gray-300 dark:bg-dark-600',
+              ]"
+            >
+              <span
+                :class="[
+                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                  editForm.limited_time_multiplier_enabled ? 'translate-x-6' : 'translate-x-1',
+                ]"
+              />
+            </button>
+          </div>
+          <div v-if="editForm.limited_time_multiplier_enabled" class="space-y-4">
+            <div class="space-y-2 rounded-xl border border-gray-200/80 bg-white px-4 py-3 shadow-sm dark:border-dark-600 dark:bg-dark-800">
+              <span class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                {{ t("admin.groups.limitedTimeMultiplier.startTime") }}
+              </span>
+              <div
+                :class="[
+                  'grid gap-2',
+                  editForm.limited_time_multiplier_cron_frequency === 'daily'
+                    ? 'sm:grid-cols-3'
+                    : 'sm:grid-cols-2',
+                ]"
+              >
+                <Select
+                  v-model="editForm.limited_time_multiplier_cron_frequency"
+                  :options="limitedTimeCronFrequencyOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-if="editForm.limited_time_multiplier_cron_frequency === 'weekly'"
+                  v-model="editForm.limited_time_multiplier_cron_weekday"
+                  :options="limitedTimeWeekdayOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-if="editForm.limited_time_multiplier_cron_frequency === 'monthly'"
+                  v-model="editForm.limited_time_multiplier_cron_month_day"
+                  :options="limitedTimeMonthDayOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-model="editForm.limited_time_multiplier_cron_hour"
+                  :options="limitedTimeHourOptions"
+                  class="w-full"
+                />
+                <Select
+                  v-model="editForm.limited_time_multiplier_cron_minute"
+                  :options="limitedTimeMinuteOptions"
+                  class="w-full"
+                />
+              </div>
+            </div>
+            <p class="input-hint">{{ t("admin.groups.limitedTimeMultiplier.startTimeHint") }}</p>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.value") }}</label>
+                <input
+                  v-model.number="editForm.limited_time_multiplier_value"
+                  type="number"
+                  step="0.001"
+                  min="0.001"
+                  class="input"
+                />
+              </div>
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.duration") }}</label>
+                <div class="grid grid-cols-[minmax(0,1fr)_104px] gap-2">
+                  <input
+                    v-model.number="editForm.limited_time_multiplier_duration_value"
+                    type="number"
+                    min="1"
+                    step="1"
+                    class="input"
+                  />
+                  <Select
+                    v-model="editForm.limited_time_multiplier_duration_unit"
+                    :options="limitedTimeDurationUnitOptions"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeRpmLimit") }}</label>
+                <input
+                  v-model.number="editForm.limited_time_rpm_limit"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input"
+                  :placeholder="t('admin.groups.limitedTimeMultiplier.limitedTimeRpmLimitPlaceholder')"
+                />
+                <p class="input-hint">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeRpmLimitHint") }}</p>
+              </div>
+              <div>
+                <label class="input-label">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeUserConcurrencyLimit") }}</label>
+                <input
+                  v-model.number="editForm.limited_time_user_concurrency_limit"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input"
+                  :placeholder="t('admin.groups.limitedTimeMultiplier.limitedTimeUserConcurrencyLimitPlaceholder')"
+                />
+                <p class="input-hint">{{ t("admin.groups.limitedTimeMultiplier.limitedTimeUserConcurrencyLimitHint") }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
+            <input
+              v-model.number="editForm.rpm_limit"
+              type="number"
+              min="0"
+              step="1"
+              class="input"
+              :placeholder="t('admin.groups.form.rpmLimitPlaceholder')"
+            />
+            <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t("admin.groups.form.userConcurrencyLimit") }}</label>
+            <input
+              v-model.number="editForm.user_concurrency_limit"
+              type="number"
+              min="0"
+              step="1"
+              class="input"
+              :placeholder="t('admin.groups.form.userConcurrencyLimitPlaceholder')"
+            />
+            <p class="input-hint">{{ t("admin.groups.form.userConcurrencyLimitHint") }}</p>
+          </div>
         </div>
         <div v-if="editForm.subscription_type !== 'subscription'">
           <div class="mb-1.5 flex items-center gap-1">
@@ -3033,6 +3332,14 @@
       @close="showRPMOverridesModal = false"
       @success="loadGroups"
     />
+
+    <!-- Group Limited-Time RPM Overrides Modal -->
+    <GroupLimitedTimeRPMOverridesModal
+      :show="showLimitedTimeRPMOverridesModal"
+      :group="limitedTimeRPMOverridesGroup"
+      @close="showLimitedTimeRPMOverridesModal = false"
+      @success="loadGroups"
+    />
   </AppLayout>
 </template>
 
@@ -3056,6 +3363,7 @@ import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import Icon from "@/components/icons/Icon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
+import GroupLimitedTimeRPMOverridesModal from "@/components/admin/group/GroupLimitedTimeRPMOverridesModal.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import { VueDraggable } from "vue-draggable-plus";
 import { createStableObjectKeyResolver } from "@/utils/stableObjectKey";
@@ -3082,6 +3390,54 @@ import { normalizeSupportedModelScopesForPlatform } from "./groupsSupportedModel
 const { t } = useI18n();
 const appStore = useAppStore();
 const onboardingStore = useOnboardingStore();
+const now = ref(new Date());
+let limitedTimeMultiplierTimer: ReturnType<typeof setInterval> | null = null;
+
+type LimitedTimeDurationUnit = "minutes" | "hours" | "days";
+type LimitedTimeCronFrequency = "daily" | "weekly" | "monthly";
+
+const limitedTimeDurationUnitOptions = computed(() => [
+  { value: "minutes", label: t("admin.groups.limitedTimeMultiplier.units.minutes") },
+  { value: "hours", label: t("admin.groups.limitedTimeMultiplier.units.hours") },
+  { value: "days", label: t("admin.groups.limitedTimeMultiplier.units.days") },
+]);
+
+const limitedTimeCronFrequencyOptions = computed(() => [
+  { value: "daily", label: t("admin.groups.limitedTimeMultiplier.frequency.daily") },
+  { value: "weekly", label: t("admin.groups.limitedTimeMultiplier.frequency.weekly") },
+  { value: "monthly", label: t("admin.groups.limitedTimeMultiplier.frequency.monthly") },
+]);
+
+const limitedTimeWeekdayOptions = computed(() => [
+  { value: 1, label: t("admin.groups.limitedTimeMultiplier.weekdays.monday") },
+  { value: 2, label: t("admin.groups.limitedTimeMultiplier.weekdays.tuesday") },
+  { value: 3, label: t("admin.groups.limitedTimeMultiplier.weekdays.wednesday") },
+  { value: 4, label: t("admin.groups.limitedTimeMultiplier.weekdays.thursday") },
+  { value: 5, label: t("admin.groups.limitedTimeMultiplier.weekdays.friday") },
+  { value: 6, label: t("admin.groups.limitedTimeMultiplier.weekdays.saturday") },
+  { value: 0, label: t("admin.groups.limitedTimeMultiplier.weekdays.sunday") },
+]);
+
+const limitedTimeMonthDayOptions = computed(() =>
+  Array.from({ length: 31 }, (_, index) => ({
+    value: index + 1,
+    label: t("admin.groups.limitedTimeMultiplier.monthDay", { day: index + 1 }),
+  })),
+);
+
+const limitedTimeHourOptions = computed(() =>
+  Array.from({ length: 24 }, (_, hour) => ({
+    value: hour,
+    label: t("admin.groups.limitedTimeMultiplier.hourOption", { hour }),
+  })),
+);
+
+const limitedTimeMinuteOptions = computed(() =>
+  Array.from({ length: 60 }, (_, minute) => ({
+    value: minute,
+    label: t("admin.groups.limitedTimeMultiplier.minuteOption", { minute }),
+  })),
+);
 
 const columns = computed<Column[]>(() => [
   { key: "name", label: t("admin.groups.columns.name"), sortable: true },
@@ -3308,6 +3664,8 @@ const showRateMultipliersModal = ref(false);
 const rateMultipliersGroup = ref<AdminGroup | null>(null);
 const showRPMOverridesModal = ref(false);
 const rpmOverridesGroup = ref<AdminGroup | null>(null);
+const showLimitedTimeRPMOverridesModal = ref(false);
+const limitedTimeRPMOverridesGroup = ref<AdminGroup | null>(null);
 const sortableGroups = ref<AdminGroup[]>([]);
 const createMessagesDispatchDefaults = createDefaultMessagesDispatchFormState();
 const editMessagesDispatchDefaults = createDefaultMessagesDispatchFormState();
@@ -3328,6 +3686,18 @@ const createForm = reactive({
   description: "",
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  limited_time_multiplier_enabled: false,
+  limited_time_multiplier_cron: "0 9 * * *",
+  limited_time_multiplier_cron_frequency: "daily" as LimitedTimeCronFrequency,
+  limited_time_multiplier_cron_weekday: 1,
+  limited_time_multiplier_cron_month_day: 1,
+  limited_time_multiplier_cron_hour: 9,
+  limited_time_multiplier_cron_minute: 0,
+  limited_time_multiplier_duration_value: 1,
+  limited_time_multiplier_duration_unit: "hours" as LimitedTimeDurationUnit,
+  limited_time_multiplier_value: 0.5,
+  limited_time_rpm_limit: 0 as number,
+  limited_time_user_concurrency_limit: 0 as number,
   is_exclusive: false,
   subscription_type: "standard" as SubscriptionType,
   daily_limit_usd: null as number | null,
@@ -3363,6 +3733,8 @@ const createForm = reactive({
   copy_accounts_from_group_ids: [] as number[],
   // 分组级 RPM 限制（每用户每分钟最大请求数；0 = 不限制）
   rpm_limit: 0 as number,
+  // 分组内每用户最大并发数（0 = 不限制）
+  user_concurrency_limit: 0 as number,
 });
 
 // 简单账号类型（用于模型路由选择）
@@ -3658,6 +4030,18 @@ const editForm = reactive({
   description: "",
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  limited_time_multiplier_enabled: false,
+  limited_time_multiplier_cron: "0 9 * * *",
+  limited_time_multiplier_cron_frequency: "daily" as LimitedTimeCronFrequency,
+  limited_time_multiplier_cron_weekday: 1,
+  limited_time_multiplier_cron_month_day: 1,
+  limited_time_multiplier_cron_hour: 9,
+  limited_time_multiplier_cron_minute: 0,
+  limited_time_multiplier_duration_value: 1,
+  limited_time_multiplier_duration_unit: "hours" as LimitedTimeDurationUnit,
+  limited_time_multiplier_value: 0.5,
+  limited_time_rpm_limit: 0 as number,
+  limited_time_user_concurrency_limit: 0 as number,
   is_exclusive: false,
   status: "active" as "active" | "inactive",
   subscription_type: "standard" as SubscriptionType,
@@ -3695,6 +4079,8 @@ const editForm = reactive({
   copy_accounts_from_group_ids: [] as number[],
   // 分组级 RPM 限制（每用户每分钟最大请求数；0 = 不限制）
   rpm_limit: 0 as number,
+  // 分组内每用户最大并发数（0 = 不限制）
+  user_concurrency_limit: 0 as number,
 });
 
 type ImagePricingFormState = {
@@ -3911,6 +4297,18 @@ const closeCreateModal = () => {
   createForm.description = "";
   createForm.platform = "anthropic";
   createForm.rate_multiplier = 1.0;
+  createForm.limited_time_multiplier_enabled = false;
+  createForm.limited_time_multiplier_cron = "0 9 * * *";
+  createForm.limited_time_multiplier_cron_frequency = "daily";
+  createForm.limited_time_multiplier_cron_weekday = 1;
+  createForm.limited_time_multiplier_cron_month_day = 1;
+  createForm.limited_time_multiplier_cron_hour = 9;
+  createForm.limited_time_multiplier_cron_minute = 0;
+  createForm.limited_time_multiplier_duration_value = 1;
+  createForm.limited_time_multiplier_duration_unit = "hours";
+  createForm.limited_time_multiplier_value = 0.5;
+  createForm.limited_time_rpm_limit = 0;
+  createForm.limited_time_user_concurrency_limit = 0;
   createForm.is_exclusive = false;
   createForm.subscription_type = "standard";
   createForm.daily_limit_usd = null;
@@ -3932,6 +4330,7 @@ const closeCreateModal = () => {
   createForm.mcp_xml_inject = true;
   createForm.copy_accounts_from_group_ids = [];
   createForm.rpm_limit = 0;
+  createForm.user_concurrency_limit = 0;
   resetModelsListState(createModelsListState);
   createModelRoutingRules.value = [];
 };
@@ -3965,6 +4364,158 @@ const normalizeImageRateMultiplier = (
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
 };
 
+const limitedTimeDurationToMinutes = (
+  value: number | string | null | undefined,
+  unit: "minutes" | "hours" | "days",
+): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0;
+  }
+  const whole = Math.floor(parsed);
+  if (unit === "days") return whole * 24 * 60;
+  if (unit === "hours") return whole * 60;
+  return whole;
+};
+
+const durationMinutesToForm = (minutes: number | null | undefined) => {
+  const normalized = Number(minutes || 0);
+  if (normalized > 0 && normalized % (24 * 60) === 0) {
+    return { value: normalized / (24 * 60), unit: "days" as const };
+  }
+  if (normalized > 0 && normalized % 60 === 0) {
+    return { value: normalized / 60, unit: "hours" as const };
+  }
+  return { value: normalized > 0 ? normalized : 1, unit: "minutes" as const };
+};
+
+const parseLimitedTimeCron = (cron: string | null | undefined) => {
+  const parts = String(cron || "").trim().split(/\s+/);
+  if (parts.length !== 5) {
+    return {
+      frequency: "daily" as LimitedTimeCronFrequency,
+      weekday: 1,
+      monthDay: 1,
+      hour: 9,
+      minute: 0,
+    };
+  }
+
+  const [minutePart, hourPart, dayPart, monthPart, weekdayPart] = parts;
+  const minute = Number(minutePart);
+  const hour = Number(hourPart);
+  const isValidMinute = Number.isInteger(minute) && minute >= 0 && minute <= 59;
+  const isValidHour = Number.isInteger(hour) && hour >= 0 && hour <= 23;
+  const base = {
+    hour: isValidHour ? hour : 9,
+    minute: isValidMinute ? minute : 0,
+  };
+
+  if (monthPart === "*" && dayPart === "*" && weekdayPart === "*") {
+    return { frequency: "daily" as LimitedTimeCronFrequency, weekday: 1, monthDay: 1, ...base };
+  }
+
+  const weekday = Number(weekdayPart);
+  if (monthPart === "*" && dayPart === "*" && Number.isInteger(weekday) && weekday >= 0 && weekday <= 6) {
+    return { frequency: "weekly" as LimitedTimeCronFrequency, weekday, monthDay: 1, ...base };
+  }
+
+  const monthDay = Number(dayPart);
+  if (monthPart === "*" && weekdayPart === "*" && Number.isInteger(monthDay) && monthDay >= 1 && monthDay <= 31) {
+    return { frequency: "monthly" as LimitedTimeCronFrequency, weekday: 1, monthDay, ...base };
+  }
+
+  return { frequency: "daily" as LimitedTimeCronFrequency, weekday: 1, monthDay: 1, ...base };
+};
+
+const buildLimitedTimeCron = (form: {
+  limited_time_multiplier_cron_frequency: LimitedTimeCronFrequency;
+  limited_time_multiplier_cron_weekday: number;
+  limited_time_multiplier_cron_month_day: number;
+  limited_time_multiplier_cron_hour: number;
+  limited_time_multiplier_cron_minute: number;
+}) => {
+  const minute = Math.min(59, Math.max(0, Math.floor(Number(form.limited_time_multiplier_cron_minute) || 0)));
+  const hour = Math.min(23, Math.max(0, Math.floor(Number(form.limited_time_multiplier_cron_hour) || 0)));
+  if (form.limited_time_multiplier_cron_frequency === "weekly") {
+    const weekday = Math.min(6, Math.max(0, Math.floor(Number(form.limited_time_multiplier_cron_weekday) || 1)));
+    return `${minute} ${hour} * * ${weekday}`;
+  }
+  if (form.limited_time_multiplier_cron_frequency === "monthly") {
+    const monthDay = Math.min(31, Math.max(1, Math.floor(Number(form.limited_time_multiplier_cron_month_day) || 1)));
+    return `${minute} ${hour} ${monthDay} * *`;
+  }
+  return `${minute} ${hour} * * *`;
+};
+
+const formatTimeOfDay = (hour: number, minute: number) => {
+  const normalizedHour = Math.min(23, Math.max(0, Math.floor(Number(hour) || 0)));
+  const normalizedMinute = Math.min(59, Math.max(0, Math.floor(Number(minute) || 0)));
+  return `${normalizedHour}:${String(normalizedMinute).padStart(2, "0")}`;
+};
+
+const isLimitedTimeMultiplierActive = (group: AdminGroup) => {
+  if (
+    group.subscription_type === "subscription" ||
+    !group.limited_time_multiplier_enabled ||
+    !group.limited_time_multiplier_cron ||
+    !group.limited_time_multiplier_duration_minutes
+  ) {
+    return false;
+  }
+
+  const cron = parseLimitedTimeCron(group.limited_time_multiplier_cron);
+  const durationMinutes = Math.max(0, Math.floor(Number(group.limited_time_multiplier_duration_minutes) || 0));
+  const current = now.value;
+  if (cron.frequency === "weekly" && current.getDay() !== cron.weekday) return false;
+  if (cron.frequency === "monthly" && current.getDate() !== cron.monthDay) return false;
+
+  const startTotalMinutes = cron.hour * 60 + cron.minute;
+  const currentTotalMinutes = current.getHours() * 60 + current.getMinutes();
+  const endTotalMinutes = startTotalMinutes + durationMinutes;
+  if (endTotalMinutes <= 24 * 60) {
+    return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes;
+  }
+  return currentTotalMinutes >= startTotalMinutes || currentTotalMinutes < endTotalMinutes % (24 * 60);
+};
+
+const formatLimitedTimeMultiplierBadge = (group: AdminGroup) => {
+  const cron = parseLimitedTimeCron(group.limited_time_multiplier_cron);
+  const durationMinutes = Math.max(0, Math.floor(Number(group.limited_time_multiplier_duration_minutes) || 0));
+  const startTotalMinutes = cron.hour * 60 + cron.minute;
+  const endTotalMinutes = startTotalMinutes + durationMinutes;
+  const endHour = Math.floor((endTotalMinutes % (24 * 60)) / 60);
+  const endMinute = endTotalMinutes % 60;
+  const timeRange = `${formatTimeOfDay(cron.hour, cron.minute)}-${formatTimeOfDay(endHour, endMinute)}`;
+  let schedule = t("admin.groups.limitedTimeMultiplier.schedule.daily");
+
+  if (cron.frequency === "weekly") {
+    const weekday = limitedTimeWeekdayOptions.value.find((option) => option.value === cron.weekday)?.label;
+    schedule = t("admin.groups.limitedTimeMultiplier.schedule.weekly", { weekday });
+  } else if (cron.frequency === "monthly") {
+    schedule = t("admin.groups.limitedTimeMultiplier.schedule.monthly", { day: cron.monthDay });
+  }
+
+  return t("admin.groups.limitedTimeMultiplier.tableBadge", {
+    value: group.limited_time_multiplier_value,
+    schedule,
+    timeRange,
+    active: isLimitedTimeMultiplierActive(group)
+      ? t("admin.groups.limitedTimeMultiplier.activeBadge")
+      : "",
+  });
+};
+
+const normalizeLimitedTimeMultiplierValue = (value: number | string | null | undefined) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
+const normalizeNonNegativeInt = (value: number | string | null | undefined) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
+};
+
 const handleCreateGroup = async () => {
   if (!createForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
@@ -3983,6 +4534,23 @@ const handleCreateGroup = async () => {
       ),
       monthly_limit_usd: normalizeOptionalLimit(
         createForm.monthly_limit_usd as number | string | null,
+      ),
+      limited_time_multiplier_cron: buildLimitedTimeCron(createForm),
+      limited_time_multiplier_duration_minutes: limitedTimeDurationToMinutes(
+        createForm.limited_time_multiplier_duration_value,
+        createForm.limited_time_multiplier_duration_unit,
+      ),
+      limited_time_multiplier_value: normalizeLimitedTimeMultiplierValue(
+        createForm.limited_time_multiplier_value,
+      ),
+      limited_time_rpm_limit: normalizeNonNegativeInt(
+        createForm.limited_time_rpm_limit,
+      ),
+      limited_time_user_concurrency_limit: normalizeNonNegativeInt(
+        createForm.limited_time_user_concurrency_limit,
+      ),
+      user_concurrency_limit: normalizeNonNegativeInt(
+        createForm.user_concurrency_limit,
       ),
       model_routing: convertRoutingRulesToApiFormat(
         createModelRoutingRules.value,
@@ -4011,6 +4579,14 @@ const handleCreateGroup = async () => {
     requestData.image_rate_multiplier = normalizeImageRateMultiplier(
       requestData.image_rate_multiplier,
     );
+    if (requestData.subscription_type === "subscription") {
+      requestData.limited_time_multiplier_enabled = false;
+      requestData.limited_time_multiplier_cron = "";
+      requestData.limited_time_multiplier_duration_minutes = 0;
+      requestData.limited_time_multiplier_value = 1;
+      requestData.limited_time_rpm_limit = 0;
+      requestData.limited_time_user_concurrency_limit = 0;
+    }
     await adminAPI.groups.create(requestData);
     appStore.showSuccess(t("admin.groups.groupCreated"));
     closeCreateModal();
@@ -4036,6 +4612,20 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.description = group.description || "";
   editForm.platform = group.platform;
   editForm.rate_multiplier = group.rate_multiplier;
+  editForm.limited_time_multiplier_enabled = group.limited_time_multiplier_enabled ?? false;
+  editForm.limited_time_multiplier_cron = group.limited_time_multiplier_cron || "0 9 * * *";
+  const limitedCron = parseLimitedTimeCron(editForm.limited_time_multiplier_cron);
+  editForm.limited_time_multiplier_cron_frequency = limitedCron.frequency;
+  editForm.limited_time_multiplier_cron_weekday = limitedCron.weekday;
+  editForm.limited_time_multiplier_cron_month_day = limitedCron.monthDay;
+  editForm.limited_time_multiplier_cron_hour = limitedCron.hour;
+  editForm.limited_time_multiplier_cron_minute = limitedCron.minute;
+  const limitedDuration = durationMinutesToForm(group.limited_time_multiplier_duration_minutes);
+  editForm.limited_time_multiplier_duration_value = limitedDuration.value;
+  editForm.limited_time_multiplier_duration_unit = limitedDuration.unit;
+  editForm.limited_time_multiplier_value = group.limited_time_multiplier_value || 0.5;
+  editForm.limited_time_rpm_limit = group.limited_time_rpm_limit ?? 0;
+  editForm.limited_time_user_concurrency_limit = group.limited_time_user_concurrency_limit ?? 0;
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
   editForm.subscription_type = group.subscription_type || "standard";
@@ -4074,6 +4664,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.mcp_xml_inject = group.mcp_xml_inject ?? true;
   editForm.copy_accounts_from_group_ids = []; // 复制账号字段每次编辑时重置为空
   editForm.rpm_limit = group.rpm_limit ?? 0;
+  editForm.user_concurrency_limit = group.user_concurrency_limit ?? 0;
   resetModelsListState(editModelsListState, group.models_list_config);
   // 加载模型路由规则（异步加载账号名称）
   editModelRoutingRules.value = await convertApiFormatToRoutingRules(
@@ -4117,6 +4708,23 @@ const handleUpdateGroup = async () => {
       monthly_limit_usd: normalizeOptionalLimit(
         editForm.monthly_limit_usd as number | string | null,
       ),
+      limited_time_multiplier_cron: buildLimitedTimeCron(editForm),
+      limited_time_multiplier_duration_minutes: limitedTimeDurationToMinutes(
+        editForm.limited_time_multiplier_duration_value,
+        editForm.limited_time_multiplier_duration_unit,
+      ),
+      limited_time_multiplier_value: normalizeLimitedTimeMultiplierValue(
+        editForm.limited_time_multiplier_value,
+      ),
+      limited_time_rpm_limit: normalizeNonNegativeInt(
+        editForm.limited_time_rpm_limit,
+      ),
+      limited_time_user_concurrency_limit: normalizeNonNegativeInt(
+        editForm.limited_time_user_concurrency_limit,
+      ),
+      user_concurrency_limit: normalizeNonNegativeInt(
+        editForm.user_concurrency_limit,
+      ),
       fallback_group_id:
         editForm.fallback_group_id === null ? 0 : editForm.fallback_group_id,
       fallback_group_id_on_invalid_request:
@@ -4150,6 +4758,14 @@ const handleUpdateGroup = async () => {
     payload.image_rate_multiplier = normalizeImageRateMultiplier(
       payload.image_rate_multiplier,
     );
+    if (payload.subscription_type === "subscription") {
+      payload.limited_time_multiplier_enabled = false;
+      payload.limited_time_multiplier_cron = "";
+      payload.limited_time_multiplier_duration_minutes = 0;
+      payload.limited_time_multiplier_value = 1;
+      payload.limited_time_rpm_limit = 0;
+      payload.limited_time_user_concurrency_limit = 0;
+    }
     await adminAPI.groups.update(editingGroup.value.id, payload);
     appStore.showSuccess(t("admin.groups.groupUpdated"));
     closeEditModal();
@@ -4196,6 +4812,11 @@ const handleRateMultipliers = (group: AdminGroup) => {
 const handleRPMOverrides = (group: AdminGroup) => {
   rpmOverridesGroup.value = group;
   showRPMOverridesModal.value = true;
+};
+
+const handleLimitedTimeRPMOverrides = (group: AdminGroup) => {
+  limitedTimeRPMOverridesGroup.value = group;
+  showLimitedTimeRPMOverridesModal.value = true;
 };
 
 const handleDelete = (group: AdminGroup) => {
@@ -4341,10 +4962,14 @@ onMounted(() => {
   loadGroups();
   loadModelsListCandidates("create", 0, createForm.platform);
   document.addEventListener("click", handleClickOutside);
+  limitedTimeMultiplierTimer = setInterval(() => {
+    now.value = new Date();
+  }, 60000);
 });
 
 onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside);
+  if (limitedTimeMultiplierTimer) clearInterval(limitedTimeMultiplierTimer);
   accountSearchRunner.clearAll();
   clearAllAccountSearchState();
 });

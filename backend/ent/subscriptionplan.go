@@ -37,6 +37,22 @@ type SubscriptionPlan struct {
 	ProductName string `json:"product_name,omitempty"`
 	// ForSale holds the value of the "for_sale" field.
 	ForSale bool `json:"for_sale,omitempty"`
+	// ListedAt holds the value of the "listed_at" field.
+	ListedAt *time.Time `json:"listed_at,omitempty"`
+	// OffSaleAt holds the value of the "off_sale_at" field.
+	OffSaleAt *time.Time `json:"off_sale_at,omitempty"`
+	// NewUserOnly holds the value of the "new_user_only" field.
+	NewUserOnly bool `json:"new_user_only,omitempty"`
+	// PurchaseLimitCount holds the value of the "purchase_limit_count" field.
+	PurchaseLimitCount int `json:"purchase_limit_count,omitempty"`
+	// IPPurchaseLimitCount holds the value of the "ip_purchase_limit_count" field.
+	IPPurchaseLimitCount int `json:"ip_purchase_limit_count,omitempty"`
+	// StockCount holds the value of the "stock_count" field.
+	StockCount int `json:"stock_count,omitempty"`
+	// FirstPurchaseDiscountEnabled holds the value of the "first_purchase_discount_enabled" field.
+	FirstPurchaseDiscountEnabled bool `json:"first_purchase_discount_enabled,omitempty"`
+	// FirstPurchaseDiscountPrice holds the value of the "first_purchase_discount_price" field.
+	FirstPurchaseDiscountPrice *float64 `json:"first_purchase_discount_price,omitempty"`
 	// SortOrder holds the value of the "sort_order" field.
 	SortOrder int `json:"sort_order,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -51,15 +67,15 @@ func (*SubscriptionPlan) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case subscriptionplan.FieldForSale:
+		case subscriptionplan.FieldForSale, subscriptionplan.FieldNewUserOnly, subscriptionplan.FieldFirstPurchaseDiscountEnabled:
 			values[i] = new(sql.NullBool)
-		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice:
+		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice, subscriptionplan.FieldFirstPurchaseDiscountPrice:
 			values[i] = new(sql.NullFloat64)
-		case subscriptionplan.FieldID, subscriptionplan.FieldGroupID, subscriptionplan.FieldValidityDays, subscriptionplan.FieldSortOrder:
+		case subscriptionplan.FieldID, subscriptionplan.FieldGroupID, subscriptionplan.FieldValidityDays, subscriptionplan.FieldPurchaseLimitCount, subscriptionplan.FieldIPPurchaseLimitCount, subscriptionplan.FieldStockCount, subscriptionplan.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
 		case subscriptionplan.FieldName, subscriptionplan.FieldDescription, subscriptionplan.FieldValidityUnit, subscriptionplan.FieldFeatures, subscriptionplan.FieldProductName:
 			values[i] = new(sql.NullString)
-		case subscriptionplan.FieldCreatedAt, subscriptionplan.FieldUpdatedAt:
+		case subscriptionplan.FieldListedAt, subscriptionplan.FieldOffSaleAt, subscriptionplan.FieldCreatedAt, subscriptionplan.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -142,6 +158,57 @@ func (_m *SubscriptionPlan) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field for_sale", values[i])
 			} else if value.Valid {
 				_m.ForSale = value.Bool
+			}
+		case subscriptionplan.FieldListedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field listed_at", values[i])
+			} else if value.Valid {
+				_m.ListedAt = new(time.Time)
+				*_m.ListedAt = value.Time
+			}
+		case subscriptionplan.FieldOffSaleAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field off_sale_at", values[i])
+			} else if value.Valid {
+				_m.OffSaleAt = new(time.Time)
+				*_m.OffSaleAt = value.Time
+			}
+		case subscriptionplan.FieldNewUserOnly:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field new_user_only", values[i])
+			} else if value.Valid {
+				_m.NewUserOnly = value.Bool
+			}
+		case subscriptionplan.FieldPurchaseLimitCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field purchase_limit_count", values[i])
+			} else if value.Valid {
+				_m.PurchaseLimitCount = int(value.Int64)
+			}
+		case subscriptionplan.FieldIPPurchaseLimitCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field ip_purchase_limit_count", values[i])
+			} else if value.Valid {
+				_m.IPPurchaseLimitCount = int(value.Int64)
+			}
+		case subscriptionplan.FieldStockCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field stock_count", values[i])
+			} else if value.Valid {
+				_m.StockCount = int(value.Int64)
+			}
+		case subscriptionplan.FieldFirstPurchaseDiscountEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field first_purchase_discount_enabled", values[i])
+			} else if value.Valid {
+				_m.FirstPurchaseDiscountEnabled = value.Bool
+			}
+		case subscriptionplan.FieldFirstPurchaseDiscountPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field first_purchase_discount_price", values[i])
+			} else if value.Valid {
+				_m.FirstPurchaseDiscountPrice = new(float64)
+				*_m.FirstPurchaseDiscountPrice = value.Float64
 			}
 		case subscriptionplan.FieldSortOrder:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -228,6 +295,36 @@ func (_m *SubscriptionPlan) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("for_sale=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ForSale))
+	builder.WriteString(", ")
+	if v := _m.ListedAt; v != nil {
+		builder.WriteString("listed_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.OffSaleAt; v != nil {
+		builder.WriteString("off_sale_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("new_user_only=")
+	builder.WriteString(fmt.Sprintf("%v", _m.NewUserOnly))
+	builder.WriteString(", ")
+	builder.WriteString("purchase_limit_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PurchaseLimitCount))
+	builder.WriteString(", ")
+	builder.WriteString("ip_purchase_limit_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IPPurchaseLimitCount))
+	builder.WriteString(", ")
+	builder.WriteString("stock_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.StockCount))
+	builder.WriteString(", ")
+	builder.WriteString("first_purchase_discount_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.FirstPurchaseDiscountEnabled))
+	builder.WriteString(", ")
+	if v := _m.FirstPurchaseDiscountPrice; v != nil {
+		builder.WriteString("first_purchase_discount_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("sort_order=")
 	builder.WriteString(fmt.Sprintf("%v", _m.SortOrder))

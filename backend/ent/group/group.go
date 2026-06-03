@@ -28,6 +28,18 @@ const (
 	FieldDescription = "description"
 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
 	FieldRateMultiplier = "rate_multiplier"
+	// FieldLimitedTimeMultiplierEnabled holds the string denoting the limited_time_multiplier_enabled field in the database.
+	FieldLimitedTimeMultiplierEnabled = "limited_time_multiplier_enabled"
+	// FieldLimitedTimeMultiplierCron holds the string denoting the limited_time_multiplier_cron field in the database.
+	FieldLimitedTimeMultiplierCron = "limited_time_multiplier_cron"
+	// FieldLimitedTimeMultiplierDurationMinutes holds the string denoting the limited_time_multiplier_duration_minutes field in the database.
+	FieldLimitedTimeMultiplierDurationMinutes = "limited_time_multiplier_duration_minutes"
+	// FieldLimitedTimeMultiplierValue holds the string denoting the limited_time_multiplier_value field in the database.
+	FieldLimitedTimeMultiplierValue = "limited_time_multiplier_value"
+	// FieldLimitedTimeRpmLimit holds the string denoting the limited_time_rpm_limit field in the database.
+	FieldLimitedTimeRpmLimit = "limited_time_rpm_limit"
+	// FieldLimitedTimeUserConcurrencyLimit holds the string denoting the limited_time_user_concurrency_limit field in the database.
+	FieldLimitedTimeUserConcurrencyLimit = "limited_time_user_concurrency_limit"
 	// FieldIsExclusive holds the string denoting the is_exclusive field in the database.
 	FieldIsExclusive = "is_exclusive"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -86,6 +98,8 @@ const (
 	FieldModelsListConfig = "models_list_config"
 	// FieldRpmLimit holds the string denoting the rpm_limit field in the database.
 	FieldRpmLimit = "rpm_limit"
+	// FieldUserConcurrencyLimit holds the string denoting the user_concurrency_limit field in the database.
+	FieldUserConcurrencyLimit = "user_concurrency_limit"
 	// EdgeAPIKeys holds the string denoting the api_keys edge name in mutations.
 	EdgeAPIKeys = "api_keys"
 	// EdgeRedeemCodes holds the string denoting the redeem_codes edge name in mutations.
@@ -167,6 +181,12 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldRateMultiplier,
+	FieldLimitedTimeMultiplierEnabled,
+	FieldLimitedTimeMultiplierCron,
+	FieldLimitedTimeMultiplierDurationMinutes,
+	FieldLimitedTimeMultiplierValue,
+	FieldLimitedTimeRpmLimit,
+	FieldLimitedTimeUserConcurrencyLimit,
 	FieldIsExclusive,
 	FieldStatus,
 	FieldPlatform,
@@ -196,6 +216,7 @@ var Columns = []string{
 	FieldMessagesDispatchModelConfig,
 	FieldModelsListConfig,
 	FieldRpmLimit,
+	FieldUserConcurrencyLimit,
 }
 
 var (
@@ -235,6 +256,20 @@ var (
 	NameValidator func(string) error
 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
 	DefaultRateMultiplier float64
+	// DefaultLimitedTimeMultiplierEnabled holds the default value on creation for the "limited_time_multiplier_enabled" field.
+	DefaultLimitedTimeMultiplierEnabled bool
+	// DefaultLimitedTimeMultiplierCron holds the default value on creation for the "limited_time_multiplier_cron" field.
+	DefaultLimitedTimeMultiplierCron string
+	// LimitedTimeMultiplierCronValidator is a validator for the "limited_time_multiplier_cron" field. It is called by the builders before save.
+	LimitedTimeMultiplierCronValidator func(string) error
+	// DefaultLimitedTimeMultiplierDurationMinutes holds the default value on creation for the "limited_time_multiplier_duration_minutes" field.
+	DefaultLimitedTimeMultiplierDurationMinutes int
+	// DefaultLimitedTimeMultiplierValue holds the default value on creation for the "limited_time_multiplier_value" field.
+	DefaultLimitedTimeMultiplierValue float64
+	// DefaultLimitedTimeRpmLimit holds the default value on creation for the "limited_time_rpm_limit" field.
+	DefaultLimitedTimeRpmLimit int
+	// DefaultLimitedTimeUserConcurrencyLimit holds the default value on creation for the "limited_time_user_concurrency_limit" field.
+	DefaultLimitedTimeUserConcurrencyLimit int
 	// DefaultIsExclusive holds the default value on creation for the "is_exclusive" field.
 	DefaultIsExclusive bool
 	// DefaultStatus holds the default value on creation for the "status" field.
@@ -283,6 +318,8 @@ var (
 	DefaultModelsListConfig domain.GroupModelsListConfig
 	// DefaultRpmLimit holds the default value on creation for the "rpm_limit" field.
 	DefaultRpmLimit int
+	// DefaultUserConcurrencyLimit holds the default value on creation for the "user_concurrency_limit" field.
+	DefaultUserConcurrencyLimit int
 )
 
 // OrderOption defines the ordering options for the Group queries.
@@ -321,6 +358,36 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByRateMultiplier orders the results by the rate_multiplier field.
 func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateMultiplier, opts...).ToFunc()
+}
+
+// ByLimitedTimeMultiplierEnabled orders the results by the limited_time_multiplier_enabled field.
+func ByLimitedTimeMultiplierEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLimitedTimeMultiplierEnabled, opts...).ToFunc()
+}
+
+// ByLimitedTimeMultiplierCron orders the results by the limited_time_multiplier_cron field.
+func ByLimitedTimeMultiplierCron(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLimitedTimeMultiplierCron, opts...).ToFunc()
+}
+
+// ByLimitedTimeMultiplierDurationMinutes orders the results by the limited_time_multiplier_duration_minutes field.
+func ByLimitedTimeMultiplierDurationMinutes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLimitedTimeMultiplierDurationMinutes, opts...).ToFunc()
+}
+
+// ByLimitedTimeMultiplierValue orders the results by the limited_time_multiplier_value field.
+func ByLimitedTimeMultiplierValue(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLimitedTimeMultiplierValue, opts...).ToFunc()
+}
+
+// ByLimitedTimeRpmLimit orders the results by the limited_time_rpm_limit field.
+func ByLimitedTimeRpmLimit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLimitedTimeRpmLimit, opts...).ToFunc()
+}
+
+// ByLimitedTimeUserConcurrencyLimit orders the results by the limited_time_user_concurrency_limit field.
+func ByLimitedTimeUserConcurrencyLimit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLimitedTimeUserConcurrencyLimit, opts...).ToFunc()
 }
 
 // ByIsExclusive orders the results by the is_exclusive field.
@@ -446,6 +513,11 @@ func ByDefaultMappedModel(opts ...sql.OrderTermOption) OrderOption {
 // ByRpmLimit orders the results by the rpm_limit field.
 func ByRpmLimit(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRpmLimit, opts...).ToFunc()
+}
+
+// ByUserConcurrencyLimit orders the results by the user_concurrency_limit field.
+func ByUserConcurrencyLimit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUserConcurrencyLimit, opts...).ToFunc()
 }
 
 // ByAPIKeysCount orders the results by api_keys count.

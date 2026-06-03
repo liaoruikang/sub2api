@@ -25,7 +25,6 @@
             class="w-36"
             @change="loadCodes"
           />
-
           <!-- Right: Action buttons -->
           <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
             <button
@@ -1111,7 +1110,9 @@ const confirmDelete = async () => {
 const confirmDeleteUnused = async () => {
   try {
     // Get all unused codes and delete them
-    const unusedCodesResponse = await adminAPI.redeem.list(1, 1000, { status: 'unused' })
+    const unusedCodesResponse = await adminAPI.redeem.list(1, 1000, {
+      status: 'unused'
+    })
     const unusedCodeIds = unusedCodesResponse.items.map((code) => code.id)
 
     if (unusedCodeIds.length === 0) {

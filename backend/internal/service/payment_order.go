@@ -51,11 +51,18 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if s.notificationEmailService != nil {
 		s.notificationEmailService.RememberRecipientLocale(ctx, req.UserID, user.Email, req.Locale)
 	}
+	if err := validatePlanNewUserEligibility(user, plan); err != nil {
+		return nil, err
+	}
 	orderAmount := req.Amount
 	limitAmount := req.Amount
 	if plan != nil {
-		orderAmount = plan.Price
-		limitAmount = plan.Price
+		pricing, pricingErr := s.resolveSubscriptionOrderPricing(ctx, req.UserID, req.ClientIP, plan)
+		if pricingErr != nil {
+			return nil, pricingErr
+		}
+		orderAmount = pricing.EffectiveAmount
+		limitAmount = pricing.LimitAmount
 	} else if req.OrderType == payment.OrderTypeBalance {
 		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
@@ -134,7 +141,7 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 		return nil, infraerrors.BadRequest("INVALID_INPUT", "subscription order requires a plan")
 	}
 	plan, err := s.configService.GetPlan(ctx, req.PlanID)
-	if err != nil || !plan.ForSale {
+	if err != nil || !IsSubscriptionPlanCurrentlyForSale(plan) {
 		return nil, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
 	}
 	group, err := s.groupRepo.GetByID(ctx, plan.GroupID)
@@ -342,6 +349,101 @@ func (s *PaymentService) checkDailyLimit(ctx context.Context, tx *dbent.Tx, user
 			WithMetadata(map[string]string{"remaining": fmt.Sprintf("%.2f", math.Max(0, limit-used))})
 	}
 	return nil
+}
+
+func validatePlanNewUserEligibility(user *User, plan *dbent.SubscriptionPlan) error {
+	if user == nil || plan == nil || !plan.NewUserOnly {
+		return nil
+	}
+	listedAt := plan.CreatedAt
+	if plan.ListedAt != nil {
+		listedAt = *plan.ListedAt
+	}
+	if user.CreatedAt.Before(listedAt) {
+		return infraerrors.Forbidden("PLAN_NEW_USER_ONLY", "plan is only available to new users").
+			WithMetadata(map[string]string{"listed_at": listedAt.Format(time.RFC3339)})
+	}
+	return nil
+}
+
+func (s *PaymentService) resolveSubscriptionOrderPricing(ctx context.Context, userID int64, clientIP string, plan *dbent.SubscriptionPlan) (*subscriptionOrderPricing, error) {
+	if plan == nil {
+		return nil, nil
+	}
+	pricing := &subscriptionOrderPricing{
+		EffectiveAmount: plan.Price,
+		LimitAmount:     plan.Price,
+	}
+	count, err := s.countSuccessfulPlanPurchases(ctx, userID, plan.ID)
+	if err != nil {
+		return nil, err
+	}
+	if plan.PurchaseLimitCount > 0 && count >= plan.PurchaseLimitCount {
+		return nil, infraerrors.TooManyRequests("PLAN_PURCHASE_LIMIT_REACHED", "plan purchase limit reached").
+			WithMetadata(map[string]string{"purchase_limit_count": strconv.Itoa(plan.PurchaseLimitCount)})
+	}
+	if plan.IPPurchaseLimitCount > 0 && strings.TrimSpace(clientIP) != "" {
+		ipCount, err := s.countSuccessfulPlanPurchasesByIP(ctx, plan.ID, clientIP)
+		if err != nil {
+			return nil, err
+		}
+		if ipCount >= plan.IPPurchaseLimitCount {
+			return nil, infraerrors.TooManyRequests("PLAN_IP_PURCHASE_LIMIT_REACHED", "plan IP purchase limit reached").
+				WithMetadata(map[string]string{"ip_purchase_limit_count": strconv.Itoa(plan.IPPurchaseLimitCount)})
+		}
+	}
+	if plan.StockCount <= 0 {
+		return nil, infraerrors.TooManyRequests("PLAN_OUT_OF_STOCK", "plan is out of stock").
+			WithMetadata(map[string]string{"stock_count": strconv.Itoa(plan.StockCount)})
+	}
+	if plan.FirstPurchaseDiscountEnabled && count == 0 && plan.FirstPurchaseDiscountPrice != nil && *plan.FirstPurchaseDiscountPrice > 0 {
+		pricing.EffectiveAmount = *plan.FirstPurchaseDiscountPrice
+		pricing.LimitAmount = *plan.FirstPurchaseDiscountPrice
+	}
+	return pricing, nil
+}
+
+func (s *PaymentService) CountSuccessfulPlanPurchases(ctx context.Context, userID, planID int64) (int, error) {
+	return s.countSuccessfulPlanPurchases(ctx, userID, planID)
+}
+
+func (s *PaymentService) CountSuccessfulPlanPurchasesByIP(ctx context.Context, planID int64, clientIP string) (int, error) {
+	return s.countSuccessfulPlanPurchasesByIP(ctx, planID, clientIP)
+}
+
+func (s *PaymentService) countSuccessfulPlanPurchases(ctx context.Context, userID, planID int64) (int, error) {
+	return s.entClient.PaymentOrder.Query().Where(
+		paymentorder.UserIDEQ(userID),
+		paymentorder.PlanIDEQ(planID),
+		paymentorder.PaidAtNotNil(),
+		paymentorder.StatusNotIn(OrderStatusRefundRequested, OrderStatusRefunding, OrderStatusPartiallyRefunded, OrderStatusRefunded, OrderStatusRefundFailed),
+	).Count(ctx)
+}
+
+func (s *PaymentService) countSuccessfulPlanPurchasesByIP(ctx context.Context, planID int64, clientIP string) (int, error) {
+	clientIP = strings.TrimSpace(clientIP)
+	if clientIP == "" {
+		return 0, nil
+	}
+	return s.entClient.PaymentOrder.Query().Where(
+		paymentorder.PlanIDEQ(planID),
+		paymentorder.ClientIPEQ(clientIP),
+		paymentorder.PaidAtNotNil(),
+		paymentorder.StatusNotIn(OrderStatusRefundRequested, OrderStatusRefunding, OrderStatusPartiallyRefunded, OrderStatusRefunded, OrderStatusRefundFailed),
+	).Count(ctx)
+}
+
+func (s *PaymentService) countSuccessfulPlanPurchasesByPlan(ctx context.Context, planID int64) (int, error) {
+	return s.entClient.PaymentOrder.Query().Where(
+		paymentorder.PlanIDEQ(planID),
+		paymentorder.PaidAtNotNil(),
+		paymentorder.StatusNotIn(OrderStatusRefundRequested, OrderStatusRefunding, OrderStatusPartiallyRefunded, OrderStatusRefunded, OrderStatusRefundFailed),
+	).Count(ctx)
+}
+
+type subscriptionOrderPricing struct {
+	EffectiveAmount float64
+	LimitAmount     float64
 }
 
 func (s *PaymentService) selectCreateOrderInstance(ctx context.Context, req CreateOrderRequest, cfg *PaymentConfig, payAmount float64) (*payment.InstanceSelection, error) {

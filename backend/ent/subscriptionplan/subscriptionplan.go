@@ -33,6 +33,22 @@ const (
 	FieldProductName = "product_name"
 	// FieldForSale holds the string denoting the for_sale field in the database.
 	FieldForSale = "for_sale"
+	// FieldListedAt holds the string denoting the listed_at field in the database.
+	FieldListedAt = "listed_at"
+	// FieldOffSaleAt holds the string denoting the off_sale_at field in the database.
+	FieldOffSaleAt = "off_sale_at"
+	// FieldNewUserOnly holds the string denoting the new_user_only field in the database.
+	FieldNewUserOnly = "new_user_only"
+	// FieldPurchaseLimitCount holds the string denoting the purchase_limit_count field in the database.
+	FieldPurchaseLimitCount = "purchase_limit_count"
+	// FieldIPPurchaseLimitCount holds the string denoting the ip_purchase_limit_count field in the database.
+	FieldIPPurchaseLimitCount = "ip_purchase_limit_count"
+	// FieldStockCount holds the string denoting the stock_count field in the database.
+	FieldStockCount = "stock_count"
+	// FieldFirstPurchaseDiscountEnabled holds the string denoting the first_purchase_discount_enabled field in the database.
+	FieldFirstPurchaseDiscountEnabled = "first_purchase_discount_enabled"
+	// FieldFirstPurchaseDiscountPrice holds the string denoting the first_purchase_discount_price field in the database.
+	FieldFirstPurchaseDiscountPrice = "first_purchase_discount_price"
 	// FieldSortOrder holds the string denoting the sort_order field in the database.
 	FieldSortOrder = "sort_order"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -56,6 +72,14 @@ var Columns = []string{
 	FieldFeatures,
 	FieldProductName,
 	FieldForSale,
+	FieldListedAt,
+	FieldOffSaleAt,
+	FieldNewUserOnly,
+	FieldPurchaseLimitCount,
+	FieldIPPurchaseLimitCount,
+	FieldStockCount,
+	FieldFirstPurchaseDiscountEnabled,
+	FieldFirstPurchaseDiscountPrice,
 	FieldSortOrder,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -90,6 +114,16 @@ var (
 	ProductNameValidator func(string) error
 	// DefaultForSale holds the default value on creation for the "for_sale" field.
 	DefaultForSale bool
+	// DefaultNewUserOnly holds the default value on creation for the "new_user_only" field.
+	DefaultNewUserOnly bool
+	// DefaultPurchaseLimitCount holds the default value on creation for the "purchase_limit_count" field.
+	DefaultPurchaseLimitCount int
+	// DefaultIPPurchaseLimitCount holds the default value on creation for the "ip_purchase_limit_count" field.
+	DefaultIPPurchaseLimitCount int
+	// DefaultStockCount holds the default value on creation for the "stock_count" field.
+	DefaultStockCount int
+	// DefaultFirstPurchaseDiscountEnabled holds the default value on creation for the "first_purchase_discount_enabled" field.
+	DefaultFirstPurchaseDiscountEnabled bool
 	// DefaultSortOrder holds the default value on creation for the "sort_order" field.
 	DefaultSortOrder int
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -156,6 +190,46 @@ func ByProductName(opts ...sql.OrderTermOption) OrderOption {
 // ByForSale orders the results by the for_sale field.
 func ByForSale(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldForSale, opts...).ToFunc()
+}
+
+// ByListedAt orders the results by the listed_at field.
+func ByListedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldListedAt, opts...).ToFunc()
+}
+
+// ByOffSaleAt orders the results by the off_sale_at field.
+func ByOffSaleAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOffSaleAt, opts...).ToFunc()
+}
+
+// ByNewUserOnly orders the results by the new_user_only field.
+func ByNewUserOnly(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNewUserOnly, opts...).ToFunc()
+}
+
+// ByPurchaseLimitCount orders the results by the purchase_limit_count field.
+func ByPurchaseLimitCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPurchaseLimitCount, opts...).ToFunc()
+}
+
+// ByIPPurchaseLimitCount orders the results by the ip_purchase_limit_count field.
+func ByIPPurchaseLimitCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIPPurchaseLimitCount, opts...).ToFunc()
+}
+
+// ByStockCount orders the results by the stock_count field.
+func ByStockCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStockCount, opts...).ToFunc()
+}
+
+// ByFirstPurchaseDiscountEnabled orders the results by the first_purchase_discount_enabled field.
+func ByFirstPurchaseDiscountEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFirstPurchaseDiscountEnabled, opts...).ToFunc()
+}
+
+// ByFirstPurchaseDiscountPrice orders the results by the first_purchase_discount_price field.
+func ByFirstPurchaseDiscountPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFirstPurchaseDiscountPrice, opts...).ToFunc()
 }
 
 // BySortOrder orders the results by the sort_order field.

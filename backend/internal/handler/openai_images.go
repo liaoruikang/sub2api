@@ -115,6 +115,14 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	routingStart := time.Now()
 
+	groupUserReleaseFunc, groupAcquired := h.acquireResponsesGroupUserSlot(c, apiKey.Group, subject.UserID, parsed.Stream, &streamStarted, reqLog)
+	if !groupAcquired {
+		return
+	}
+	if groupUserReleaseFunc != nil {
+		defer groupUserReleaseFunc()
+	}
+
 	userReleaseFunc, acquired := h.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, parsed.Stream, &streamStarted, reqLog)
 	if !acquired {
 		return

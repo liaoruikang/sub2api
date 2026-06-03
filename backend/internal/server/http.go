@@ -45,17 +45,12 @@ func ProvideRouter(
 
 	r := gin.New()
 	r.Use(middleware2.Recovery())
-	if len(cfg.Server.TrustedProxies) > 0 {
-		if err := r.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
-			log.Printf("Failed to set trusted proxies: %v", err)
-		}
-	} else {
-		if err := r.SetTrustedProxies(nil); err != nil {
-			log.Printf("Failed to disable trusted proxies: %v", err)
-		}
-		if cfg.Server.Mode == "release" {
-			log.Printf("Warning: server.trusted_proxies is empty in release mode; client IP trust chain is disabled")
-		}
+	trustedProxies := append([]string{"127.0.0.1", "::1"}, cfg.Server.TrustedProxies...)
+	if err := r.SetTrustedProxies(trustedProxies); err != nil {
+		log.Printf("Failed to set trusted proxies: %v", err)
+	}
+	if len(cfg.Server.TrustedProxies) == 0 && cfg.Server.Mode == "release" {
+		log.Printf("Warning: server.trusted_proxies is empty in release mode; using loopback as trusted proxy only")
 	}
 
 	// Wire up websearch Manager builder so it initializes on startup and rebuilds on config save.
