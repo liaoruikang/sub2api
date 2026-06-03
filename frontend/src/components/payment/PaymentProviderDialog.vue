@@ -334,7 +334,7 @@ const emit = defineEmits<{
   }]
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 interface PaymentGuideItem {
   title: string
@@ -404,12 +404,13 @@ const paymentModeOptions = computed(() => {
 
 const availableTypes = computed(() => {
   const base = getAvailableTypes(form.provider_key, props.allPaymentTypes, props.redirectLabel)
-  // Resolve i18n labels for types not in allPaymentTypes (e.g. card, link inside stripe)
-  return base.map(opt =>
-    opt.label === opt.value
-      ? { ...opt, label: t(`payment.methods.${opt.value}`, opt.value) }
-      : opt,
-  )
+  return base.map(opt => {
+    const labelKey = `payment.methods.${opt.value}`
+    return {
+      ...opt,
+      label: te(labelKey) ? t(labelKey) : (opt.label || opt.value),
+    }
+  })
 })
 
 const resolvedFields = computed(() => {

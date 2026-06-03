@@ -95,7 +95,13 @@ func (e *EasyPay) apiBase() string {
 func (e *EasyPay) Name() string        { return "EasyPay" }
 func (e *EasyPay) ProviderKey() string { return payment.TypeEasyPay }
 func (e *EasyPay) SupportedTypes() []payment.PaymentType {
-	return []payment.PaymentType{payment.TypeAlipay, payment.TypeWxpay}
+	return []payment.PaymentType{
+		payment.TypeAlipay,
+		payment.TypeWxpay,
+		payment.TypeCreditCard,
+		payment.TypeCrypto,
+		payment.TypePayNow,
+	}
 }
 
 func (e *EasyPay) MerchantIdentityMetadata() map[string]string {
@@ -176,6 +182,7 @@ func (e *EasyPay) createAPIPayment(ctx context.Context, req payment.CreatePaymen
 		PayURL  string `json:"payurl"`
 		PayURL2 string `json:"payurl2"` // H5 mobile payment URL
 		QRCode  string `json:"qrcode"`
+		Img     string `json:"img"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("easypay parse: %w", err)
@@ -187,7 +194,11 @@ func (e *EasyPay) createAPIPayment(ctx context.Context, req payment.CreatePaymen
 	if req.IsMobile && resp.PayURL2 != "" {
 		payURL = resp.PayURL2
 	}
-	return &payment.CreatePaymentResponse{TradeNo: resp.TradeNo, PayURL: payURL, QRCode: resp.QRCode}, nil
+	qrCode := resp.QRCode
+	if qrCode == "" {
+		qrCode = resp.Img
+	}
+	return &payment.CreatePaymentResponse{TradeNo: resp.TradeNo, PayURL: payURL, QRCode: qrCode}, nil
 }
 
 // resolveURLs returns (notifyURL, returnURL) preferring request values,

@@ -14,6 +14,9 @@ describe('normalizePaymentMethodForDisplay', () => {
 
   it('leaves non-aliased methods untouched', () => {
     expect(normalizePaymentMethodForDisplay('stripe')).toBe('stripe')
+    expect(normalizePaymentMethodForDisplay('creditcard')).toBe('creditcard')
+    expect(normalizePaymentMethodForDisplay('crypto')).toBe('crypto')
+    expect(normalizePaymentMethodForDisplay('paynow')).toBe('paynow')
   })
 })
 

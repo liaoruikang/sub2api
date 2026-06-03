@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PAYMENT_CURRENCY_OPTIONS, PROVIDER_CONFIG_FIELDS } from '@/components/payment/providerConfig'
+import { METHOD_ORDER, PAYMENT_CURRENCY_OPTIONS, PROVIDER_CONFIG_FIELDS, PROVIDER_SUPPORTED_TYPES } from '@/components/payment/providerConfig'
 
 function findField(providerKey: string, key: string) {
   const fields = PROVIDER_CONFIG_FIELDS[providerKey] || []
@@ -48,5 +48,33 @@ describe('PROVIDER_CONFIG_FIELDS.stripe', () => {
     expect(currency?.defaultValue).toBe('CNY')
     expect(currency?.hintKey).toBe('admin.settings.payment.field_paymentCurrencyHint')
     expect(currency?.options).toBe(PAYMENT_CURRENCY_OPTIONS)
+  })
+})
+
+describe('PROVIDER_SUPPORTED_TYPES.easypay', () => {
+  it('includes Kyren EasyPay international payment types after domestic methods', () => {
+    expect(PROVIDER_SUPPORTED_TYPES.easypay).toEqual([
+      'alipay',
+      'wxpay',
+      'creditcard',
+      'crypto',
+      'paynow',
+    ])
+  })
+})
+
+describe('METHOD_ORDER', () => {
+  it('places international EasyPay methods before domestic and provider-level methods', () => {
+    expect([...METHOD_ORDER]).toEqual([
+      'creditcard',
+      'crypto',
+      'paynow',
+      'alipay',
+      'alipay_direct',
+      'wxpay',
+      'wxpay_direct',
+      'stripe',
+      'airwallex',
+    ])
   })
 })

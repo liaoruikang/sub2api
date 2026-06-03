@@ -17,6 +17,9 @@ const (
 	TypeCard         PaymentType = "card"
 	TypeLink         PaymentType = "link"
 	TypeEasyPay      PaymentType = "easypay"
+	TypeCreditCard   PaymentType = "creditcard"
+	TypeCrypto       PaymentType = "crypto"
+	TypePayNow       PaymentType = "paynow"
 	TypeAirwallex    PaymentType = "airwallex"
 )
 

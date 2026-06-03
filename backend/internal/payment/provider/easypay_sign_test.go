@@ -2,6 +2,8 @@ package provider
 
 import (
 	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 )
 
 func TestEasyPaySignConsistentOutput(t *testing.T) {
@@ -191,5 +193,33 @@ func TestEasyPayMerchantIdentityMetadata(t *testing.T) {
 	metadata := provider.MerchantIdentityMetadata()
 	if metadata["pid"] != "1001" {
 		t.Fatalf("pid = %q, want %q", metadata["pid"], "1001")
+	}
+}
+
+func TestEasyPaySupportedTypesIncludesKyrenInternationalMethods(t *testing.T) {
+	t.Parallel()
+
+	provider := &EasyPay{}
+	got := provider.SupportedTypes()
+	want := []payment.PaymentType{
+		payment.TypeAlipay,
+		payment.TypeWxpay,
+		payment.TypeCreditCard,
+		payment.TypeCrypto,
+		payment.TypePayNow,
+	}
+
+	assertPaymentTypesEqual(t, got, want)
+}
+
+func assertPaymentTypesEqual(t *testing.T, got, want []payment.PaymentType) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("SupportedTypes len = %d, want %d (got=%v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("SupportedTypes[%d] = %q, want %q (full=%v)", i, got[i], want[i], got)
+		}
 	}
 }

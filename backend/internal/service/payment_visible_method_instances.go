@@ -12,12 +12,21 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
+func isEasyPayInternationalMethod(method string) bool {
+	switch NormalizeVisibleMethod(method) {
+	case payment.TypeCreditCard, payment.TypeCrypto, payment.TypePayNow:
+		return true
+	default:
+		return false
+	}
+}
+
 func enabledVisibleMethodsForProvider(providerKey, supportedTypes string) []string {
-	methodSet := make(map[string]struct{}, 2)
+	methodSet := make(map[string]struct{}, 5)
 	addMethod := func(method string) {
 		method = NormalizeVisibleMethod(method)
 		switch method {
-		case payment.TypeAlipay, payment.TypeWxpay:
+		case payment.TypeAlipay, payment.TypeWxpay, payment.TypeCreditCard, payment.TypeCrypto, payment.TypePayNow:
 			methodSet[method] = struct{}{}
 		}
 	}
@@ -52,7 +61,13 @@ func enabledVisibleMethodsForProvider(providerKey, supportedTypes string) []stri
 	}
 
 	methods := make([]string, 0, len(methodSet))
-	for _, method := range []string{payment.TypeAlipay, payment.TypeWxpay} {
+	for _, method := range []string{
+		payment.TypeCreditCard,
+		payment.TypeCrypto,
+		payment.TypePayNow,
+		payment.TypeAlipay,
+		payment.TypeWxpay,
+	} {
 		if _, ok := methodSet[method]; ok {
 			methods = append(methods, method)
 		}
@@ -215,7 +230,7 @@ func (s *PaymentConfigService) resolveEnabledVisibleMethodInstance(
 	}
 
 	method = NormalizeVisibleMethod(method)
-	if method != payment.TypeAlipay && method != payment.TypeWxpay {
+	if method != payment.TypeAlipay && method != payment.TypeWxpay && !isEasyPayInternationalMethod(method) {
 		return nil, nil
 	}
 

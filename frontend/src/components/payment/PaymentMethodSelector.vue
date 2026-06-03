@@ -9,6 +9,8 @@
         :key="method.type"
         type="button"
         :disabled="!method.available"
+        :aria-pressed="selected === method.type"
+        :aria-label="t(`payment.methods.${method.type}`)"
         :class="[
           'relative flex h-[60px] flex-col items-center justify-center rounded-lg border px-3 transition-all sm:flex-1',
           !method.available
@@ -20,7 +22,21 @@
         @click="method.available && emit('select', method.type)"
       >
         <span class="flex items-center gap-2">
-          <img :src="methodIcon(method.type)" :alt="t(`payment.methods.${method.type}`)" class="h-7 w-7 object-contain" />
+          <img
+            v-if="methodIcon(method.type)"
+            :src="methodIcon(method.type)"
+            alt=""
+            aria-hidden="true"
+            class="h-7 w-7 object-contain"
+          />
+          <span
+            v-else
+            aria-hidden="true"
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold uppercase"
+            :class="methodBadgeClass(method.type)"
+          >
+            {{ methodBadgeText(method.type) }}
+          </span>
           <span class="flex flex-col items-start leading-none">
             <span class="text-base font-semibold">{{ t(`payment.methods.${method.type}`) }}</span>
             <span
@@ -82,7 +98,21 @@ function methodIcon(type: string): string {
   if (type.includes('alipay')) return METHOD_ICONS.alipay
   if (type.includes('wxpay')) return METHOD_ICONS.wxpay
   if (type === 'airwallex') return METHOD_ICONS.airwallex
-  return METHOD_ICONS[type] || alipayIcon
+  return METHOD_ICONS[type] || ''
+}
+
+function methodBadgeText(type: string): string {
+  if (type === 'creditcard') return 'CC'
+  if (type === 'crypto') return 'CR'
+  if (type === 'paynow') return 'PN'
+  return type.slice(0, 2)
+}
+
+function methodBadgeClass(type: string): string {
+  if (type === 'creditcard') return 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+  if (type === 'crypto') return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+  if (type === 'paynow') return 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300'
+  return 'bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300'
 }
 
 function methodSelectedClass(type: string): string {
@@ -90,6 +120,9 @@ function methodSelectedClass(type: string): string {
   if (type.includes('wxpay')) return 'border-[#09BB07] bg-green-50 text-gray-900 shadow-sm dark:bg-green-950 dark:text-gray-100'
   if (type === 'stripe') return 'border-[#676BE5] bg-indigo-50 text-gray-900 shadow-sm dark:bg-indigo-950 dark:text-gray-100'
   if (type === 'airwallex') return 'border-[#FF6B3D] bg-orange-50 text-gray-900 shadow-sm dark:border-[#FF8E3C] dark:bg-orange-950 dark:text-gray-100'
+  if (type === 'creditcard') return 'border-sky-500 bg-sky-50 text-gray-900 shadow-sm dark:bg-sky-950 dark:text-gray-100'
+  if (type === 'crypto') return 'border-amber-500 bg-amber-50 text-gray-900 shadow-sm dark:bg-amber-950 dark:text-gray-100'
+  if (type === 'paynow') return 'border-teal-500 bg-teal-50 text-gray-900 shadow-sm dark:bg-teal-950 dark:text-gray-100'
   return 'border-primary-500 bg-primary-50 text-gray-900 shadow-sm dark:bg-primary-950 dark:text-gray-100'
 }
 </script>

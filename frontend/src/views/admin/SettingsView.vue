@@ -6715,7 +6715,7 @@ import { affiliatesAPI, type AffiliateAdminEntry, type SimpleUser as AffiliateSi
 import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
 import { useAppStore } from "@/stores";
 import { useAdminSettingsStore } from "@/stores/adminSettings";
-import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
+import { normalizeVisibleMethod, type VisiblePaymentMethod } from "@/components/payment/paymentFlow";
 import {
   isRegistrationEmailSuffixDomainValid,
   normalizeRegistrationEmailSuffixDomain,
@@ -8898,6 +8898,9 @@ const allPaymentTypes = computed(() => [
   { value: "easypay", label: t("payment.methods.easypay") },
   { value: "alipay", label: t("payment.methods.alipay") },
   { value: "wxpay", label: t("payment.methods.wxpay") },
+  { value: "creditcard", label: t("payment.methods.creditcard") },
+  { value: "crypto", label: t("payment.methods.crypto") },
+  { value: "paynow", label: t("payment.methods.paynow") },
   { value: "stripe", label: t("payment.methods.stripe") },
   { value: "airwallex", label: t("payment.methods.airwallex") },
 ]);
@@ -9002,7 +9005,7 @@ type ProviderEnablementCandidate = Pick<
 
 function getProviderVisibleMethods(
   provider: ProviderEnablementCandidate,
-): Array<"alipay" | "wxpay"> {
+): VisiblePaymentMethod[] {
   if (!provider.enabled) {
     return [];
   }
@@ -9010,10 +9013,10 @@ function getProviderVisibleMethods(
   const supportedTypes = Array.isArray(provider.supported_types)
     ? provider.supported_types
     : [];
-  const methods = new Set<"alipay" | "wxpay">();
+  const methods = new Set<VisiblePaymentMethod>();
   const addMethod = (type: string) => {
     const method = normalizeVisibleMethod(type);
-    if (method === "alipay" || method === "wxpay") {
+    if (method) {
       methods.add(method);
     }
   };
@@ -9047,7 +9050,7 @@ function getProviderVisibleMethods(
 
 function findProviderEnablementConflict(
   candidate: ProviderEnablementCandidate,
-): { method: "alipay" | "wxpay"; conflicting: ProviderInstance } | null {
+): { method: VisiblePaymentMethod; conflicting: ProviderInstance } | null {
   const claimedMethods = getProviderVisibleMethods(candidate);
   if (claimedMethods.length === 0) {
     return null;
@@ -9074,7 +9077,7 @@ function findProviderEnablementConflict(
 }
 
 function showProviderEnablementConflict(
-  conflict: { method: "alipay" | "wxpay"; conflicting: ProviderInstance },
+  conflict: { method: VisiblePaymentMethod; conflicting: ProviderInstance },
 ) {
   appStore.showError(
     t("admin.settings.payment.enableConflict", {

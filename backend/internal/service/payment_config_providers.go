@@ -60,7 +60,7 @@ func (s *PaymentConfigService) ListProviderInstancesWithConfig(ctx context.Conte
 	for _, inst := range instances {
 		resp := ProviderInstanceResponse{
 			ID: int64(inst.ID), ProviderKey: inst.ProviderKey, Name: inst.Name,
-			SupportedTypes: splitTypes(inst.SupportedTypes), Limits: inst.Limits,
+			SupportedTypes: normalizeProviderSupportedTypes(inst.ProviderKey, splitTypes(inst.SupportedTypes)), Limits: inst.Limits,
 			Enabled: inst.Enabled, RefundEnabled: inst.RefundEnabled, AllowUserRefund: inst.AllowUserRefund,
 			SortOrder: inst.SortOrder, PaymentMode: inst.PaymentMode,
 		}
@@ -180,7 +180,36 @@ var validProviderKeys = map[string]bool{
 	payment.TypeEasyPay: true, payment.TypeAlipay: true, payment.TypeWxpay: true, payment.TypeStripe: true, payment.TypeAirwallex: true,
 }
 
+func normalizeProviderSupportedTypes(providerKey string, supportedTypes []string) []string {
+	if providerKey != payment.TypeEasyPay {
+		return supportedTypes
+	}
+	seen := make(map[string]struct{}, len(supportedTypes))
+	for _, supportedType := range supportedTypes {
+		method := NormalizeVisibleMethod(supportedType)
+		switch method {
+		case payment.TypeAlipay, payment.TypeWxpay, payment.TypeCreditCard, payment.TypeCrypto, payment.TypePayNow:
+			seen[method] = struct{}{}
+		}
+	}
+	ordered := []string{
+		payment.TypeAlipay,
+		payment.TypeWxpay,
+		payment.TypeCreditCard,
+		payment.TypeCrypto,
+		payment.TypePayNow,
+	}
+	result := make([]string, 0, len(ordered))
+	for _, method := range ordered {
+		if _, ok := seen[method]; ok {
+			result = append(result, method)
+		}
+	}
+	return result
+}
+
 func (s *PaymentConfigService) CreateProviderInstance(ctx context.Context, req CreateProviderInstanceRequest) (*dbent.PaymentProviderInstance, error) {
+	req.SupportedTypes = normalizeProviderSupportedTypes(req.ProviderKey, req.SupportedTypes)
 	typesStr := joinTypes(req.SupportedTypes)
 	if err := validateProviderRequest(req.ProviderKey, req.Name, typesStr); err != nil {
 		return nil, err
@@ -243,6 +272,7 @@ func (s *PaymentConfigService) UpdateProviderInstance(ctx context.Context, id in
 	}
 	nextSupportedTypes := current.SupportedTypes
 	if req.SupportedTypes != nil {
+		req.SupportedTypes = normalizeProviderSupportedTypes(current.ProviderKey, req.SupportedTypes)
 		nextSupportedTypes = joinTypes(req.SupportedTypes)
 	}
 	if err := s.validateVisibleMethodEnablementConflicts(ctx, id, current.ProviderKey, nextSupportedTypes, nextEnabled); err != nil {

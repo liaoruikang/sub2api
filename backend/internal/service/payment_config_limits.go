@@ -48,7 +48,13 @@ func (s *PaymentConfigService) pcApplyEnabledVisibleMethodInstances(ctx context.
 		filtered[paymentType] = groupedInstances
 	}
 
-	for _, method := range []string{payment.TypeAlipay, payment.TypeWxpay} {
+	for _, method := range []string{
+		payment.TypeCreditCard,
+		payment.TypeCrypto,
+		payment.TypePayNow,
+		payment.TypeAlipay,
+		payment.TypeWxpay,
+	} {
 		matching := filterEnabledVisibleMethodInstances(instances, method)
 		providerKey, err := s.resolveVisibleMethodProviderKey(ctx, method, matching)
 		if err != nil {
