@@ -31,7 +31,7 @@ export interface CallbackPaths {
 
 /** Maps provider key → available payment types. */
 export const PROVIDER_SUPPORTED_TYPES: Record<string, string[]> = {
-  easypay: ['alipay', 'wxpay'],
+  easypay: ['alipay', 'wxpay', 'creditcard', 'crypto', 'paynow'],
   alipay: ['alipay'],
   wxpay: ['wxpay'],
   stripe: ['card', 'alipay', 'wxpay', 'link'],
@@ -42,7 +42,7 @@ export const PROVIDER_SUPPORTED_TYPES: Record<string, string[]> = {
 export const EASYPAY_PAYMENT_MODES = ['qrcode', 'popup'] as const
 
 /** Fixed display order for user-facing payment methods */
-export const METHOD_ORDER = ['alipay', 'alipay_direct', 'wxpay', 'wxpay_direct', 'stripe', 'airwallex'] as const
+export const METHOD_ORDER = ['creditcard', 'crypto', 'paynow', 'alipay', 'alipay_direct', 'wxpay', 'wxpay_direct', 'stripe', 'airwallex'] as const
 
 /** Payment mode constants */
 export const PAYMENT_MODE_QRCODE = 'qrcode'

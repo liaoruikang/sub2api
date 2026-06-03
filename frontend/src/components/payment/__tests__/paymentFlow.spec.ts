@@ -39,6 +39,9 @@ describe('getVisibleMethods', () => {
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
       airwallex: methodLimit({ single_min: 10 }),
+      creditcard: methodLimit({ fee_rate: 2.5 }),
+      crypto: methodLimit({ single_min: 20 }),
+      paynow: methodLimit({ single_max: 300 }),
     })
 
     expect(visible).toEqual({
@@ -46,6 +49,9 @@ describe('getVisibleMethods', () => {
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
       airwallex: methodLimit({ single_min: 10 }),
+      creditcard: methodLimit({ fee_rate: 2.5 }),
+      crypto: methodLimit({ single_min: 20 }),
+      paynow: methodLimit({ single_max: 300 }),
     })
   })
 
@@ -288,6 +294,26 @@ describe('buildCreateOrderPayload', () => {
       return_url: 'https://app.example.com/payment/result',
       is_mobile: false,
       payment_source: 'wechat_in_app_resume',
+    })
+  })
+
+  it('keeps Kyren EasyPay international methods as explicit payment types', () => {
+    expect(buildCreateOrderPayload({
+      amount: 128,
+      paymentType: 'creditcard',
+      orderType: 'subscription',
+      planId: 7,
+      origin: 'https://app.example.com',
+      isMobile: true,
+      isWechatBrowser: false,
+    })).toEqual({
+      amount: 128,
+      payment_type: 'creditcard',
+      order_type: 'subscription',
+      plan_id: 7,
+      return_url: 'https://app.example.com/payment/result',
+      is_mobile: true,
+      payment_source: 'hosted_redirect',
     })
   })
 

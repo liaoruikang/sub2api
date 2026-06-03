@@ -662,6 +662,47 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("passes Kyren EasyPay international methods to provider management", async () => {
+    const seenPaymentTypes: string[][] = [];
+    const PaymentProviderListStub = defineComponent({
+      props: ["allPaymentTypes"],
+      setup(props) {
+        seenPaymentTypes.push(
+          ((props.allPaymentTypes as { value: string }[]) || []).map(
+            (pt) => pt.value,
+          ),
+        );
+        return () => h("div", { class: "provider-list-stub" });
+      },
+    });
+
+    const wrapper = mount(SettingsView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          Select: SelectStub,
+          Toggle: ToggleStub,
+          Icon: true,
+          ConfirmDialog: true,
+          PaymentProviderList: PaymentProviderListStub,
+          PaymentProviderDialog: true,
+          GroupBadge: true,
+          GroupOptionItem: true,
+          ProxySelector: true,
+          ImageUpload: ImageUploadStub,
+          BackupSettings: true,
+        },
+      },
+    });
+
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    expect(seenPaymentTypes.at(-1)).toEqual(
+      expect.arrayContaining(["creditcard", "crypto", "paynow"]),
+    );
+  });
+
   it("updates provider enablement immediately and reloads providers", async () => {
     const provider = {
       id: 7,

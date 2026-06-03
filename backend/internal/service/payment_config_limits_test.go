@@ -222,6 +222,48 @@ func TestPcAggregateMethodCurrency(t *testing.T) {
 	require.Equal(t, payment.DefaultPaymentCurrency, currency)
 }
 
+func TestGetAvailableMethodLimitsIncludesEasyPayInternationalMethods(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	_, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeEasyPay).
+		SetName("Kyren EasyPay").
+		SetConfig(`{"pid":"merch_123","pkey":"secret","apiBase":"https://api.kyren.top/epay"}`).
+		SetSupportedTypes("creditcard,crypto,paynow").
+		SetEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentConfigService{entClient: client}
+	resp, err := svc.GetAvailableMethodLimits(ctx)
+	require.NoError(t, err)
+	require.Contains(t, resp.Methods, payment.TypeCreditCard)
+	require.Contains(t, resp.Methods, payment.TypeCrypto)
+	require.Contains(t, resp.Methods, payment.TypePayNow)
+}
+
+func TestGetAvailableMethodLimitsRespectsEasyPayInternationalSelection(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	_, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeEasyPay).
+		SetName("Kyren EasyPay Credit Card").
+		SetConfig(`{"pid":"merch_123","pkey":"secret","apiBase":"https://api.kyren.top/epay"}`).
+		SetSupportedTypes(payment.TypeCreditCard).
+		SetEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentConfigService{entClient: client}
+	resp, err := svc.GetAvailableMethodLimits(ctx)
+	require.NoError(t, err)
+	require.Contains(t, resp.Methods, payment.TypeCreditCard)
+	require.NotContains(t, resp.Methods, payment.TypeCrypto)
+	require.NotContains(t, resp.Methods, payment.TypePayNow)
+}
+
 func TestGetAvailableMethodLimitsOmitsMixedCurrencyMethod(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

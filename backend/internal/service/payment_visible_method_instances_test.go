@@ -4,31 +4,77 @@ import (
 	"context"
 	"testing"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 )
 
 func TestEnabledVisibleMethodsForProviderIncludesKyrenInternationalMethods(t *testing.T) {
 	t.Parallel()
 
-	got := enabledVisibleMethodsForProvider(
-		payment.TypeEasyPay,
-		"alipay,wxpay,creditcard,crypto,paynow",
-	)
-	want := []string{
-		payment.TypeCreditCard,
-		payment.TypeCrypto,
-		payment.TypePayNow,
-		payment.TypeAlipay,
-		payment.TypeWxpay,
+	tests := []struct {
+		name           string
+		supportedTypes string
+		want           []string
+	}{
+		{
+			name:           "all easypay methods",
+			supportedTypes: "alipay,wxpay,creditcard,crypto,paynow",
+			want: []string{
+				payment.TypeCreditCard,
+				payment.TypeCrypto,
+				payment.TypePayNow,
+				payment.TypeAlipay,
+				payment.TypeWxpay,
+			},
+		},
+		{
+			name:           "creditcard only",
+			supportedTypes: payment.TypeCreditCard,
+			want:           []string{payment.TypeCreditCard},
+		},
+		{
+			name:           "crypto and paynow only",
+			supportedTypes: "crypto,paynow",
+			want:           []string{payment.TypeCrypto, payment.TypePayNow},
+		},
 	}
 
-	if len(got) != len(want) {
-		t.Fatalf("enabled methods len = %d, want %d (got=%v)", len(got), len(want), got)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := enabledVisibleMethodsForProvider(payment.TypeEasyPay, tt.supportedTypes)
+			if len(got) != len(tt.want) {
+				t.Fatalf("enabled methods len = %d, want %d (got=%v)", len(got), len(tt.want), got)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Fatalf("enabled methods[%d] = %q, want %q (full=%v)", i, got[i], tt.want[i], got)
+				}
+			}
+		})
 	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("enabled methods[%d] = %q, want %q (full=%v)", i, got[i], want[i], got)
-		}
+}
+
+func TestProviderSupportsVisibleMethodRespectsEasyPaySelection(t *testing.T) {
+	t.Parallel()
+
+	inst := &dbent.PaymentProviderInstance{
+		ProviderKey:    payment.TypeEasyPay,
+		SupportedTypes: payment.TypeCreditCard,
+		Enabled:        true,
+	}
+	if !providerSupportsVisibleMethod(inst, payment.TypeCreditCard) {
+		t.Fatalf("expected creditcard to be supported")
+	}
+	if providerSupportsVisibleMethod(inst, payment.TypeCrypto) {
+		t.Fatalf("did not expect crypto to be supported by creditcard-only instance")
+	}
+
+	inst.Enabled = false
+	if providerSupportsVisibleMethod(inst, payment.TypeCreditCard) {
+		t.Fatalf("disabled instance must not support visible methods")
 	}
 }
 

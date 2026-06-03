@@ -120,7 +120,7 @@ const emit = defineEmits<{
   reorder: [providers: { id: number; sort_order: number }[]]
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const localProviders = ref<ProviderInstance[]>([])
 
@@ -142,9 +142,11 @@ function isEnabled(providerKey: string): boolean {
 
 function getTypes(providerKey: string): TypeOption[] {
   return getAvailableTypes(providerKey, props.allPaymentTypes, props.redirectLabel)
-    .map(opt => opt.label === opt.value
-      ? { ...opt, label: t(`payment.methods.${opt.value}`, opt.value) }
-      : opt,
-    )
+    .map(opt => {
+      const labelKey = `payment.methods.${opt.value}`
+      return opt.label === opt.value && te(labelKey)
+        ? { ...opt, label: t(labelKey) }
+        : opt
+    })
 }
 </script>

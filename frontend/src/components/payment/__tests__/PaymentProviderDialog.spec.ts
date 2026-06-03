@@ -14,6 +14,11 @@ const messages: Record<string, string> = {
   'admin.settings.payment.stripeWebhookHint': 'Configure Stripe webhook.',
   'admin.settings.payment.stripeWebhookApiVersionHint': 'Use Stripe API version {version}.',
   'admin.settings.payment.airwallexWebhookHint': 'Select payment_intent.succeeded and use the latest stable API version.',
+  'payment.methods.alipay': 'Alipay',
+  'payment.methods.wxpay': 'WeChat Pay',
+  'payment.methods.creditcard': 'Credit Card',
+  'payment.methods.crypto': 'Crypto',
+  'payment.methods.paynow': 'PayNow',
 }
 
 vi.mock('vue-i18n', () => ({
@@ -26,6 +31,7 @@ vi.mock('vue-i18n', () => ({
         message,
       )
     },
+    te: (key: string) => Object.prototype.hasOwnProperty.call(messages, key),
   }),
 }))
 
@@ -53,19 +59,24 @@ function mountDialog(options: { editing?: ProviderInstance | null } = {}) {
       saving: false,
       editing: options.editing ?? null,
       allKeyOptions: [
+        { value: 'easypay', label: 'EasyPay' },
         { value: 'alipay', label: 'Alipay' },
         { value: 'wxpay', label: 'WeChat Pay' },
         { value: 'stripe', label: 'Stripe' },
         { value: 'airwallex', label: 'Airwallex' },
       ],
       enabledKeyOptions: [
+        { value: 'easypay', label: 'EasyPay' },
         { value: 'alipay', label: 'Alipay' },
         { value: 'wxpay', label: 'WeChat Pay' },
         { value: 'airwallex', label: 'Airwallex' },
       ],
       allPaymentTypes: [
+        { value: 'easypay', label: 'EasyPay' },
         { value: 'alipay', label: 'Alipay' },
         { value: 'wxpay', label: 'WeChat Pay' },
+        { value: 'stripe', label: 'Stripe' },
+        { value: 'airwallex', label: 'Airwallex' },
       ],
       redirectLabel: 'Redirect',
     },
@@ -107,6 +118,23 @@ describe('PaymentProviderDialog payment guide', () => {
 
     expect(wrapper.text()).toContain(messages[summaryKey])
     expect(wrapper.find('button[title="View payment guide"]').exists()).toBe(true)
+  })
+
+  it('shows all Kyren EasyPay-compatible payment types for EasyPay providers', async () => {
+    const wrapper = mountDialog()
+
+    ;(wrapper.vm as unknown as { reset: (key: string) => void }).reset('easypay')
+    await nextTick()
+
+    const text = wrapper.text()
+    expect(text).toContain('Alipay')
+    expect(text).toContain('WeChat Pay')
+    expect(text).toContain('Credit Card')
+    expect(text).toContain('Crypto')
+    expect(text).toContain('PayNow')
+    expect(text).not.toContain('payment.methods.creditcard')
+    expect(text).not.toContain('payment.methods.crypto')
+    expect(text).not.toContain('payment.methods.paynow')
   })
 
   it('shows Airwallex webhook event and API version guidance with the webhook URL', async () => {

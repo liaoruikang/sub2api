@@ -336,6 +336,83 @@ func TestUpdateProviderInstancePersistsEnabledAndSupportedTypes(t *testing.T) {
 	require.Equal(t, "alipay,wxpay", saved.SupportedTypes)
 }
 
+func TestNormalizeProviderSupportedTypesPreservesEasyPaySelectedMethods(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		providerKey    string
+		supportedTypes []string
+		want           []string
+	}{
+		{
+			name:           "single creditcard",
+			providerKey:    payment.TypeEasyPay,
+			supportedTypes: []string{payment.TypeCreditCard},
+			want:           []string{payment.TypeCreditCard},
+		},
+		{
+			name:           "crypto and paynow",
+			providerKey:    payment.TypeEasyPay,
+			supportedTypes: []string{payment.TypeCrypto, payment.TypePayNow},
+			want:           []string{payment.TypeCrypto, payment.TypePayNow},
+		},
+		{
+			name:           "dedupe and stable order",
+			providerKey:    payment.TypeEasyPay,
+			supportedTypes: []string{payment.TypePayNow, payment.TypeAlipay, payment.TypePayNow},
+			want:           []string{payment.TypeAlipay, payment.TypePayNow},
+		},
+		{
+			name:           "legacy direct aliases",
+			providerKey:    payment.TypeEasyPay,
+			supportedTypes: []string{payment.TypeAlipayDirect, payment.TypeWxpayDirect},
+			want:           []string{payment.TypeAlipay, payment.TypeWxpay},
+		},
+		{
+			name:           "non easypay untouched",
+			providerKey:    payment.TypeStripe,
+			supportedTypes: []string{payment.TypeCard, payment.TypeLink},
+			want:           []string{payment.TypeCard, payment.TypeLink},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := normalizeProviderSupportedTypes(tt.providerKey, tt.supportedTypes)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestListProviderInstancesWithConfigPreservesEasyPaySelectedSupportedTypes(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	svc := &PaymentConfigService{
+		entClient:     client,
+		encryptionKey: []byte("0123456789abcdef0123456789abcdef"),
+	}
+
+	_, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeEasyPay).
+		SetName("Credit Card EasyPay").
+		SetConfig(`{"pid":"1001","pkey":"secret","apiBase":"https://pay.example.com"}`).
+		SetSupportedTypes("creditcard").
+		SetEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	providers, err := svc.ListProviderInstancesWithConfig(ctx)
+	require.NoError(t, err)
+	require.Len(t, providers, 1)
+	require.Equal(t, []string{payment.TypeCreditCard}, providers[0].SupportedTypes)
+}
+
 func TestUpdateProviderInstanceRejectsProtectedConfigChangesWhilePendingOrders(t *testing.T) {
 	t.Parallel()
 
