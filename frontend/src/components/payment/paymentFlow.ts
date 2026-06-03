@@ -175,9 +175,13 @@ export function decidePaymentLaunch(
     return { kind: 'airwallex_route', paymentState, recovery: paymentState }
   }
 
-  if (baseState.clientSecret) {
+  const isStripeCompatibleVisibleMethod = visibleMethod === 'stripe' || visibleMethod === 'alipay' || visibleMethod === 'wxpay'
+  if (isStripeCompatibleVisibleMethod && baseState.clientSecret) {
     // visibleMethod === 'stripe' means the user clicked the dedicated Stripe button
     // and should land on the full Payment Element to choose a sub-method themselves.
+    // EasyPay/Kyren international methods (creditcard/crypto/paynow) are separate
+    // visible methods and must not be treated as Stripe just because a response
+    // happens to contain a client_secret-like field.
     const isStripeButton = visibleMethod === 'stripe'
     const stripeMethod: StripeVisibleMethod | undefined = isStripeButton
       ? undefined

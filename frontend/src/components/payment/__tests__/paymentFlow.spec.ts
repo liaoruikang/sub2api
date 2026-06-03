@@ -135,6 +135,25 @@ describe('decidePaymentLaunch', () => {
     expect(decision.paymentState.paymentEnv).toBe('demo')
   })
 
+  it('routes Kyren EasyPay creditcard through hosted redirect even if a client_secret-like field is present', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      pay_url: 'https://api.kyren.top/epay/creditcard/session',
+      client_secret: 'kyren-upstream-field',
+      payment_mode: 'popup',
+      out_trade_no: 'sub2_creditcard',
+    }), {
+      visibleMethod: 'creditcard',
+      orderType: 'balance',
+      isMobile: false,
+      stripeRouteUrl: '/payment/stripe?should-not-be-used=1',
+    })
+
+    expect(decision.kind).toBe('redirect_waiting')
+    expect(decision.paymentState.payUrl).toBe('https://api.kyren.top/epay/creditcard/session')
+    expect(decision.paymentState.clientSecret).toBe('kyren-upstream-field')
+    expect(decision.stripeMethod).toBeUndefined()
+  })
+
   it('keeps hosted redirect metadata for recovery flows', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       pay_url: 'https://pay.example.com/session/abc',
