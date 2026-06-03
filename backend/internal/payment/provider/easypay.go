@@ -408,16 +408,20 @@ func summarizeEasyPayResponse(body []byte) string {
 }
 
 func (e *EasyPay) resolveCID(paymentType string) string {
-	if strings.HasPrefix(paymentType, "alipay") {
+	switch payment.GetBasePaymentType(paymentType) {
+	case payment.TypeAlipay:
 		if v := e.config["cidAlipay"]; v != "" {
 			return v
 		}
 		return e.config["cid"]
+	case payment.TypeWxpay:
+		if v := e.config["cidWxpay"]; v != "" {
+			return v
+		}
+		return e.config["cid"]
+	default:
+		return ""
 	}
-	if v := e.config["cidWxpay"]; v != "" {
-		return v
-	}
-	return e.config["cid"]
 }
 
 func (e *EasyPay) post(ctx context.Context, endpoint string, params map[string]string) ([]byte, error) {

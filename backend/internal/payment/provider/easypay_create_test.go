@@ -32,6 +32,9 @@ func TestEasyPayCreateAPIPaymentUsesKyrenInternationalTypes(t *testing.T) {
 			defer server.Close()
 
 			provider := newTestEasyPay(t, server.URL)
+			provider.config["cid"] = "default-channel"
+			provider.config["cidAlipay"] = "alipay-channel"
+			provider.config["cidWxpay"] = "wxpay-channel"
 			resp, err := provider.CreatePayment(context.Background(), payment.CreatePaymentRequest{
 				OrderID:     "sub2_img",
 				Amount:      "9.99",
@@ -59,6 +62,9 @@ func TestEasyPayCreateAPIPaymentUsesKyrenInternationalTypes(t *testing.T) {
 			}
 			if got := gotForm.Get("clientip"); got != "203.0.113.10" {
 				t.Fatalf("form[clientip] = %q, want 203.0.113.10", got)
+			}
+			if got := gotForm.Get("cid"); got != "" {
+				t.Fatalf("form[cid] = %q, want empty for Kyren international method", got)
 			}
 			if got := gotForm.Get("sign_type"); got != signTypeMD5 {
 				t.Fatalf("form[sign_type] = %q, want %q", got, signTypeMD5)
