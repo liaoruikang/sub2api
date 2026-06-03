@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
@@ -225,10 +226,22 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		}
 	}()
 
-	// 1) user concurrency slot
+	// 1) group-scoped user concurrency slot, then global user concurrency slot.
 	streamStarted := false
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
+	}
+	if apiKey.Group != nil && apiKey.Group.EffectiveUserConcurrencyLimitAt(time.Now()) > 0 {
+		groupUserReleaseFunc, err := geminiConcurrency.AcquireGroupUserSlotWithWait(c, apiKey.Group.ID, authSubject.UserID, apiKey.Group.EffectiveUserConcurrencyLimitAt(time.Now()), stream, &streamStarted)
+		if err != nil {
+			reqLog.Warn("gemini.group_user_slot_acquire_failed", zap.Int64("group_id", apiKey.Group.ID), zap.Error(err))
+			googleError(c, http.StatusTooManyRequests, err.Error())
+			return
+		}
+		groupUserReleaseFunc = wrapReleaseOnDone(c.Request.Context(), groupUserReleaseFunc)
+		if groupUserReleaseFunc != nil {
+			defer groupUserReleaseFunc()
+		}
 	}
 	userReleaseFunc, err := geminiConcurrency.AcquireUserSlotWithWait(c, authSubject.UserID, authSubject.Concurrency, stream, &streamStarted)
 	if err != nil {

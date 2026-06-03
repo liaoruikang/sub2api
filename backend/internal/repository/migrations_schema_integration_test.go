@@ -36,6 +36,13 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	// api_keys: key length should be 128
 	requireColumn(t, tx, "api_keys", "key", "character varying", 128, false)
 
+	// groups: limited-time multiplier settings
+	requireColumn(t, tx, "groups", "limited_time_multiplier_enabled", "boolean", 0, false)
+	requireColumn(t, tx, "groups", "limited_time_multiplier_cron", "character varying", 100, false)
+	requireColumn(t, tx, "groups", "limited_time_multiplier_duration_minutes", "integer", 0, false)
+	requireColumn(t, tx, "groups", "limited_time_multiplier_value", "numeric", 0, false)
+	requireColumn(t, tx, "groups", "limited_time_user_concurrency_limit", "integer", 0, false)
+
 	// redeem_codes: subscription fields
 	requireColumn(t, tx, "redeem_codes", "group_id", "bigint", 0, true)
 	requireColumn(t, tx, "redeem_codes", "validity_days", "integer", 0, false)

@@ -4672,12 +4672,12 @@
                 >
                   {{ t("admin.settings.site.contactInfo") }}
                 </label>
-                <input
+                <textarea
                   v-model="form.contact_info"
-                  type="text"
-                  class="input"
+                  rows="4"
+                  class="input font-mono text-sm"
                   :placeholder="t('admin.settings.site.contactInfoPlaceholder')"
-                />
+                ></textarea>
                 <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                   {{ t("admin.settings.site.contactInfoHint") }}
                 </p>

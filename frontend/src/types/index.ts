@@ -501,7 +501,14 @@ export interface Group {
   description: string | null
   platform: GroupPlatform
   rate_multiplier: number
+  limited_time_multiplier_enabled: boolean
+  limited_time_multiplier_cron: string
+  limited_time_multiplier_duration_minutes: number
+  limited_time_multiplier_value: number
+  limited_time_rpm_limit?: number // Group-level RPM cap during limited-time multiplier windows; 0 = fall back to normal RPM rules
+  limited_time_user_concurrency_limit?: number // Per-user concurrency cap within this group during limited-time multiplier windows; 0 = fall back to normal group concurrency
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
+  user_concurrency_limit?: number // Per-user concurrency cap within this group (0 = unlimited)
   is_exclusive: boolean
   status: 'active' | 'inactive'
   subscription_type: SubscriptionType
@@ -622,6 +629,12 @@ export interface CreateGroupRequest {
   description?: string | null
   platform?: GroupPlatform
   rate_multiplier?: number
+  limited_time_multiplier_enabled?: boolean
+  limited_time_multiplier_cron?: string
+  limited_time_multiplier_duration_minutes?: number
+  limited_time_multiplier_value?: number
+  limited_time_rpm_limit?: number
+  limited_time_user_concurrency_limit?: number
   is_exclusive?: boolean
   subscription_type?: SubscriptionType
   daily_limit_usd?: number | null
@@ -645,6 +658,7 @@ export interface CreateGroupRequest {
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
   rpm_limit?: number
+  user_concurrency_limit?: number
   require_oauth_only?: boolean
   require_privacy_set?: boolean
   // 从指定分组复制账号
@@ -656,6 +670,12 @@ export interface UpdateGroupRequest {
   description?: string | null
   platform?: GroupPlatform
   rate_multiplier?: number
+  limited_time_multiplier_enabled?: boolean
+  limited_time_multiplier_cron?: string
+  limited_time_multiplier_duration_minutes?: number
+  limited_time_multiplier_value?: number
+  limited_time_rpm_limit?: number
+  limited_time_user_concurrency_limit?: number
   is_exclusive?: boolean
   status?: 'active' | 'inactive'
   subscription_type?: SubscriptionType
@@ -680,6 +700,7 @@ export interface UpdateGroupRequest {
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
   rpm_limit?: number
+  user_concurrency_limit?: number
   require_oauth_only?: boolean
   require_privacy_set?: boolean
   copy_accounts_from_group_ids?: number[]

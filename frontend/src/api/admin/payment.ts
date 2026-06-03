@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '../client'
+import type { BasePaginationResponse } from '@/types'
 import type {
   DashboardStats,
   PaymentOrder,
@@ -11,7 +12,50 @@ import type {
   SubscriptionPlan,
   ProviderInstance
 } from '@/types/payment'
-import type { BasePaginationResponse } from '@/types'
+
+export interface AdminCreatePlanRequest {
+  group_id: number
+  name: string
+  description: string
+  price: number
+  original_price?: number
+  validity_days: number
+  validity_unit: string
+  features: string
+  product_name?: string
+  for_sale: boolean
+  listed_at?: string | null
+  off_sale_at?: string | null
+  new_user_only: boolean
+  purchase_limit_count: number
+  ip_purchase_limit_count: number
+  stock_count: number
+  first_purchase_discount_enabled: boolean
+  first_purchase_discount_price?: number
+  sort_order: number
+}
+
+export interface AdminUpdatePlanRequest {
+  group_id?: number
+  name?: string
+  description?: string
+  price?: number
+  original_price?: number
+  validity_days?: number
+  validity_unit?: string
+  features?: string
+  product_name?: string
+  for_sale?: boolean
+  listed_at?: string | null
+  off_sale_at?: string | null
+  new_user_only?: boolean
+  purchase_limit_count?: number
+  ip_purchase_limit_count?: number
+  stock_count?: number
+  first_purchase_discount_enabled?: boolean
+  first_purchase_discount_price?: number
+  sort_order?: number
+}
 
 /** Admin-facing payment config returned by GET /admin/payment/config */
 export interface AdminPaymentConfig {
@@ -138,12 +182,12 @@ export const adminPaymentAPI = {
   },
 
   /** Create a subscription plan */
-  createPlan(data: Record<string, unknown>) {
+  createPlan(data: AdminCreatePlanRequest) {
     return apiClient.post<SubscriptionPlan>('/admin/payment/plans', data)
   },
 
   /** Update a subscription plan */
-  updatePlan(id: number, data: Record<string, unknown>) {
+  updatePlan(id: number, data: AdminUpdatePlanRequest) {
     return apiClient.put<SubscriptionPlan>(`/admin/payment/plans/${id}`, data)
   },
 

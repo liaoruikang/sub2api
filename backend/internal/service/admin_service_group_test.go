@@ -335,6 +335,82 @@ func TestAdminService_UpdateGroup_InvalidatesAuthCacheOnRPMLimitChange(t *testin
 	require.Equal(t, []int64{1}, invalidator.groupIDs, "分组 RPMLimit 写入 auth snapshot，变更后必须失效 API Key 认证缓存")
 }
 
+func TestAdminService_CreateGroup_SetsLimitedTimeRPMLimit(t *testing.T) {
+	repo := &groupRepoStubForAdmin{}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+		Name:                "limited-rpm-group",
+		Platform:            PlatformAnthropic,
+		RateMultiplier:      1,
+		LimitedTimeRPMLimit: 30,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.Equal(t, 30, repo.created.LimitedTimeRPMLimit)
+}
+
+func TestAdminService_CreateGroup_RejectsNegativeLimitedTimeRPMLimit(t *testing.T) {
+	repo := &groupRepoStubForAdmin{}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	_, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+		Name:                "limited-rpm-group",
+		Platform:            PlatformAnthropic,
+		RateMultiplier:      1,
+		LimitedTimeRPMLimit: -1,
+	})
+	require.Error(t, err)
+	require.Nil(t, repo.created)
+}
+
+func TestAdminService_UpdateGroup_SetsLimitedTimeRPMLimitAndInvalidatesAuthCache(t *testing.T) {
+	existingGroup := &Group{
+		ID:                  1,
+		Name:                "existing-group",
+		Platform:            PlatformAnthropic,
+		Status:              StatusActive,
+		LimitedTimeRPMLimit: 10,
+	}
+	repo := &groupRepoStubForAdmin{getByID: existingGroup}
+	invalidator := &authCacheInvalidatorStub{}
+	svc := &adminServiceImpl{groupRepo: repo, authCacheInvalidator: invalidator}
+
+	limitedTimeRPM := 45
+	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{
+		LimitedTimeRPMLimit: &limitedTimeRPM,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.Equal(t, 45, repo.updated.LimitedTimeRPMLimit)
+	require.Equal(t, []int64{1}, invalidator.groupIDs)
+}
+
+func TestAdminService_UpdateGroup_ClearsLimitedTimeRPMLimitForSubscriptionGroup(t *testing.T) {
+	existingGroup := &Group{
+		ID:                                   1,
+		Name:                                 "existing-group",
+		Platform:                             PlatformAnthropic,
+		Status:                               StatusActive,
+		SubscriptionType:                     SubscriptionTypeStandard,
+		LimitedTimeMultiplierEnabled:         true,
+		LimitedTimeMultiplierCron:            "0 9 * * *",
+		LimitedTimeMultiplierDurationMinutes: 60,
+		LimitedTimeMultiplierValue:           0.5,
+		LimitedTimeRPMLimit:                  50,
+	}
+	repo := &groupRepoStubForAdmin{getByID: existingGroup}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{
+		SubscriptionType: SubscriptionTypeSubscription,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.Equal(t, 0, repo.updated.LimitedTimeRPMLimit)
+	require.False(t, repo.updated.LimitedTimeMultiplierEnabled)
+}
+
 func TestAdminService_CreateGroup_NormalizesMessagesDispatchModelConfig(t *testing.T) {
 	repo := &groupRepoStubForAdmin{}
 	svc := &adminServiceImpl{groupRepo: repo}

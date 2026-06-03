@@ -642,6 +642,12 @@ var (
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "description", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "rate_multiplier", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "limited_time_multiplier_enabled", Type: field.TypeBool, Default: false},
+		{Name: "limited_time_multiplier_cron", Type: field.TypeString, Size: 100, Default: ""},
+		{Name: "limited_time_multiplier_duration_minutes", Type: field.TypeInt, Default: 0},
+		{Name: "limited_time_multiplier_value", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "limited_time_rpm_limit", Type: field.TypeInt, Default: 0},
+		{Name: "limited_time_user_concurrency_limit", Type: field.TypeInt, Default: 0},
 		{Name: "is_exclusive", Type: field.TypeBool, Default: false},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "platform", Type: field.TypeString, Size: 50, Default: "anthropic"},
@@ -671,6 +677,7 @@ var (
 		{Name: "messages_dispatch_model_config", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "models_list_config", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "rpm_limit", Type: field.TypeInt, Default: 0},
+		{Name: "user_concurrency_limit", Type: field.TypeInt, Default: 0},
 	}
 	// GroupsTable holds the schema information for the "groups" table.
 	GroupsTable = &schema.Table{
@@ -681,22 +688,22 @@ var (
 			{
 				Name:    "group_status",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[8]},
+				Columns: []*schema.Column{GroupsColumns[14]},
 			},
 			{
 				Name:    "group_platform",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[9]},
+				Columns: []*schema.Column{GroupsColumns[15]},
 			},
 			{
 				Name:    "group_subscription_type",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[10]},
+				Columns: []*schema.Column{GroupsColumns[16]},
 			},
 			{
 				Name:    "group_is_exclusive",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[7]},
+				Columns: []*schema.Column{GroupsColumns[13]},
 			},
 			{
 				Name:    "group_deleted_at",
@@ -706,7 +713,7 @@ var (
 			{
 				Name:    "group_sort_order",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[28]},
+				Columns: []*schema.Column{GroupsColumns[34]},
 			},
 		},
 	}
@@ -902,6 +909,11 @@ var (
 				Name:    "paymentorder_paid_at",
 				Unique:  false,
 				Columns: []*schema.Column{PaymentOrdersColumns[30]},
+			},
+			{
+				Name:    "paymentorder_plan_id_client_ip_paid_at",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentOrdersColumns[15], PaymentOrdersColumns[34], PaymentOrdersColumns[30]},
 			},
 			{
 				Name:    "paymentorder_payment_type_paid_at",
@@ -1220,6 +1232,14 @@ var (
 		{Name: "features", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "product_name", Type: field.TypeString, Size: 100, Default: ""},
 		{Name: "for_sale", Type: field.TypeBool, Default: true},
+		{Name: "listed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "off_sale_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "new_user_only", Type: field.TypeBool, Default: false},
+		{Name: "purchase_limit_count", Type: field.TypeInt, Default: 0},
+		{Name: "ip_purchase_limit_count", Type: field.TypeInt, Default: 0},
+		{Name: "stock_count", Type: field.TypeInt, Default: 0},
+		{Name: "first_purchase_discount_enabled", Type: field.TypeBool, Default: false},
+		{Name: "first_purchase_discount_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
 		{Name: "sort_order", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},

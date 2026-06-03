@@ -58,11 +58,18 @@ export interface MethodLimitsResponse {
 }
 
 /** Response from /payment/checkout-info API — single call for the payment page */
+export interface CheckoutPlan extends SubscriptionPlan {
+  current_purchase_count?: number
+  current_ip_purchase_count?: number
+  first_purchase_discount_available?: boolean
+  effective_price?: number
+}
+
 export interface CheckoutInfoResponse {
   methods: Record<string, MethodLimit>
   global_min: number
   global_max: number
-  plans: SubscriptionPlan[]
+  plans: CheckoutPlan[]
   balance_disabled: boolean
   balance_recharge_multiplier: number
   recharge_fee_rate: number
@@ -120,6 +127,18 @@ export interface SubscriptionPlan {
   /** Stored as JSON string in backend; API layer should parse before use */
   features: string[]
   for_sale: boolean
+  listed_at?: string | null
+  off_sale_at?: string | null
+  new_user_only: boolean
+  purchase_limit_count: number
+  ip_purchase_limit_count: number
+  stock_count: number
+  first_purchase_discount_enabled: boolean
+  first_purchase_discount_price?: number | null
+  current_purchase_count?: number
+  current_ip_purchase_count?: number
+  first_purchase_discount_available?: boolean
+  effective_price?: number
   sort_order: number
 }
 

@@ -104,6 +104,46 @@ func ForSale(v bool) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldForSale, v))
 }
 
+// ListedAt applies equality check predicate on the "listed_at" field. It's identical to ListedAtEQ.
+func ListedAt(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldListedAt, v))
+}
+
+// OffSaleAt applies equality check predicate on the "off_sale_at" field. It's identical to OffSaleAtEQ.
+func OffSaleAt(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldOffSaleAt, v))
+}
+
+// NewUserOnly applies equality check predicate on the "new_user_only" field. It's identical to NewUserOnlyEQ.
+func NewUserOnly(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldNewUserOnly, v))
+}
+
+// PurchaseLimitCount applies equality check predicate on the "purchase_limit_count" field. It's identical to PurchaseLimitCountEQ.
+func PurchaseLimitCount(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldPurchaseLimitCount, v))
+}
+
+// IPPurchaseLimitCount applies equality check predicate on the "ip_purchase_limit_count" field. It's identical to IPPurchaseLimitCountEQ.
+func IPPurchaseLimitCount(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldIPPurchaseLimitCount, v))
+}
+
+// StockCount applies equality check predicate on the "stock_count" field. It's identical to StockCountEQ.
+func StockCount(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldStockCount, v))
+}
+
+// FirstPurchaseDiscountEnabled applies equality check predicate on the "first_purchase_discount_enabled" field. It's identical to FirstPurchaseDiscountEnabledEQ.
+func FirstPurchaseDiscountEnabled(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldFirstPurchaseDiscountEnabled, v))
+}
+
+// FirstPurchaseDiscountPrice applies equality check predicate on the "first_purchase_discount_price" field. It's identical to FirstPurchaseDiscountPriceEQ.
+func FirstPurchaseDiscountPrice(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldFirstPurchaseDiscountPrice, v))
+}
+
 // SortOrder applies equality check predicate on the "sort_order" field. It's identical to SortOrderEQ.
 func SortOrder(v int) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldSortOrder, v))
@@ -622,6 +662,296 @@ func ForSaleEQ(v bool) predicate.SubscriptionPlan {
 // ForSaleNEQ applies the NEQ predicate on the "for_sale" field.
 func ForSaleNEQ(v bool) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldForSale, v))
+}
+
+// ListedAtEQ applies the EQ predicate on the "listed_at" field.
+func ListedAtEQ(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldListedAt, v))
+}
+
+// ListedAtNEQ applies the NEQ predicate on the "listed_at" field.
+func ListedAtNEQ(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldListedAt, v))
+}
+
+// ListedAtIn applies the In predicate on the "listed_at" field.
+func ListedAtIn(vs ...time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldListedAt, vs...))
+}
+
+// ListedAtNotIn applies the NotIn predicate on the "listed_at" field.
+func ListedAtNotIn(vs ...time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldListedAt, vs...))
+}
+
+// ListedAtGT applies the GT predicate on the "listed_at" field.
+func ListedAtGT(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldListedAt, v))
+}
+
+// ListedAtGTE applies the GTE predicate on the "listed_at" field.
+func ListedAtGTE(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldListedAt, v))
+}
+
+// ListedAtLT applies the LT predicate on the "listed_at" field.
+func ListedAtLT(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldListedAt, v))
+}
+
+// ListedAtLTE applies the LTE predicate on the "listed_at" field.
+func ListedAtLTE(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldListedAt, v))
+}
+
+// ListedAtIsNil applies the IsNil predicate on the "listed_at" field.
+func ListedAtIsNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIsNull(FieldListedAt))
+}
+
+// ListedAtNotNil applies the NotNil predicate on the "listed_at" field.
+func ListedAtNotNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldListedAt))
+}
+
+// OffSaleAtEQ applies the EQ predicate on the "off_sale_at" field.
+func OffSaleAtEQ(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldOffSaleAt, v))
+}
+
+// OffSaleAtNEQ applies the NEQ predicate on the "off_sale_at" field.
+func OffSaleAtNEQ(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldOffSaleAt, v))
+}
+
+// OffSaleAtIn applies the In predicate on the "off_sale_at" field.
+func OffSaleAtIn(vs ...time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldOffSaleAt, vs...))
+}
+
+// OffSaleAtNotIn applies the NotIn predicate on the "off_sale_at" field.
+func OffSaleAtNotIn(vs ...time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldOffSaleAt, vs...))
+}
+
+// OffSaleAtGT applies the GT predicate on the "off_sale_at" field.
+func OffSaleAtGT(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldOffSaleAt, v))
+}
+
+// OffSaleAtGTE applies the GTE predicate on the "off_sale_at" field.
+func OffSaleAtGTE(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldOffSaleAt, v))
+}
+
+// OffSaleAtLT applies the LT predicate on the "off_sale_at" field.
+func OffSaleAtLT(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldOffSaleAt, v))
+}
+
+// OffSaleAtLTE applies the LTE predicate on the "off_sale_at" field.
+func OffSaleAtLTE(v time.Time) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldOffSaleAt, v))
+}
+
+// OffSaleAtIsNil applies the IsNil predicate on the "off_sale_at" field.
+func OffSaleAtIsNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIsNull(FieldOffSaleAt))
+}
+
+// OffSaleAtNotNil applies the NotNil predicate on the "off_sale_at" field.
+func OffSaleAtNotNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldOffSaleAt))
+}
+
+// NewUserOnlyEQ applies the EQ predicate on the "new_user_only" field.
+func NewUserOnlyEQ(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldNewUserOnly, v))
+}
+
+// NewUserOnlyNEQ applies the NEQ predicate on the "new_user_only" field.
+func NewUserOnlyNEQ(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldNewUserOnly, v))
+}
+
+// PurchaseLimitCountEQ applies the EQ predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldPurchaseLimitCount, v))
+}
+
+// PurchaseLimitCountNEQ applies the NEQ predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountNEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldPurchaseLimitCount, v))
+}
+
+// PurchaseLimitCountIn applies the In predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldPurchaseLimitCount, vs...))
+}
+
+// PurchaseLimitCountNotIn applies the NotIn predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountNotIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldPurchaseLimitCount, vs...))
+}
+
+// PurchaseLimitCountGT applies the GT predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountGT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldPurchaseLimitCount, v))
+}
+
+// PurchaseLimitCountGTE applies the GTE predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountGTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldPurchaseLimitCount, v))
+}
+
+// PurchaseLimitCountLT applies the LT predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountLT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldPurchaseLimitCount, v))
+}
+
+// PurchaseLimitCountLTE applies the LTE predicate on the "purchase_limit_count" field.
+func PurchaseLimitCountLTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldPurchaseLimitCount, v))
+}
+
+// IPPurchaseLimitCountEQ applies the EQ predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldIPPurchaseLimitCount, v))
+}
+
+// IPPurchaseLimitCountNEQ applies the NEQ predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountNEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldIPPurchaseLimitCount, v))
+}
+
+// IPPurchaseLimitCountIn applies the In predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldIPPurchaseLimitCount, vs...))
+}
+
+// IPPurchaseLimitCountNotIn applies the NotIn predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountNotIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldIPPurchaseLimitCount, vs...))
+}
+
+// IPPurchaseLimitCountGT applies the GT predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountGT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldIPPurchaseLimitCount, v))
+}
+
+// IPPurchaseLimitCountGTE applies the GTE predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountGTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldIPPurchaseLimitCount, v))
+}
+
+// IPPurchaseLimitCountLT applies the LT predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountLT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldIPPurchaseLimitCount, v))
+}
+
+// IPPurchaseLimitCountLTE applies the LTE predicate on the "ip_purchase_limit_count" field.
+func IPPurchaseLimitCountLTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldIPPurchaseLimitCount, v))
+}
+
+// StockCountEQ applies the EQ predicate on the "stock_count" field.
+func StockCountEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldStockCount, v))
+}
+
+// StockCountNEQ applies the NEQ predicate on the "stock_count" field.
+func StockCountNEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldStockCount, v))
+}
+
+// StockCountIn applies the In predicate on the "stock_count" field.
+func StockCountIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldStockCount, vs...))
+}
+
+// StockCountNotIn applies the NotIn predicate on the "stock_count" field.
+func StockCountNotIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldStockCount, vs...))
+}
+
+// StockCountGT applies the GT predicate on the "stock_count" field.
+func StockCountGT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldStockCount, v))
+}
+
+// StockCountGTE applies the GTE predicate on the "stock_count" field.
+func StockCountGTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldStockCount, v))
+}
+
+// StockCountLT applies the LT predicate on the "stock_count" field.
+func StockCountLT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldStockCount, v))
+}
+
+// StockCountLTE applies the LTE predicate on the "stock_count" field.
+func StockCountLTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldStockCount, v))
+}
+
+// FirstPurchaseDiscountEnabledEQ applies the EQ predicate on the "first_purchase_discount_enabled" field.
+func FirstPurchaseDiscountEnabledEQ(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldFirstPurchaseDiscountEnabled, v))
+}
+
+// FirstPurchaseDiscountEnabledNEQ applies the NEQ predicate on the "first_purchase_discount_enabled" field.
+func FirstPurchaseDiscountEnabledNEQ(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldFirstPurchaseDiscountEnabled, v))
+}
+
+// FirstPurchaseDiscountPriceEQ applies the EQ predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldFirstPurchaseDiscountPrice, v))
+}
+
+// FirstPurchaseDiscountPriceNEQ applies the NEQ predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceNEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldFirstPurchaseDiscountPrice, v))
+}
+
+// FirstPurchaseDiscountPriceIn applies the In predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldFirstPurchaseDiscountPrice, vs...))
+}
+
+// FirstPurchaseDiscountPriceNotIn applies the NotIn predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceNotIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldFirstPurchaseDiscountPrice, vs...))
+}
+
+// FirstPurchaseDiscountPriceGT applies the GT predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceGT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldFirstPurchaseDiscountPrice, v))
+}
+
+// FirstPurchaseDiscountPriceGTE applies the GTE predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceGTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldFirstPurchaseDiscountPrice, v))
+}
+
+// FirstPurchaseDiscountPriceLT applies the LT predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceLT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldFirstPurchaseDiscountPrice, v))
+}
+
+// FirstPurchaseDiscountPriceLTE applies the LTE predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceLTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldFirstPurchaseDiscountPrice, v))
+}
+
+// FirstPurchaseDiscountPriceIsNil applies the IsNil predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceIsNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIsNull(FieldFirstPurchaseDiscountPrice))
+}
+
+// FirstPurchaseDiscountPriceNotNil applies the NotNil predicate on the "first_purchase_discount_price" field.
+func FirstPurchaseDiscountPriceNotNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldFirstPurchaseDiscountPrice))
 }
 
 // SortOrderEQ applies the EQ predicate on the "sort_order" field.

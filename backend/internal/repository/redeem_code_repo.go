@@ -69,6 +69,8 @@ func (r *redeemCodeRepository) CreateBatch(ctx context.Context, codes []service.
 
 func (r *redeemCodeRepository) GetByID(ctx context.Context, id int64) (*service.RedeemCode, error) {
 	m, err := r.client.RedeemCode.Query().
+		WithUser().
+		WithGroup().
 		Where(redeemcode.IDEQ(id)).
 		Only(ctx)
 	if err != nil {
@@ -82,6 +84,8 @@ func (r *redeemCodeRepository) GetByID(ctx context.Context, id int64) (*service.
 
 func (r *redeemCodeRepository) GetByCode(ctx context.Context, code string) (*service.RedeemCode, error) {
 	m, err := r.client.RedeemCode.Query().
+		WithUser().
+		WithGroup().
 		Where(redeemcode.CodeEQ(code)).
 		Only(ctx)
 	if err != nil {
@@ -413,15 +417,15 @@ func redeemCodeEntityToService(m *dbent.RedeemCode) *service.RedeemCode {
 		return nil
 	}
 	out := &service.RedeemCode{
-		ID:           m.ID,
-		Code:         m.Code,
-		Type:         m.Type,
-		Value:        m.Value,
-		Status:       m.Status,
-		UsedBy:       m.UsedBy,
-		UsedAt:       m.UsedAt,
-		Notes:        derefString(m.Notes),
-		CreatedAt:    m.CreatedAt,
+		ID:               m.ID,
+		Code:             m.Code,
+		Type:             m.Type,
+		Value:            m.Value,
+		Status:           m.Status,
+		UsedBy:           m.UsedBy,
+		UsedAt:           m.UsedAt,
+		Notes:            derefString(m.Notes),
+		CreatedAt:        m.CreatedAt,
 		ExpiresAt:    m.ExpiresAt,
 		GroupID:      m.GroupID,
 		ValidityDays: m.ValidityDays,

@@ -114,6 +114,12 @@ func (f *fakeConcurrencyCache) DecrementAccountWaitCount(context.Context, int64)
 func (f *fakeConcurrencyCache) GetAccountWaitingCount(context.Context, int64) (int, error) {
 	return 0, nil
 }
+func (f *fakeConcurrencyCache) AcquireGroupUserSlot(context.Context, int64, int64, int, string) (bool, error) {
+	return true, nil
+}
+func (f *fakeConcurrencyCache) ReleaseGroupUserSlot(context.Context, int64, int64, string) error {
+	return nil
+}
 func (f *fakeConcurrencyCache) AcquireUserSlot(context.Context, int64, int, string) (bool, error) {
 	return true, nil
 }

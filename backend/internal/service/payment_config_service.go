@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -149,32 +151,69 @@ type UpdateProviderInstanceRequest struct {
 	RefundEnabled   *bool             `json:"refund_enabled"`
 	AllowUserRefund *bool             `json:"allow_user_refund"`
 }
+type nullableTimePatch struct {
+	Set   bool
+	Valid bool
+	Time  time.Time
+}
+
+func (n *nullableTimePatch) UnmarshalJSON(data []byte) error {
+	n.Set = true
+	if string(data) == "null" {
+		n.Valid = false
+		return nil
+	}
+	var value time.Time
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	n.Valid = true
+	n.Time = value
+	return nil
+}
+
 type CreatePlanRequest struct {
-	GroupID       int64    `json:"group_id"`
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
-	Price         float64  `json:"price"`
-	OriginalPrice *float64 `json:"original_price"`
-	ValidityDays  int      `json:"validity_days"`
-	ValidityUnit  string   `json:"validity_unit"`
-	Features      string   `json:"features"`
-	ProductName   string   `json:"product_name"`
-	ForSale       bool     `json:"for_sale"`
-	SortOrder     int      `json:"sort_order"`
+	GroupID                      int64      `json:"group_id"`
+	Name                         string     `json:"name"`
+	Description                  string     `json:"description"`
+	Price                        float64    `json:"price"`
+	OriginalPrice                *float64   `json:"original_price"`
+	ValidityDays                 int        `json:"validity_days"`
+	ValidityUnit                 string     `json:"validity_unit"`
+	Features                     string     `json:"features"`
+	ProductName                  string     `json:"product_name"`
+	ForSale                      bool       `json:"for_sale"`
+	ListedAt                     *time.Time `json:"listed_at"`
+	OffSaleAt                    *time.Time `json:"off_sale_at"`
+	NewUserOnly                  bool       `json:"new_user_only"`
+	PurchaseLimitCount           int        `json:"purchase_limit_count"`
+	IPPurchaseLimitCount         int        `json:"ip_purchase_limit_count"`
+	StockCount                   int        `json:"stock_count"`
+	FirstPurchaseDiscountEnabled bool       `json:"first_purchase_discount_enabled"`
+	FirstPurchaseDiscountPrice   *float64   `json:"first_purchase_discount_price"`
+	SortOrder                    int        `json:"sort_order"`
 }
 
 type UpdatePlanRequest struct {
-	GroupID       *int64   `json:"group_id"`
-	Name          *string  `json:"name"`
-	Description   *string  `json:"description"`
-	Price         *float64 `json:"price"`
-	OriginalPrice *float64 `json:"original_price"`
-	ValidityDays  *int     `json:"validity_days"`
-	ValidityUnit  *string  `json:"validity_unit"`
-	Features      *string  `json:"features"`
-	ProductName   *string  `json:"product_name"`
-	ForSale       *bool    `json:"for_sale"`
-	SortOrder     *int     `json:"sort_order"`
+	GroupID                      *int64            `json:"group_id"`
+	Name                         *string           `json:"name"`
+	Description                  *string           `json:"description"`
+	Price                        *float64          `json:"price"`
+	OriginalPrice                *float64          `json:"original_price"`
+	ValidityDays                 *int              `json:"validity_days"`
+	ValidityUnit                 *string           `json:"validity_unit"`
+	Features                     *string           `json:"features"`
+	ProductName                  *string           `json:"product_name"`
+	ForSale                      *bool             `json:"for_sale"`
+	ListedAt                     nullableTimePatch `json:"listed_at"`
+	OffSaleAt                    nullableTimePatch `json:"off_sale_at"`
+	NewUserOnly                  *bool             `json:"new_user_only"`
+	PurchaseLimitCount           *int              `json:"purchase_limit_count"`
+	IPPurchaseLimitCount         *int              `json:"ip_purchase_limit_count"`
+	StockCount                   *int              `json:"stock_count"`
+	FirstPurchaseDiscountEnabled *bool             `json:"first_purchase_discount_enabled"`
+	FirstPurchaseDiscountPrice   *float64          `json:"first_purchase_discount_price"`
+	SortOrder                    *int              `json:"sort_order"`
 }
 
 // PaymentConfigService manages payment configuration and CRUD for

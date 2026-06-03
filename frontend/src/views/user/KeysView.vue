@@ -102,34 +102,44 @@
               <button
                 :ref="(el) => setGroupButtonRef(row.id, el)"
                 @click="openGroupSelector(row)"
-                class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
+                class="-mx-2 -my-1 flex cursor-pointer flex-col items-start gap-1 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
                 :title="t('keys.clickToChangeGroup')"
               >
-                <GroupBadge
-                  v-if="row.group"
-                  :name="row.group.name"
-                  :platform="row.group.platform"
-                  :subscription-type="row.group.subscription_type"
-                  :rate-multiplier="row.group.rate_multiplier"
-                  :user-rate-multiplier="userGroupRates[row.group.id]"
-                />
-                <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
-                  t('keys.noGroup')
-                }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
-                <svg
-                  class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"
+                <span class="flex items-center gap-2">
+                  <GroupBadge
+                    v-if="row.group"
+                    :name="row.group.name"
+                    :platform="row.group.platform"
+                    :subscription-type="row.group.subscription_type"
+                    :rate-multiplier="row.group.rate_multiplier"
+                    :user-rate-multiplier="userGroupRates[row.group.id]"
+                    :limited-time-multiplier-value="row.group.limited_time_multiplier_value"
+                    :limited-time-multiplier-active="isLimitedTimeMultiplierActive(row.group)"
                   />
-                </svg>
+                  <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
+                    t('keys.noGroup')
+                  }}</span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
+                  <svg
+                    class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"
+                    />
+                  </svg>
+                </span>
+                <span
+                  v-if="row.group && formatLimitedTimeMultiplier(row.group)"
+                  class="text-xs font-medium text-amber-600 dark:text-amber-400"
+                >
+                  {{ formatLimitedTimeMultiplier(row.group) }}
+                </span>
               </button>
             </div>
           </template>
@@ -422,6 +432,8 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :limited-time-multiplier-value="(option as unknown as GroupOption).limitedTimeMultiplierValue"
+                :limited-time-multiplier-active="(option as unknown as GroupOption).limitedTimeMultiplierActive"
               />
               <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
             </template>
@@ -433,6 +445,9 @@
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
                 :description="(option as unknown as GroupOption).description"
+                :limited-time-multiplier="(option as unknown as GroupOption).limitedTimeMultiplier"
+                :limited-time-multiplier-value="(option as unknown as GroupOption).limitedTimeMultiplierValue"
+                :limited-time-multiplier-active="(option as unknown as GroupOption).limitedTimeMultiplierActive"
                 :selected="selected"
               />
             </template>
@@ -1028,6 +1043,9 @@
               :rate-multiplier="option.rate"
               :user-rate-multiplier="option.userRate"
               :description="option.description"
+              :limited-time-multiplier="option.limitedTimeMultiplier"
+              :limited-time-multiplier-value="option.limitedTimeMultiplierValue"
+              :limited-time-multiplier-active="option.limitedTimeMultiplierActive"
               :selected="
                 selectedKeyForGroup?.group_id === option.value ||
                 (!selectedKeyForGroup?.group_id && option.value === null)
@@ -1093,6 +1111,9 @@ interface GroupOption {
   userRate: number | null
   subscriptionType: SubscriptionType
   platform: GroupPlatform
+  limitedTimeMultiplier: string | null
+  limitedTimeMultiplierValue: number | null
+  limitedTimeMultiplierActive: boolean
 }
 
 const appStore = useAppStore()
@@ -1242,6 +1263,103 @@ const onStatusFilterChange = (value: string | number | boolean | null) => {
 }
 
 // Convert groups to Select options format with rate multiplier and subscription type
+const parseLimitedTimeCron = (cron: string | null | undefined) => {
+  const parts = String(cron || '').trim().split(/\s+/)
+  if (parts.length !== 5) {
+    return { frequency: 'daily' as const, weekday: 1, monthDay: 1, hour: 9, minute: 0 }
+  }
+
+  const [minutePart, hourPart, dayPart, monthPart, weekdayPart] = parts
+  const minute = Number(minutePart)
+  const hour = Number(hourPart)
+  const isValidMinute = Number.isInteger(minute) && minute >= 0 && minute <= 59
+  const isValidHour = Number.isInteger(hour) && hour >= 0 && hour <= 23
+  const base = { hour: isValidHour ? hour : 9, minute: isValidMinute ? minute : 0 }
+
+  if (monthPart === '*' && dayPart === '*' && weekdayPart === '*') {
+    return { frequency: 'daily' as const, weekday: 1, monthDay: 1, ...base }
+  }
+
+  const weekday = Number(weekdayPart)
+  if (monthPart === '*' && dayPart === '*' && Number.isInteger(weekday) && weekday >= 0 && weekday <= 6) {
+    return { frequency: 'weekly' as const, weekday, monthDay: 1, ...base }
+  }
+
+  const monthDay = Number(dayPart)
+  if (monthPart === '*' && weekdayPart === '*' && Number.isInteger(monthDay) && monthDay >= 1 && monthDay <= 31) {
+    return { frequency: 'monthly' as const, weekday: 1, monthDay, ...base }
+  }
+
+  return { frequency: 'daily' as const, weekday: 1, monthDay: 1, ...base }
+}
+
+const formatTimeOfDay = (hour: number, minute: number) => {
+  const normalizedHour = Math.min(23, Math.max(0, Math.floor(Number(hour) || 0)))
+  const normalizedMinute = Math.min(59, Math.max(0, Math.floor(Number(minute) || 0)))
+  return `${normalizedHour}:${String(normalizedMinute).padStart(2, '0')}`
+}
+
+const isLimitedTimeMultiplierActive = (group: Group) => {
+  if (
+    group.subscription_type === 'subscription' ||
+    !group.limited_time_multiplier_enabled ||
+    !group.limited_time_multiplier_cron ||
+    !group.limited_time_multiplier_duration_minutes
+  ) {
+    return false
+  }
+
+  const cron = parseLimitedTimeCron(group.limited_time_multiplier_cron)
+  const durationMinutes = Math.max(0, Math.floor(Number(group.limited_time_multiplier_duration_minutes) || 0))
+  const current = now.value
+  if (cron.frequency === 'weekly' && current.getDay() !== cron.weekday) return false
+  if (cron.frequency === 'monthly' && current.getDate() !== cron.monthDay) return false
+
+  const startTotalMinutes = cron.hour * 60 + cron.minute
+  const currentTotalMinutes = current.getHours() * 60 + current.getMinutes()
+  const endTotalMinutes = startTotalMinutes + durationMinutes
+  if (endTotalMinutes <= 24 * 60) {
+    return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes
+  }
+  return currentTotalMinutes >= startTotalMinutes || currentTotalMinutes < endTotalMinutes % (24 * 60)
+}
+
+const formatLimitedTimeMultiplier = (group: Group) => {
+  if (
+    group.subscription_type === 'subscription' ||
+    !group.limited_time_multiplier_enabled ||
+    !group.limited_time_multiplier_cron ||
+    !group.limited_time_multiplier_duration_minutes
+  ) {
+    return null
+  }
+
+  const cron = parseLimitedTimeCron(group.limited_time_multiplier_cron)
+  const durationMinutes = Math.max(0, Math.floor(Number(group.limited_time_multiplier_duration_minutes) || 0))
+  const startTotalMinutes = cron.hour * 60 + cron.minute
+  const endTotalMinutes = startTotalMinutes + durationMinutes
+  const endHour = Math.floor((endTotalMinutes % (24 * 60)) / 60)
+  const endMinute = endTotalMinutes % 60
+  const timeRange = `${formatTimeOfDay(cron.hour, cron.minute)}-${formatTimeOfDay(endHour, endMinute)}`
+  let schedule = t('admin.groups.limitedTimeMultiplier.schedule.daily')
+
+  if (cron.frequency === 'weekly') {
+    const weekday = t(`admin.groups.limitedTimeMultiplier.weekdays.${['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][cron.weekday]}`)
+    schedule = t('admin.groups.limitedTimeMultiplier.schedule.weekly', { weekday })
+  } else if (cron.frequency === 'monthly') {
+    schedule = t('admin.groups.limitedTimeMultiplier.schedule.monthly', { day: cron.monthDay })
+  }
+
+  return t('admin.groups.limitedTimeMultiplier.tableBadge', {
+    value: group.limited_time_multiplier_value,
+    schedule,
+    timeRange,
+    active: isLimitedTimeMultiplierActive(group)
+      ? t('admin.groups.limitedTimeMultiplier.activeBadge')
+      : ''
+  })
+}
+
 const groupOptions = computed(() =>
   groups.value.map((group) => ({
     value: group.id,
@@ -1250,7 +1368,10 @@ const groupOptions = computed(() =>
     rate: group.rate_multiplier,
     userRate: userGroupRates.value[group.id] ?? null,
     subscriptionType: group.subscription_type,
-    platform: group.platform
+    platform: group.platform,
+    limitedTimeMultiplier: formatLimitedTimeMultiplier(group),
+    limitedTimeMultiplierValue: group.limited_time_multiplier_value ?? null,
+    limitedTimeMultiplierActive: isLimitedTimeMultiplierActive(group)
   }))
 )
 

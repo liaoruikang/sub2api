@@ -5705,7 +5705,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		if resolver == nil {
 			resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
 		}
-		multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+		now := time.Now()
+		baseMultiplier := resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+		multiplier = apiKey.Group.BillingRateMultiplierForBaseAt(baseMultiplier, now)
 	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 

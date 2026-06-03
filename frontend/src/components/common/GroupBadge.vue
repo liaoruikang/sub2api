@@ -4,6 +4,7 @@
       'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
       badgeClass
     ]"
+    :title="tooltipText || undefined"
   >
     <!-- Platform logo -->
     <PlatformIcon v-if="platform" :platform="platform" size="sm" />
@@ -11,7 +12,11 @@
     <span class="truncate">{{ name }}</span>
     <!-- Right side label -->
     <span v-if="showLabel" :class="labelClass">
-      <template v-if="hasCustomRate">
+      <template v-if="hasEffectiveLimitedTimeRate">
+        <span class="line-through opacity-50 mr-0.5">{{ normalEffectiveRate }}x</span>
+        <span class="font-bold text-amber-700 dark:text-amber-300">{{ limitedTimeMultiplierValue }}x</span>
+      </template>
+      <template v-else-if="hasCustomRate">
         <!-- 原倍率删除线 + 专属倍率高亮 -->
         <span class="line-through opacity-50 mr-0.5">{{ rateMultiplier }}x</span>
         <span class="font-bold">{{ userRateMultiplier }}x</span>
@@ -35,6 +40,8 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null // 用户专属倍率
+  limitedTimeMultiplierValue?: number | null
+  limitedTimeMultiplierActive?: boolean
   showRate?: boolean
   daysRemaining?: number | null // 剩余天数（订阅类型时使用）
   /**
@@ -50,12 +57,45 @@ const props = withDefaults(defineProps<Props>(), {
   showRate: true,
   daysRemaining: null,
   userRateMultiplier: null,
+  limitedTimeMultiplierValue: null,
+  limitedTimeMultiplierActive: false,
   alwaysShowRate: false
 })
 
 const { t } = useI18n()
 
 const isSubscription = computed(() => props.subscriptionType === 'subscription')
+
+const normalEffectiveRate = computed(() => {
+  if (props.userRateMultiplier !== null && props.userRateMultiplier !== undefined) {
+    return props.userRateMultiplier
+  }
+  return props.rateMultiplier
+})
+
+const hasEffectiveLimitedTimeRate = computed(() => {
+  return (
+    !isSubscription.value &&
+    props.limitedTimeMultiplierActive &&
+    props.limitedTimeMultiplierValue !== null &&
+    props.limitedTimeMultiplierValue !== undefined &&
+    normalEffectiveRate.value !== undefined &&
+    props.limitedTimeMultiplierValue < normalEffectiveRate.value
+  )
+})
+
+const tooltipText = computed(() => {
+  if (!hasEffectiveLimitedTimeRate.value) return ''
+  if (props.userRateMultiplier === null || props.userRateMultiplier === undefined) {
+    return t('admin.groups.limitedTimeMultiplier.effectiveTooltipDefault', {
+      limited: props.limitedTimeMultiplierValue
+    })
+  }
+  return t('admin.groups.limitedTimeMultiplier.effectiveTooltip', {
+    limited: props.limitedTimeMultiplierValue,
+    normal: normalEffectiveRate.value
+  })
+})
 
 // 是否有专属倍率（且与默认倍率不同）
 const hasCustomRate = computed(() => {
@@ -72,8 +112,8 @@ const showLabel = computed(() => {
   if (!props.showRate) return false
   // 订阅类型：显示天数或"订阅"
   if (isSubscription.value) return true
-  // 标准类型：显示倍率（包括专属倍率）
-  return props.rateMultiplier !== undefined || hasCustomRate.value
+  // 标准类型：显示倍率（包括专属倍率、限时生效倍率）
+  return props.rateMultiplier !== undefined || hasCustomRate.value || hasEffectiveLimitedTimeRate.value
 })
 
 // Label text

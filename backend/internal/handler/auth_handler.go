@@ -423,7 +423,8 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 
 	type UserResponse struct {
 		userProfileResponse
-		RunMode string `json:"run_mode"`
+		RunMode  string `json:"run_mode"`
+		ClientIP string `json:"client_ip"`
 	}
 
 	runMode := config.RunModeStandard
@@ -434,6 +435,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	response.Success(c, UserResponse{
 		userProfileResponse: userProfileResponseFromService(user, identities),
 		RunMode:             runMode,
+		ClientIP:            c.ClientIP(),
 	})
 }
 

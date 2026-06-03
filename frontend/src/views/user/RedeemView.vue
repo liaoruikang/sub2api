@@ -188,7 +188,7 @@
                     v-if="contactInfo"
                     class="ml-1.5 inline-flex items-center rounded-md bg-primary-200/50 px-2 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-800/40 dark:text-primary-200"
                   >
-                    {{ contactInfo }}
+                    <span v-html="contactInfoHtml"></span>
                   </span>
                 </li>
                 <li>{{ t('redeem.codeRule4') }}</li>
@@ -344,6 +344,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import DOMPurify from 'dompurify'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useSubscriptionStore } from '@/stores/subscriptions'
@@ -376,6 +377,7 @@ const errorMessage = ref('')
 const history = ref<RedeemHistoryItem[]>([])
 const loadingHistory = ref(false)
 const contactInfo = ref('')
+const contactInfoHtml = computed(() => DOMPurify.sanitize(contactInfo.value, { ADD_ATTR: ['target'] }))
 
 // Helper functions for history display
 const isBalanceType = (type: string) => {

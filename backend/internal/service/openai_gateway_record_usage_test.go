@@ -114,17 +114,32 @@ func (s *openAIRecordUsageAPIKeyQuotaStub) UpdateRateLimitUsage(ctx context.Cont
 type openAIUserGroupRateRepoStub struct {
 	UserGroupRateRepository
 
-	rate  *float64
-	err   error
-	calls int
+	rate                *float64
+	limitedTimeRate     *int
+	err                 error
+	limitedTimeErr      error
+	rateCalls           int
+	limitedTimeRateCalls int
 }
 
 func (s *openAIUserGroupRateRepoStub) GetByUserAndGroup(ctx context.Context, userID, groupID int64) (*float64, error) {
-	s.calls++
+	s.rateCalls++
 	if s.err != nil {
 		return nil, s.err
 	}
 	return s.rate, nil
+}
+
+func (s *openAIUserGroupRateRepoStub) GetRPMOverrideByUserAndGroup(context.Context, int64, int64) (*int, error) {
+	return nil, nil
+}
+
+func (s *openAIUserGroupRateRepoStub) GetLimitedTimeRPMOverrideByUserAndGroup(context.Context, int64, int64) (*int, error) {
+	s.limitedTimeRateCalls++
+	if s.limitedTimeErr != nil {
+		return nil, s.limitedTimeErr
+	}
+	return s.limitedTimeRate, nil
 }
 
 func i64p(v int64) *int64 {
@@ -326,7 +341,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesUserSpecificGroupRate(t *testing.T)
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, rateRepo.calls)
+	require.Equal(t, 1, rateRepo.rateCalls)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, userRate, usageRepo.lastLog.RateMultiplier)
 	require.Equal(t, 12, usageRepo.lastLog.InputTokens)
@@ -336,6 +351,100 @@ func TestOpenAIGatewayServiceRecordUsage_UsesUserSpecificGroupRate(t *testing.T)
 	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
 	require.Equal(t, 1, userRepo.deductCalls)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_LimitedTimeMultiplierCapsUserSpecificGroupRate(t *testing.T) {
+	groupID := int64(111)
+	groupRate := 1.4
+	userRate := 1.8
+	limitedRate := 0.5
+	usage := OpenAIUsage{InputTokens: 15, OutputTokens: 4, CacheReadInputTokens: 3}
+
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	rateRepo := &openAIUserGroupRateRepoStub{rate: &userRate}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_limited_time_user_group_rate",
+			Usage:     usage,
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      1101,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                                   groupID,
+				RateMultiplier:                       groupRate,
+				SubscriptionType:                     SubscriptionTypeStandard,
+				LimitedTimeMultiplierEnabled:         true,
+				LimitedTimeMultiplierCron:            "* * * * *",
+				LimitedTimeMultiplierDurationMinutes: 2,
+				LimitedTimeMultiplierValue:           limitedRate,
+			},
+		},
+		User:    &User{ID: 2101},
+		Account: &Account{ID: 3101},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, rateRepo.rateCalls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, limitedRate, usageRepo.lastLog.RateMultiplier)
+
+	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, limitedRate)
+	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_LimitedTimeMultiplierDoesNotRaiseLowerUserSpecificGroupRate(t *testing.T) {
+	groupID := int64(112)
+	groupRate := 1.4
+	userRate := 0.4
+	limitedRate := 0.5
+	usage := OpenAIUsage{InputTokens: 15, OutputTokens: 4, CacheReadInputTokens: 3}
+
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	rateRepo := &openAIUserGroupRateRepoStub{rate: &userRate}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_limited_time_lower_user_group_rate",
+			Usage:     usage,
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      1102,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                                   groupID,
+				RateMultiplier:                       groupRate,
+				SubscriptionType:                     SubscriptionTypeStandard,
+				LimitedTimeMultiplierEnabled:         true,
+				LimitedTimeMultiplierCron:            "* * * * *",
+				LimitedTimeMultiplierDurationMinutes: 2,
+				LimitedTimeMultiplierValue:           limitedRate,
+			},
+		},
+		User:    &User{ID: 2102},
+		Account: &Account{ID: 3102},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, rateRepo.rateCalls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, userRate, usageRepo.lastLog.RateMultiplier)
+
+	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, userRate)
+	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) {
@@ -404,7 +513,7 @@ func TestOpenAIGatewayServiceRecordUsage_FallsBackToGroupDefaultRateOnResolverEr
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, rateRepo.calls)
+	require.Equal(t, 1, rateRepo.rateCalls)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, groupRate, usageRepo.lastLog.RateMultiplier)
 

@@ -55,6 +55,7 @@ func TestAPIContracts(t *testing.T) {
 					"role": "user",
 					"balance": 12.5,
 					"concurrency": 5,
+					"client_ip": "192.0.2.1",
 					"rpm_limit": 0,
 					"status": "active",
 					"allowed_groups": null,
@@ -324,9 +325,10 @@ func TestAPIContracts(t *testing.T) {
 						ModelRouting: map[string][]int64{
 							"claude-3-*": []int64{101, 102},
 						},
-						AccountCount: 2,
-						CreatedAt:    deps.now,
-						UpdatedAt:    deps.now,
+						LimitedTimeRPMLimit: 15,
+						AccountCount:        2,
+						CreatedAt:           deps.now,
+						UpdatedAt:           deps.now,
 					},
 				})
 				deps.userSubRepo.SetActiveByUserID(1, nil)
@@ -344,6 +346,10 @@ func TestAPIContracts(t *testing.T) {
 						"description": "desc",
 						"platform": "anthropic",
 						"rate_multiplier": 1.5,
+						"limited_time_multiplier_enabled": false,
+						"limited_time_multiplier_cron": "",
+						"limited_time_multiplier_duration_minutes": 0,
+						"limited_time_multiplier_value": 0,
 						"is_exclusive": false,
 						"status": "active",
 						"subscription_type": "standard",
@@ -363,6 +369,8 @@ func TestAPIContracts(t *testing.T) {
 						"require_oauth_only": false,
 						"require_privacy_set": false,
 						"rpm_limit": 0,
+						"limited_time_rpm_limit": 15,
+						"user_concurrency_limit": 0,
 						"created_at": "2025-01-02T03:04:05Z",
 						"updated_at": "2025-01-02T03:04:05Z"
 					}

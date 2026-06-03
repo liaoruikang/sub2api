@@ -117,6 +117,118 @@ func (_u *GroupUpdate) AddRateMultiplier(v float64) *GroupUpdate {
 	return _u
 }
 
+// SetLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field.
+func (_u *GroupUpdate) SetLimitedTimeMultiplierEnabled(v bool) *GroupUpdate {
+	_u.mutation.SetLimitedTimeMultiplierEnabled(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableLimitedTimeMultiplierEnabled(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierEnabled(*v)
+	}
+	return _u
+}
+
+// SetLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field.
+func (_u *GroupUpdate) SetLimitedTimeMultiplierCron(v string) *GroupUpdate {
+	_u.mutation.SetLimitedTimeMultiplierCron(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableLimitedTimeMultiplierCron(v *string) *GroupUpdate {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierCron(*v)
+	}
+	return _u
+}
+
+// SetLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field.
+func (_u *GroupUpdate) SetLimitedTimeMultiplierDurationMinutes(v int) *GroupUpdate {
+	_u.mutation.ResetLimitedTimeMultiplierDurationMinutes()
+	_u.mutation.SetLimitedTimeMultiplierDurationMinutes(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableLimitedTimeMultiplierDurationMinutes(v *int) *GroupUpdate {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierDurationMinutes(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeMultiplierDurationMinutes adds value to the "limited_time_multiplier_duration_minutes" field.
+func (_u *GroupUpdate) AddLimitedTimeMultiplierDurationMinutes(v int) *GroupUpdate {
+	_u.mutation.AddLimitedTimeMultiplierDurationMinutes(v)
+	return _u
+}
+
+// SetLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field.
+func (_u *GroupUpdate) SetLimitedTimeMultiplierValue(v float64) *GroupUpdate {
+	_u.mutation.ResetLimitedTimeMultiplierValue()
+	_u.mutation.SetLimitedTimeMultiplierValue(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableLimitedTimeMultiplierValue(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierValue(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeMultiplierValue adds value to the "limited_time_multiplier_value" field.
+func (_u *GroupUpdate) AddLimitedTimeMultiplierValue(v float64) *GroupUpdate {
+	_u.mutation.AddLimitedTimeMultiplierValue(v)
+	return _u
+}
+
+// SetLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field.
+func (_u *GroupUpdate) SetLimitedTimeRpmLimit(v int) *GroupUpdate {
+	_u.mutation.ResetLimitedTimeRpmLimit()
+	_u.mutation.SetLimitedTimeRpmLimit(v)
+	return _u
+}
+
+// SetNillableLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableLimitedTimeRpmLimit(v *int) *GroupUpdate {
+	if v != nil {
+		_u.SetLimitedTimeRpmLimit(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeRpmLimit adds value to the "limited_time_rpm_limit" field.
+func (_u *GroupUpdate) AddLimitedTimeRpmLimit(v int) *GroupUpdate {
+	_u.mutation.AddLimitedTimeRpmLimit(v)
+	return _u
+}
+
+// SetLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field.
+func (_u *GroupUpdate) SetLimitedTimeUserConcurrencyLimit(v int) *GroupUpdate {
+	_u.mutation.ResetLimitedTimeUserConcurrencyLimit()
+	_u.mutation.SetLimitedTimeUserConcurrencyLimit(v)
+	return _u
+}
+
+// SetNillableLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableLimitedTimeUserConcurrencyLimit(v *int) *GroupUpdate {
+	if v != nil {
+		_u.SetLimitedTimeUserConcurrencyLimit(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeUserConcurrencyLimit adds value to the "limited_time_user_concurrency_limit" field.
+func (_u *GroupUpdate) AddLimitedTimeUserConcurrencyLimit(v int) *GroupUpdate {
+	_u.mutation.AddLimitedTimeUserConcurrencyLimit(v)
+	return _u
+}
+
 // SetIsExclusive sets the "is_exclusive" field.
 func (_u *GroupUpdate) SetIsExclusive(v bool) *GroupUpdate {
 	_u.mutation.SetIsExclusive(v)
@@ -651,6 +763,27 @@ func (_u *GroupUpdate) AddRpmLimit(v int) *GroupUpdate {
 	return _u
 }
 
+// SetUserConcurrencyLimit sets the "user_concurrency_limit" field.
+func (_u *GroupUpdate) SetUserConcurrencyLimit(v int) *GroupUpdate {
+	_u.mutation.ResetUserConcurrencyLimit()
+	_u.mutation.SetUserConcurrencyLimit(v)
+	return _u
+}
+
+// SetNillableUserConcurrencyLimit sets the "user_concurrency_limit" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableUserConcurrencyLimit(v *int) *GroupUpdate {
+	if v != nil {
+		_u.SetUserConcurrencyLimit(*v)
+	}
+	return _u
+}
+
+// AddUserConcurrencyLimit adds value to the "user_concurrency_limit" field.
+func (_u *GroupUpdate) AddUserConcurrencyLimit(v int) *GroupUpdate {
+	_u.mutation.AddUserConcurrencyLimit(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdate) AddAPIKeyIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -921,6 +1054,11 @@ func (_u *GroupUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.LimitedTimeMultiplierCron(); ok {
+		if err := group.LimitedTimeMultiplierCronValidator(v); err != nil {
+			return &ValidationError{Name: "limited_time_multiplier_cron", err: fmt.Errorf(`ent: validator failed for field "Group.limited_time_multiplier_cron": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
@@ -979,6 +1117,36 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierEnabled(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierCron(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierCron, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierDurationMinutes(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierDurationMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeMultiplierDurationMinutes(); ok {
+		_spec.AddField(group.FieldLimitedTimeMultiplierDurationMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierValue(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierValue, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeMultiplierValue(); ok {
+		_spec.AddField(group.FieldLimitedTimeMultiplierValue, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeRpmLimit(); ok {
+		_spec.SetField(group.FieldLimitedTimeRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeRpmLimit(); ok {
+		_spec.AddField(group.FieldLimitedTimeRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeUserConcurrencyLimit(); ok {
+		_spec.SetField(group.FieldLimitedTimeUserConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeUserConcurrencyLimit(); ok {
+		_spec.AddField(group.FieldLimitedTimeUserConcurrencyLimit, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.IsExclusive(); ok {
 		_spec.SetField(group.FieldIsExclusive, field.TypeBool, value)
@@ -1134,6 +1302,12 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(group.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.UserConcurrencyLimit(); ok {
+		_spec.SetField(group.FieldUserConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedUserConcurrencyLimit(); ok {
+		_spec.AddField(group.FieldUserConcurrencyLimit, field.TypeInt, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1527,6 +1701,118 @@ func (_u *GroupUpdateOne) SetNillableRateMultiplier(v *float64) *GroupUpdateOne 
 // AddRateMultiplier adds value to the "rate_multiplier" field.
 func (_u *GroupUpdateOne) AddRateMultiplier(v float64) *GroupUpdateOne {
 	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
+// SetLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field.
+func (_u *GroupUpdateOne) SetLimitedTimeMultiplierEnabled(v bool) *GroupUpdateOne {
+	_u.mutation.SetLimitedTimeMultiplierEnabled(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierEnabled sets the "limited_time_multiplier_enabled" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableLimitedTimeMultiplierEnabled(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierEnabled(*v)
+	}
+	return _u
+}
+
+// SetLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field.
+func (_u *GroupUpdateOne) SetLimitedTimeMultiplierCron(v string) *GroupUpdateOne {
+	_u.mutation.SetLimitedTimeMultiplierCron(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierCron sets the "limited_time_multiplier_cron" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableLimitedTimeMultiplierCron(v *string) *GroupUpdateOne {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierCron(*v)
+	}
+	return _u
+}
+
+// SetLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field.
+func (_u *GroupUpdateOne) SetLimitedTimeMultiplierDurationMinutes(v int) *GroupUpdateOne {
+	_u.mutation.ResetLimitedTimeMultiplierDurationMinutes()
+	_u.mutation.SetLimitedTimeMultiplierDurationMinutes(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierDurationMinutes sets the "limited_time_multiplier_duration_minutes" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableLimitedTimeMultiplierDurationMinutes(v *int) *GroupUpdateOne {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierDurationMinutes(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeMultiplierDurationMinutes adds value to the "limited_time_multiplier_duration_minutes" field.
+func (_u *GroupUpdateOne) AddLimitedTimeMultiplierDurationMinutes(v int) *GroupUpdateOne {
+	_u.mutation.AddLimitedTimeMultiplierDurationMinutes(v)
+	return _u
+}
+
+// SetLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field.
+func (_u *GroupUpdateOne) SetLimitedTimeMultiplierValue(v float64) *GroupUpdateOne {
+	_u.mutation.ResetLimitedTimeMultiplierValue()
+	_u.mutation.SetLimitedTimeMultiplierValue(v)
+	return _u
+}
+
+// SetNillableLimitedTimeMultiplierValue sets the "limited_time_multiplier_value" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableLimitedTimeMultiplierValue(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetLimitedTimeMultiplierValue(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeMultiplierValue adds value to the "limited_time_multiplier_value" field.
+func (_u *GroupUpdateOne) AddLimitedTimeMultiplierValue(v float64) *GroupUpdateOne {
+	_u.mutation.AddLimitedTimeMultiplierValue(v)
+	return _u
+}
+
+// SetLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field.
+func (_u *GroupUpdateOne) SetLimitedTimeRpmLimit(v int) *GroupUpdateOne {
+	_u.mutation.ResetLimitedTimeRpmLimit()
+	_u.mutation.SetLimitedTimeRpmLimit(v)
+	return _u
+}
+
+// SetNillableLimitedTimeRpmLimit sets the "limited_time_rpm_limit" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableLimitedTimeRpmLimit(v *int) *GroupUpdateOne {
+	if v != nil {
+		_u.SetLimitedTimeRpmLimit(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeRpmLimit adds value to the "limited_time_rpm_limit" field.
+func (_u *GroupUpdateOne) AddLimitedTimeRpmLimit(v int) *GroupUpdateOne {
+	_u.mutation.AddLimitedTimeRpmLimit(v)
+	return _u
+}
+
+// SetLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field.
+func (_u *GroupUpdateOne) SetLimitedTimeUserConcurrencyLimit(v int) *GroupUpdateOne {
+	_u.mutation.ResetLimitedTimeUserConcurrencyLimit()
+	_u.mutation.SetLimitedTimeUserConcurrencyLimit(v)
+	return _u
+}
+
+// SetNillableLimitedTimeUserConcurrencyLimit sets the "limited_time_user_concurrency_limit" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableLimitedTimeUserConcurrencyLimit(v *int) *GroupUpdateOne {
+	if v != nil {
+		_u.SetLimitedTimeUserConcurrencyLimit(*v)
+	}
+	return _u
+}
+
+// AddLimitedTimeUserConcurrencyLimit adds value to the "limited_time_user_concurrency_limit" field.
+func (_u *GroupUpdateOne) AddLimitedTimeUserConcurrencyLimit(v int) *GroupUpdateOne {
+	_u.mutation.AddLimitedTimeUserConcurrencyLimit(v)
 	return _u
 }
 
@@ -2064,6 +2350,27 @@ func (_u *GroupUpdateOne) AddRpmLimit(v int) *GroupUpdateOne {
 	return _u
 }
 
+// SetUserConcurrencyLimit sets the "user_concurrency_limit" field.
+func (_u *GroupUpdateOne) SetUserConcurrencyLimit(v int) *GroupUpdateOne {
+	_u.mutation.ResetUserConcurrencyLimit()
+	_u.mutation.SetUserConcurrencyLimit(v)
+	return _u
+}
+
+// SetNillableUserConcurrencyLimit sets the "user_concurrency_limit" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableUserConcurrencyLimit(v *int) *GroupUpdateOne {
+	if v != nil {
+		_u.SetUserConcurrencyLimit(*v)
+	}
+	return _u
+}
+
+// AddUserConcurrencyLimit adds value to the "user_concurrency_limit" field.
+func (_u *GroupUpdateOne) AddUserConcurrencyLimit(v int) *GroupUpdateOne {
+	_u.mutation.AddUserConcurrencyLimit(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdateOne) AddAPIKeyIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -2347,6 +2654,11 @@ func (_u *GroupUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.LimitedTimeMultiplierCron(); ok {
+		if err := group.LimitedTimeMultiplierCronValidator(v); err != nil {
+			return &ValidationError{Name: "limited_time_multiplier_cron", err: fmt.Errorf(`ent: validator failed for field "Group.limited_time_multiplier_cron": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
@@ -2422,6 +2734,36 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierEnabled(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierCron(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierCron, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierDurationMinutes(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierDurationMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeMultiplierDurationMinutes(); ok {
+		_spec.AddField(group.FieldLimitedTimeMultiplierDurationMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeMultiplierValue(); ok {
+		_spec.SetField(group.FieldLimitedTimeMultiplierValue, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeMultiplierValue(); ok {
+		_spec.AddField(group.FieldLimitedTimeMultiplierValue, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeRpmLimit(); ok {
+		_spec.SetField(group.FieldLimitedTimeRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeRpmLimit(); ok {
+		_spec.AddField(group.FieldLimitedTimeRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LimitedTimeUserConcurrencyLimit(); ok {
+		_spec.SetField(group.FieldLimitedTimeUserConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLimitedTimeUserConcurrencyLimit(); ok {
+		_spec.AddField(group.FieldLimitedTimeUserConcurrencyLimit, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.IsExclusive(); ok {
 		_spec.SetField(group.FieldIsExclusive, field.TypeBool, value)
@@ -2577,6 +2919,12 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(group.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.UserConcurrencyLimit(); ok {
+		_spec.SetField(group.FieldUserConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedUserConcurrencyLimit(); ok {
+		_spec.AddField(group.FieldUserConcurrencyLimit, field.TypeInt, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

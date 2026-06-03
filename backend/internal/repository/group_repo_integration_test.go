@@ -95,22 +95,29 @@ func (s *GroupRepoSuite) TestGetByIDLite_DoesNotUseAccountCount() {
 
 func (s *GroupRepoSuite) TestUpdate() {
 	group := &service.Group{
-		Name:             "original",
-		Platform:         service.PlatformAnthropic,
-		RateMultiplier:   1.0,
-		IsExclusive:      false,
-		Status:           service.StatusActive,
-		SubscriptionType: service.SubscriptionTypeStandard,
+		Name:                            "original",
+		Platform:                        service.PlatformAnthropic,
+		RateMultiplier:                  1.0,
+		IsExclusive:                     false,
+		Status:                          service.StatusActive,
+		SubscriptionType:                service.SubscriptionTypeStandard,
+		LimitedTimeUserConcurrencyLimit: 7,
 	}
 	s.Require().NoError(s.repo.Create(s.ctx, group))
 
+	created, err := s.repo.GetByID(s.ctx, group.ID)
+	s.Require().NoError(err, "GetByID after create")
+	s.Require().Equal(7, created.LimitedTimeUserConcurrencyLimit)
+
 	group.Name = "updated"
-	err := s.repo.Update(s.ctx, group)
+	group.LimitedTimeUserConcurrencyLimit = 0
+	err = s.repo.Update(s.ctx, group)
 	s.Require().NoError(err, "Update")
 
 	got, err := s.repo.GetByID(s.ctx, group.ID)
 	s.Require().NoError(err, "GetByID after update")
 	s.Require().Equal("updated", got.Name)
+	s.Require().Equal(0, got.LimitedTimeUserConcurrencyLimit)
 }
 
 func (s *GroupRepoSuite) TestGetByID_PreservesMessagesDispatchModelConfig() {

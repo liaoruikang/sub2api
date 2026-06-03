@@ -82,15 +82,19 @@ func NewGroupHandler(adminService service.AdminService, dashboardService *servic
 
 // CreateGroupRequest represents create group request
 type CreateGroupRequest struct {
-	Name             string             `json:"name" binding:"required"`
-	Description      string             `json:"description"`
-	Platform         string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
-	RateMultiplier   float64            `json:"rate_multiplier"`
-	IsExclusive      bool               `json:"is_exclusive"`
-	SubscriptionType string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
-	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
-	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
-	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
+	Name                                 string             `json:"name" binding:"required"`
+	Description                          string             `json:"description"`
+	Platform                             string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
+	RateMultiplier                       float64            `json:"rate_multiplier"`
+	LimitedTimeMultiplierEnabled         bool               `json:"limited_time_multiplier_enabled"`
+	LimitedTimeMultiplierCron            string             `json:"limited_time_multiplier_cron"`
+	LimitedTimeMultiplierDurationMinutes int                `json:"limited_time_multiplier_duration_minutes"`
+	LimitedTimeMultiplierValue           float64            `json:"limited_time_multiplier_value"`
+	IsExclusive                          bool               `json:"is_exclusive"`
+	SubscriptionType                     string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
+	DailyLimitUSD                        optionalLimitField `json:"daily_limit_usd"`
+	WeeklyLimitUSD                       optionalLimitField `json:"weekly_limit_usd"`
+	MonthlyLimitUSD                      optionalLimitField `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
 	AllowImageGeneration            bool     `json:"allow_image_generation"`
 	ImageRateIndependent            bool     `json:"image_rate_independent"`
@@ -116,22 +120,32 @@ type CreateGroupRequest struct {
 	ModelsListConfig            service.GroupModelsListConfig             `json:"models_list_config"`
 	// 分组 RPM 上限（0 = 不限制）
 	RPMLimit int `json:"rpm_limit"`
+	// 限时倍率窗口内分组 RPM 上限（0 = 不设置专属限时 RPM）
+	LimitedTimeRPMLimit int `json:"limited_time_rpm_limit"`
+	// 限时倍率窗口内分组内每用户最大并发数（0 = 不设置专属限时并发）
+	LimitedTimeUserConcurrencyLimit int `json:"limited_time_user_concurrency_limit"`
+	// 分组内每用户最大并发数（0 = 不限制）
+	UserConcurrencyLimit int `json:"user_concurrency_limit"`
 	// 从指定分组复制账号（创建后自动绑定）
 	CopyAccountsFromGroupIDs []int64 `json:"copy_accounts_from_group_ids"`
 }
 
 // UpdateGroupRequest represents update group request
 type UpdateGroupRequest struct {
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	Platform         string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
-	RateMultiplier   *float64           `json:"rate_multiplier"`
-	IsExclusive      *bool              `json:"is_exclusive"`
-	Status           string             `json:"status" binding:"omitempty,oneof=active inactive"`
-	SubscriptionType string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
-	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
-	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
-	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
+	Name                                 string             `json:"name"`
+	Description                          string             `json:"description"`
+	Platform                             string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
+	RateMultiplier                       *float64           `json:"rate_multiplier"`
+	LimitedTimeMultiplierEnabled         *bool              `json:"limited_time_multiplier_enabled"`
+	LimitedTimeMultiplierCron            *string            `json:"limited_time_multiplier_cron"`
+	LimitedTimeMultiplierDurationMinutes *int               `json:"limited_time_multiplier_duration_minutes"`
+	LimitedTimeMultiplierValue           *float64           `json:"limited_time_multiplier_value"`
+	IsExclusive                          *bool              `json:"is_exclusive"`
+	Status                               string             `json:"status" binding:"omitempty,oneof=active inactive"`
+	SubscriptionType                     string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
+	DailyLimitUSD                        optionalLimitField `json:"daily_limit_usd"`
+	WeeklyLimitUSD                       optionalLimitField `json:"weekly_limit_usd"`
+	MonthlyLimitUSD                      optionalLimitField `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
 	AllowImageGeneration            *bool    `json:"allow_image_generation"`
 	ImageRateIndependent            *bool    `json:"image_rate_independent"`
@@ -157,6 +171,12 @@ type UpdateGroupRequest struct {
 	ModelsListConfig            *service.GroupModelsListConfig             `json:"models_list_config"`
 	// 分组 RPM 上限（0 = 不限制）；nil 表示未提供不改动
 	RPMLimit *int `json:"rpm_limit"`
+	// 限时倍率窗口内分组 RPM 上限（0 = 不设置专属限时 RPM）；nil 表示未提供不改动
+	LimitedTimeRPMLimit *int `json:"limited_time_rpm_limit"`
+	// 限时倍率窗口内分组内每用户最大并发数（0 = 不设置专属限时并发）；nil 表示未提供不改动
+	LimitedTimeUserConcurrencyLimit *int `json:"limited_time_user_concurrency_limit"`
+	// 分组内每用户最大并发数（0 = 不限制）；nil 表示未提供不改动
+	UserConcurrencyLimit *int `json:"user_concurrency_limit"`
 	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
 	CopyAccountsFromGroupIDs []int64 `json:"copy_accounts_from_group_ids"`
 }
@@ -272,36 +292,43 @@ func (h *GroupHandler) Create(c *gin.Context) {
 	}
 
 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
-		Name:                            req.Name,
-		Description:                     req.Description,
-		Platform:                        req.Platform,
-		RateMultiplier:                  req.RateMultiplier,
-		IsExclusive:                     req.IsExclusive,
-		SubscriptionType:                req.SubscriptionType,
-		DailyLimitUSD:                   req.DailyLimitUSD.ToServiceInput(),
-		WeeklyLimitUSD:                  req.WeeklyLimitUSD.ToServiceInput(),
-		MonthlyLimitUSD:                 req.MonthlyLimitUSD.ToServiceInput(),
-		AllowImageGeneration:            req.AllowImageGeneration,
-		ImageRateIndependent:            req.ImageRateIndependent,
-		ImageRateMultiplier:             req.ImageRateMultiplier,
-		ImagePrice1K:                    req.ImagePrice1K,
-		ImagePrice2K:                    req.ImagePrice2K,
-		ImagePrice4K:                    req.ImagePrice4K,
-		ClaudeCodeOnly:                  req.ClaudeCodeOnly,
-		FallbackGroupID:                 req.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: req.FallbackGroupIDOnInvalidRequest,
-		ModelRouting:                    req.ModelRouting,
-		ModelRoutingEnabled:             req.ModelRoutingEnabled,
-		MCPXMLInject:                    req.MCPXMLInject,
-		SupportedModelScopes:            req.SupportedModelScopes,
-		AllowMessagesDispatch:           req.AllowMessagesDispatch,
-		RequireOAuthOnly:                req.RequireOAuthOnly,
-		RequirePrivacySet:               req.RequirePrivacySet,
-		DefaultMappedModel:              req.DefaultMappedModel,
-		MessagesDispatchModelConfig:     req.MessagesDispatchModelConfig,
-		ModelsListConfig:                req.ModelsListConfig,
-		RPMLimit:                        req.RPMLimit,
-		CopyAccountsFromGroupIDs:        req.CopyAccountsFromGroupIDs,
+		Name:                                 req.Name,
+		Description:                          req.Description,
+		Platform:                             req.Platform,
+		RateMultiplier:                       req.RateMultiplier,
+		LimitedTimeMultiplierEnabled:         req.LimitedTimeMultiplierEnabled,
+		LimitedTimeMultiplierCron:            req.LimitedTimeMultiplierCron,
+		LimitedTimeMultiplierDurationMinutes: req.LimitedTimeMultiplierDurationMinutes,
+		LimitedTimeMultiplierValue:           req.LimitedTimeMultiplierValue,
+		IsExclusive:                          req.IsExclusive,
+		SubscriptionType:                     req.SubscriptionType,
+		DailyLimitUSD:                        req.DailyLimitUSD.ToServiceInput(),
+		WeeklyLimitUSD:                       req.WeeklyLimitUSD.ToServiceInput(),
+		MonthlyLimitUSD:                      req.MonthlyLimitUSD.ToServiceInput(),
+		AllowImageGeneration:                 req.AllowImageGeneration,
+		ImageRateIndependent:                 req.ImageRateIndependent,
+		ImageRateMultiplier:                  req.ImageRateMultiplier,
+		ImagePrice1K:                         req.ImagePrice1K,
+		ImagePrice2K:                         req.ImagePrice2K,
+		ImagePrice4K:                         req.ImagePrice4K,
+		ClaudeCodeOnly:                       req.ClaudeCodeOnly,
+		FallbackGroupID:                      req.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:      req.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                         req.ModelRouting,
+		ModelRoutingEnabled:                  req.ModelRoutingEnabled,
+		MCPXMLInject:                         req.MCPXMLInject,
+		SupportedModelScopes:                 req.SupportedModelScopes,
+		AllowMessagesDispatch:                req.AllowMessagesDispatch,
+		RequireOAuthOnly:                     req.RequireOAuthOnly,
+		RequirePrivacySet:                    req.RequirePrivacySet,
+		DefaultMappedModel:                   req.DefaultMappedModel,
+		MessagesDispatchModelConfig:          req.MessagesDispatchModelConfig,
+		ModelsListConfig:                     req.ModelsListConfig,
+		RPMLimit:                             req.RPMLimit,
+		LimitedTimeRPMLimit:                  req.LimitedTimeRPMLimit,
+		LimitedTimeUserConcurrencyLimit:      req.LimitedTimeUserConcurrencyLimit,
+		UserConcurrencyLimit:                 req.UserConcurrencyLimit,
+		CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -327,37 +354,44 @@ func (h *GroupHandler) Update(c *gin.Context) {
 	}
 
 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
-		Name:                            req.Name,
-		Description:                     req.Description,
-		Platform:                        req.Platform,
-		RateMultiplier:                  req.RateMultiplier,
-		IsExclusive:                     req.IsExclusive,
-		Status:                          req.Status,
-		SubscriptionType:                req.SubscriptionType,
-		DailyLimitUSD:                   req.DailyLimitUSD.ToServiceInput(),
-		WeeklyLimitUSD:                  req.WeeklyLimitUSD.ToServiceInput(),
-		MonthlyLimitUSD:                 req.MonthlyLimitUSD.ToServiceInput(),
-		AllowImageGeneration:            req.AllowImageGeneration,
-		ImageRateIndependent:            req.ImageRateIndependent,
-		ImageRateMultiplier:             req.ImageRateMultiplier,
-		ImagePrice1K:                    req.ImagePrice1K,
-		ImagePrice2K:                    req.ImagePrice2K,
-		ImagePrice4K:                    req.ImagePrice4K,
-		ClaudeCodeOnly:                  req.ClaudeCodeOnly,
-		FallbackGroupID:                 req.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: req.FallbackGroupIDOnInvalidRequest,
-		ModelRouting:                    req.ModelRouting,
-		ModelRoutingEnabled:             req.ModelRoutingEnabled,
-		MCPXMLInject:                    req.MCPXMLInject,
-		SupportedModelScopes:            req.SupportedModelScopes,
-		AllowMessagesDispatch:           req.AllowMessagesDispatch,
-		RequireOAuthOnly:                req.RequireOAuthOnly,
-		RequirePrivacySet:               req.RequirePrivacySet,
-		DefaultMappedModel:              req.DefaultMappedModel,
-		MessagesDispatchModelConfig:     req.MessagesDispatchModelConfig,
-		ModelsListConfig:                req.ModelsListConfig,
-		RPMLimit:                        req.RPMLimit,
-		CopyAccountsFromGroupIDs:        req.CopyAccountsFromGroupIDs,
+		Name:                                 req.Name,
+		Description:                          req.Description,
+		Platform:                             req.Platform,
+		RateMultiplier:                       req.RateMultiplier,
+		LimitedTimeMultiplierEnabled:         req.LimitedTimeMultiplierEnabled,
+		LimitedTimeMultiplierCron:            req.LimitedTimeMultiplierCron,
+		LimitedTimeMultiplierDurationMinutes: req.LimitedTimeMultiplierDurationMinutes,
+		LimitedTimeMultiplierValue:           req.LimitedTimeMultiplierValue,
+		IsExclusive:                          req.IsExclusive,
+		Status:                               req.Status,
+		SubscriptionType:                     req.SubscriptionType,
+		DailyLimitUSD:                        req.DailyLimitUSD.ToServiceInput(),
+		WeeklyLimitUSD:                       req.WeeklyLimitUSD.ToServiceInput(),
+		MonthlyLimitUSD:                      req.MonthlyLimitUSD.ToServiceInput(),
+		AllowImageGeneration:                 req.AllowImageGeneration,
+		ImageRateIndependent:                 req.ImageRateIndependent,
+		ImageRateMultiplier:                  req.ImageRateMultiplier,
+		ImagePrice1K:                         req.ImagePrice1K,
+		ImagePrice2K:                         req.ImagePrice2K,
+		ImagePrice4K:                         req.ImagePrice4K,
+		ClaudeCodeOnly:                       req.ClaudeCodeOnly,
+		FallbackGroupID:                      req.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:      req.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                         req.ModelRouting,
+		ModelRoutingEnabled:                  req.ModelRoutingEnabled,
+		MCPXMLInject:                         req.MCPXMLInject,
+		SupportedModelScopes:                 req.SupportedModelScopes,
+		AllowMessagesDispatch:                req.AllowMessagesDispatch,
+		RequireOAuthOnly:                     req.RequireOAuthOnly,
+		RequirePrivacySet:                    req.RequirePrivacySet,
+		DefaultMappedModel:                   req.DefaultMappedModel,
+		MessagesDispatchModelConfig:          req.MessagesDispatchModelConfig,
+		ModelsListConfig:                     req.ModelsListConfig,
+		RPMLimit:                             req.RPMLimit,
+		LimitedTimeRPMLimit:                  req.LimitedTimeRPMLimit,
+		LimitedTimeUserConcurrencyLimit:      req.LimitedTimeUserConcurrencyLimit,
+		UserConcurrencyLimit:                 req.UserConcurrencyLimit,
+		CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -564,6 +598,51 @@ func (h *GroupHandler) ClearGroupRPMOverrides(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "RPM overrides cleared successfully"})
+}
+
+// BatchSetGroupLimitedTimeRPMOverridesRequest represents batch set limited_time_rpm_override request
+type BatchSetGroupLimitedTimeRPMOverridesRequest struct {
+	Entries []service.GroupLimitedTimeRPMOverrideInput `json:"entries" binding:"required"`
+}
+
+// BatchSetGroupLimitedTimeRPMOverrides handles batch setting limited_time_rpm_override for users in a group
+// PUT /api/v1/admin/groups/:id/limited-time-rpm-overrides
+func (h *GroupHandler) BatchSetGroupLimitedTimeRPMOverrides(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	var req BatchSetGroupLimitedTimeRPMOverridesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.adminService.BatchSetGroupLimitedTimeRPMOverrides(c.Request.Context(), groupID, req.Entries); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{"message": "Limited-time RPM overrides updated successfully"})
+}
+
+// ClearGroupLimitedTimeRPMOverrides handles clearing all limited_time_rpm_override for a group
+// DELETE /api/v1/admin/groups/:id/limited-time-rpm-overrides
+func (h *GroupHandler) ClearGroupLimitedTimeRPMOverrides(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	if err := h.adminService.ClearGroupLimitedTimeRPMOverrides(c.Request.Context(), groupID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{"message": "Limited-time RPM overrides cleared successfully"})
 }
 
 // UpdateSortOrderRequest represents the request to update group sort orders

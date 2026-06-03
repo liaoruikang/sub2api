@@ -54,19 +54,27 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 	}
 	// Enrich plans with group platform for frontend color coding
 	type planWithPlatform struct {
-		ID            int64    `json:"id"`
-		GroupID       int64    `json:"group_id"`
-		GroupPlatform string   `json:"group_platform"`
-		Name          string   `json:"name"`
-		Description   string   `json:"description"`
-		Price         float64  `json:"price"`
-		OriginalPrice *float64 `json:"original_price,omitempty"`
-		ValidityDays  int      `json:"validity_days"`
-		ValidityUnit  string   `json:"validity_unit"`
-		Features      string   `json:"features"`
-		ProductName   string   `json:"product_name"`
-		ForSale       bool     `json:"for_sale"`
-		SortOrder     int      `json:"sort_order"`
+		ID                           int64      `json:"id"`
+		GroupID                      int64      `json:"group_id"`
+		GroupPlatform                string     `json:"group_platform"`
+		Name                         string     `json:"name"`
+		Description                  string     `json:"description"`
+		Price                        float64    `json:"price"`
+		OriginalPrice                *float64   `json:"original_price,omitempty"`
+		ValidityDays                 int        `json:"validity_days"`
+		ValidityUnit                 string     `json:"validity_unit"`
+		Features                     string     `json:"features"`
+		ProductName                  string     `json:"product_name"`
+		ForSale                      bool       `json:"for_sale"`
+		ListedAt                     *time.Time `json:"listed_at,omitempty"`
+		NewUserOnly                  bool       `json:"new_user_only"`
+		OffSaleAt                    *time.Time `json:"off_sale_at,omitempty"`
+		PurchaseLimitCount           int        `json:"purchase_limit_count"`
+		IPPurchaseLimitCount         int        `json:"ip_purchase_limit_count"`
+		StockCount                   int        `json:"stock_count"`
+		FirstPurchaseDiscountEnabled bool       `json:"first_purchase_discount_enabled"`
+		FirstPurchaseDiscountPrice   *float64   `json:"first_purchase_discount_price,omitempty"`
+		SortOrder                    int        `json:"sort_order"`
 	}
 	platformMap := h.configService.GetGroupPlatformMap(c.Request.Context(), plans)
 	result := make([]planWithPlatform, 0, len(plans))
@@ -75,7 +83,13 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 			ID: int64(p.ID), GroupID: p.GroupID, GroupPlatform: platformMap[p.GroupID],
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
-			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
+			ProductName: p.ProductName, ForSale: p.ForSale, ListedAt: p.ListedAt, OffSaleAt: p.OffSaleAt,
+			NewUserOnly: p.NewUserOnly, PurchaseLimitCount: p.PurchaseLimitCount,
+			IPPurchaseLimitCount:         p.IPPurchaseLimitCount,
+			StockCount:                   p.StockCount,
+			FirstPurchaseDiscountEnabled: p.FirstPurchaseDiscountEnabled,
+			FirstPurchaseDiscountPrice:   p.FirstPurchaseDiscountPrice,
+			SortOrder:                    p.SortOrder,
 		})
 	}
 	response.Success(c, result)
@@ -113,11 +127,44 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 	}
 
 	// Fetch plans with group info
-	plans, _ := h.configService.ListPlansForSale(ctx)
+	plans, err := h.configService.ListPlansForSale(ctx)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	groupInfo := h.configService.GetGroupInfoMap(ctx, plans)
+	subjectUserID := int64(0)
+	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {
+		subjectUserID = subject.UserID
+	}
 	planList := make([]checkoutPlan, 0, len(plans))
+	clientIP := c.ClientIP()
 	for _, p := range plans {
 		gi := groupInfo[p.GroupID]
+		currentPurchaseCount := 0
+		currentIPPurchaseCount := 0
+		firstPurchaseAvailable := false
+		effectivePrice := p.Price
+		if subjectUserID > 0 {
+			count, err := h.paymentService.CountSuccessfulPlanPurchases(ctx, subjectUserID, p.ID)
+			if err != nil {
+				response.ErrorFrom(c, err)
+				return
+			}
+			currentPurchaseCount = count
+			firstPurchaseAvailable = p.FirstPurchaseDiscountEnabled && count == 0 && p.FirstPurchaseDiscountPrice != nil && *p.FirstPurchaseDiscountPrice > 0
+			if firstPurchaseAvailable {
+				effectivePrice = *p.FirstPurchaseDiscountPrice
+			}
+		}
+		if clientIP != "" {
+			count, err := h.paymentService.CountSuccessfulPlanPurchasesByIP(ctx, p.ID, clientIP)
+			if err != nil {
+				response.ErrorFrom(c, err)
+				return
+			}
+			currentIPPurchaseCount = count
+		}
 		planList = append(planList, checkoutPlan{
 			ID: int64(p.ID), GroupID: p.GroupID,
 			GroupPlatform: gi.Platform, GroupName: gi.Name,
@@ -126,7 +173,19 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			ModelScopes: gi.ModelScopes,
 			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
-			ProductName: p.ProductName,
+			ProductName:                    p.ProductName,
+			ListedAt:                       p.ListedAt,
+			OffSaleAt:                      p.OffSaleAt,
+			NewUserOnly:                    p.NewUserOnly,
+			PurchaseLimitCount:             p.PurchaseLimitCount,
+			IPPurchaseLimitCount:           p.IPPurchaseLimitCount,
+			StockCount:                     p.StockCount,
+			FirstPurchaseDiscountEnabled:   p.FirstPurchaseDiscountEnabled,
+			FirstPurchaseDiscountPrice:     p.FirstPurchaseDiscountPrice,
+			CurrentPurchaseCount:           currentPurchaseCount,
+			CurrentIPPurchaseCount:         currentIPPurchaseCount,
+			FirstPurchaseDiscountAvailable: firstPurchaseAvailable,
+			EffectivePrice:                 effectivePrice,
 		})
 	}
 
@@ -160,23 +219,35 @@ type checkoutInfoResponse struct {
 }
 
 type checkoutPlan struct {
-	ID              int64    `json:"id"`
-	GroupID         int64    `json:"group_id"`
-	GroupPlatform   string   `json:"group_platform"`
-	GroupName       string   `json:"group_name"`
-	RateMultiplier  float64  `json:"rate_multiplier"`
-	DailyLimitUSD   *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
-	ModelScopes     []string `json:"supported_model_scopes"`
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	Price           float64  `json:"price"`
-	OriginalPrice   *float64 `json:"original_price,omitempty"`
-	ValidityDays    int      `json:"validity_days"`
-	ValidityUnit    string   `json:"validity_unit"`
-	Features        []string `json:"features"`
-	ProductName     string   `json:"product_name"`
+	ID                             int64      `json:"id"`
+	GroupID                        int64      `json:"group_id"`
+	GroupPlatform                  string     `json:"group_platform"`
+	GroupName                      string     `json:"group_name"`
+	RateMultiplier                 float64    `json:"rate_multiplier"`
+	DailyLimitUSD                  *float64   `json:"daily_limit_usd"`
+	WeeklyLimitUSD                 *float64   `json:"weekly_limit_usd"`
+	MonthlyLimitUSD                *float64   `json:"monthly_limit_usd"`
+	ModelScopes                    []string   `json:"supported_model_scopes"`
+	Name                           string     `json:"name"`
+	Description                    string     `json:"description"`
+	Price                          float64    `json:"price"`
+	OriginalPrice                  *float64   `json:"original_price,omitempty"`
+	ValidityDays                   int        `json:"validity_days"`
+	ValidityUnit                   string     `json:"validity_unit"`
+	Features                       []string   `json:"features"`
+	ProductName                    string     `json:"product_name"`
+	ListedAt                       *time.Time `json:"listed_at,omitempty"`
+	OffSaleAt                      *time.Time `json:"off_sale_at,omitempty"`
+	NewUserOnly                    bool       `json:"new_user_only"`
+	PurchaseLimitCount             int        `json:"purchase_limit_count"`
+	IPPurchaseLimitCount           int        `json:"ip_purchase_limit_count"`
+	StockCount                     int        `json:"stock_count"`
+	FirstPurchaseDiscountEnabled   bool       `json:"first_purchase_discount_enabled"`
+	FirstPurchaseDiscountPrice     *float64   `json:"first_purchase_discount_price,omitempty"`
+	CurrentPurchaseCount           int        `json:"current_purchase_count"`
+	CurrentIPPurchaseCount         int        `json:"current_ip_purchase_count"`
+	FirstPurchaseDiscountAvailable bool       `json:"first_purchase_discount_available"`
+	EffectivePrice                 float64    `json:"effective_price"`
 }
 
 // parseFeatures splits a newline-separated features string into a string slice.

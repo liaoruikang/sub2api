@@ -42,6 +42,10 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetLimitedTimeMultiplierEnabled(groupIn.LimitedTimeMultiplierEnabled).
+		SetLimitedTimeMultiplierCron(groupIn.LimitedTimeMultiplierCron).
+		SetLimitedTimeMultiplierDurationMinutes(groupIn.LimitedTimeMultiplierDurationMinutes).
+		SetLimitedTimeMultiplierValue(groupIn.LimitedTimeMultiplierValue).
 		SetSortOrder(groupIn.SortOrder).
 		SetIsExclusive(groupIn.IsExclusive).
 		SetStatus(groupIn.Status).
@@ -67,7 +71,10 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
 		SetMessagesDispatchModelConfig(groupIn.MessagesDispatchModelConfig).
 		SetModelsListConfig(groupIn.ModelsListConfig).
-		SetRpmLimit(groupIn.RPMLimit)
+		SetRpmLimit(groupIn.RPMLimit).
+		SetLimitedTimeRpmLimit(groupIn.LimitedTimeRPMLimit).
+		SetLimitedTimeUserConcurrencyLimit(groupIn.LimitedTimeUserConcurrencyLimit).
+		SetUserConcurrencyLimit(groupIn.UserConcurrencyLimit)
 
 	// 设置模型路由配置
 	if groupIn.ModelRouting != nil {
@@ -121,6 +128,10 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetLimitedTimeMultiplierEnabled(groupIn.LimitedTimeMultiplierEnabled).
+		SetLimitedTimeMultiplierCron(groupIn.LimitedTimeMultiplierCron).
+		SetLimitedTimeMultiplierDurationMinutes(groupIn.LimitedTimeMultiplierDurationMinutes).
+		SetLimitedTimeMultiplierValue(groupIn.LimitedTimeMultiplierValue).
 		SetIsExclusive(groupIn.IsExclusive).
 		SetStatus(groupIn.Status).
 		SetSubscriptionType(groupIn.SubscriptionType).
@@ -143,7 +154,10 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
 		SetMessagesDispatchModelConfig(groupIn.MessagesDispatchModelConfig).
 		SetModelsListConfig(groupIn.ModelsListConfig).
-		SetRpmLimit(groupIn.RPMLimit)
+		SetRpmLimit(groupIn.RPMLimit).
+		SetLimitedTimeRpmLimit(groupIn.LimitedTimeRPMLimit).
+		SetLimitedTimeUserConcurrencyLimit(groupIn.LimitedTimeUserConcurrencyLimit).
+		SetUserConcurrencyLimit(groupIn.UserConcurrencyLimit)
 
 	// 显式处理可空字段：nil 需要 clear，非 nil 需要 set。
 	if groupIn.DailyLimitUSD != nil {

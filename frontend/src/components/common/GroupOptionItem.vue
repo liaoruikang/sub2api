@@ -15,6 +15,12 @@
       />
       <!-- Row 2: description with top spacing -->
       <span
+        v-if="limitedTimeMultiplier"
+        class="mt-1.5 w-full text-left text-xs font-medium leading-relaxed text-amber-600 dark:text-amber-400"
+      >
+        {{ limitedTimeMultiplier }}
+      </span>
+      <span
         v-if="description"
         class="mt-1.5 w-full text-left text-xs leading-relaxed text-gray-500 dark:text-gray-400 line-clamp-2"
       >
@@ -26,7 +32,11 @@
     <div class="flex shrink-0 items-center gap-2 pt-0.5">
       <!-- Rate pill (platform color) -->
       <span v-if="rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
-        <template v-if="hasCustomRate">
+        <template v-if="hasEffectiveLimitedTimeRate">
+          <span class="mr-1 line-through opacity-50">{{ normalEffectiveRate }}x</span>
+          <span class="font-bold text-amber-700 dark:text-amber-300">{{ limitedTimeMultiplierValue }}x</span>
+        </template>
+        <template v-else-if="hasCustomRate">
           <span class="mr-1 line-through opacity-50">{{ rateMultiplier }}x</span>
           <span class="font-bold">{{ userRateMultiplier }}x</span>
         </template>
@@ -61,6 +71,9 @@ interface Props {
   rateMultiplier?: number
   userRateMultiplier?: number | null
   description?: string | null
+  limitedTimeMultiplier?: string | null
+  limitedTimeMultiplierValue?: number | null
+  limitedTimeMultiplierActive?: boolean
   selected?: boolean
   showCheckmark?: boolean
 }
@@ -69,7 +82,27 @@ const props = withDefaults(defineProps<Props>(), {
   subscriptionType: 'standard',
   selected: false,
   showCheckmark: true,
-  userRateMultiplier: null
+  userRateMultiplier: null,
+  limitedTimeMultiplierValue: null,
+  limitedTimeMultiplierActive: false
+})
+
+const normalEffectiveRate = computed(() => {
+  if (props.userRateMultiplier !== null && props.userRateMultiplier !== undefined) {
+    return props.userRateMultiplier
+  }
+  return props.rateMultiplier
+})
+
+const hasEffectiveLimitedTimeRate = computed(() => {
+  return (
+    props.subscriptionType !== 'subscription' &&
+    props.limitedTimeMultiplierActive &&
+    props.limitedTimeMultiplierValue !== null &&
+    props.limitedTimeMultiplierValue !== undefined &&
+    normalEffectiveRate.value !== undefined &&
+    props.limitedTimeMultiplierValue < normalEffectiveRate.value
+  )
 })
 
 // Whether user has a custom rate different from default

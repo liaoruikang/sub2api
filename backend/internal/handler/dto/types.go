@@ -82,13 +82,17 @@ type APIKey struct {
 }
 
 type Group struct {
-	ID             int64   `json:"id"`
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	Platform       string  `json:"platform"`
-	RateMultiplier float64 `json:"rate_multiplier"`
-	IsExclusive    bool    `json:"is_exclusive"`
-	Status         string  `json:"status"`
+	ID                                   int64   `json:"id"`
+	Name                                 string  `json:"name"`
+	Description                          string  `json:"description"`
+	Platform                             string  `json:"platform"`
+	RateMultiplier                       float64 `json:"rate_multiplier"`
+	LimitedTimeMultiplierEnabled         bool    `json:"limited_time_multiplier_enabled"`
+	LimitedTimeMultiplierCron            string  `json:"limited_time_multiplier_cron"`
+	LimitedTimeMultiplierDurationMinutes int     `json:"limited_time_multiplier_duration_minutes"`
+	LimitedTimeMultiplierValue           float64 `json:"limited_time_multiplier_value"`
+	IsExclusive                          bool    `json:"is_exclusive"`
+	Status                               string  `json:"status"`
 
 	SubscriptionType string   `json:"subscription_type"`
 	DailyLimitUSD    *float64 `json:"daily_limit_usd"`
@@ -118,6 +122,12 @@ type Group struct {
 
 	// RPMLimit 分组级每分钟请求数上限（0 = 不限制），设置后覆盖用户级 rpm_limit。
 	RPMLimit int `json:"rpm_limit"`
+	// LimitedTimeRPMLimit 限时倍率窗口内分组级 RPM 上限（0 = 不设置专属限时 RPM）。
+	LimitedTimeRPMLimit int `json:"limited_time_rpm_limit"`
+	// LimitedTimeUserConcurrencyLimit 限时倍率窗口内分组内每用户最大并发数（0 = 不设置专属限时并发）。
+	LimitedTimeUserConcurrencyLimit int `json:"limited_time_user_concurrency_limit"`
+	// UserConcurrencyLimit 分组内每用户最大并发数（0 = 不限制）。
+	UserConcurrencyLimit int `json:"user_concurrency_limit"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -409,7 +419,6 @@ type BatchUpdateRedeemCodeFields struct {
 	Type  *string  `json:"type,omitempty"`
 	Value *float64 `json:"value,omitempty"`
 }
-
 type BatchUpdateRedeemCodesRequest struct {
 	IDs    []int64                     `json:"ids" binding:"required,min=1"`
 	Fields BatchUpdateRedeemCodeFields `json:"fields" binding:"required"`

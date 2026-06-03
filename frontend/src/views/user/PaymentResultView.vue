@@ -88,7 +88,7 @@
         </div>
         <!-- Actions -->
         <div class="flex gap-3">
-          <button class="btn btn-secondary flex-1" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
+          <button class="btn btn-secondary flex-1" @click="goBackToPurchase">{{ t('payment.result.backToRecharge') }}</button>
           <button class="btn btn-primary flex-1" @click="router.push('/orders')">{{ t('payment.result.viewOrders') }}</button>
         </div>
       </template>
@@ -296,6 +296,10 @@ function clearRecoverySnapshotForTerminalStatus(status: string | null | undefine
   if (!isPendingStatus(status)) {
     clearRecoverySnapshot()
   }
+}
+
+function goBackToPurchase() {
+  router.push({ path: '/purchase', query: { refresh: String(Date.now()) } })
 }
 
 function scheduleStatusRefresh(refreshOrder: (() => Promise<PaymentOrder | null>) | null): void {

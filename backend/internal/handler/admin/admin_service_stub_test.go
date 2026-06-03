@@ -310,6 +310,14 @@ func (s *stubAdminService) BatchSetGroupRPMOverrides(_ context.Context, _ int64,
 	return nil
 }
 
+func (s *stubAdminService) ClearGroupLimitedTimeRPMOverrides(_ context.Context, _ int64) error {
+	return nil
+}
+
+func (s *stubAdminService) BatchSetGroupLimitedTimeRPMOverrides(_ context.Context, _ int64, _ []service.GroupLimitedTimeRPMOverrideInput) error {
+	return nil
+}
+
 func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]service.Account, int64, error) {
 	s.lastListAccounts.platform = platform
 	s.lastListAccounts.accountType = accountType

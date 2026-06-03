@@ -166,9 +166,10 @@
                     />
                   </svg>
                   <span>{{ t('common.contactSupport') }}:</span>
-                  <span class="font-medium text-gray-700 dark:text-gray-300">{{
-                    contactInfo
-                  }}</span>
+                  <span
+                    class="font-medium text-gray-700 dark:text-gray-300 [&_a]:text-primary-600 [&_a]:underline dark:[&_a]:text-primary-400"
+                    v-html="contactInfoHtml"
+                  ></span>
                 </div>
               </div>
 
@@ -216,6 +217,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import DOMPurify from 'dompurify'
 import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -235,6 +237,7 @@ const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
+const contactInfoHtml = computed(() => DOMPurify.sanitize(contactInfo.value, { ADD_ATTR: ['target'] }))
 const docUrl = computed(() => appStore.docUrl)
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 

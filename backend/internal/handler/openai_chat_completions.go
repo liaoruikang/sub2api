@@ -98,6 +98,14 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	routingStart := time.Now()
 
+	groupUserReleaseFunc, groupAcquired := h.acquireResponsesGroupUserSlot(c, apiKey.Group, subject.UserID, reqStream, &streamStarted, reqLog)
+	if !groupAcquired {
+		return
+	}
+	if groupUserReleaseFunc != nil {
+		defer groupUserReleaseFunc()
+	}
+
 	userReleaseFunc, acquired := h.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted, reqLog)
 	if !acquired {
 		return

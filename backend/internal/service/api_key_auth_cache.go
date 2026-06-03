@@ -51,28 +51,36 @@ type APIKeyAuthUserSnapshot struct {
 	// UserGroupRPMOverride 该 API Key 对应的 (user, group) 专属 RPM 覆盖值。
 	// nil = 无 override（回退到 group/user 级）；0 = 不限流；>0 = 专属上限。
 	UserGroupRPMOverride *int `json:"user_group_rpm_override,omitempty"`
+
+	// UserGroupLimitedTimeRPMOverride 该 API Key 对应的 (user, group) 限时窗口专属 RPM 覆盖值。
+	// nil = 无 override；仅在分组限时倍率窗口激活时参与限流。
+	UserGroupLimitedTimeRPMOverride *int `json:"user_group_limited_time_rpm_override,omitempty"`
 }
 
 // APIKeyAuthGroupSnapshot 分组快照
 type APIKeyAuthGroupSnapshot struct {
-	ID                              int64    `json:"id"`
-	Name                            string   `json:"name"`
-	Platform                        string   `json:"platform"`
-	Status                          string   `json:"status"`
-	SubscriptionType                string   `json:"subscription_type"`
-	RateMultiplier                  float64  `json:"rate_multiplier"`
-	DailyLimitUSD                   *float64 `json:"daily_limit_usd,omitempty"`
-	WeeklyLimitUSD                  *float64 `json:"weekly_limit_usd,omitempty"`
-	MonthlyLimitUSD                 *float64 `json:"monthly_limit_usd,omitempty"`
-	AllowImageGeneration            bool     `json:"allow_image_generation"`
-	ImageRateIndependent            bool     `json:"image_rate_independent"`
-	ImageRateMultiplier             float64  `json:"image_rate_multiplier"`
-	ImagePrice1K                    *float64 `json:"image_price_1k,omitempty"`
-	ImagePrice2K                    *float64 `json:"image_price_2k,omitempty"`
-	ImagePrice4K                    *float64 `json:"image_price_4k,omitempty"`
-	ClaudeCodeOnly                  bool     `json:"claude_code_only"`
-	FallbackGroupID                 *int64   `json:"fallback_group_id,omitempty"`
-	FallbackGroupIDOnInvalidRequest *int64   `json:"fallback_group_id_on_invalid_request,omitempty"`
+	ID                                   int64    `json:"id"`
+	Name                                 string   `json:"name"`
+	Platform                             string   `json:"platform"`
+	Status                               string   `json:"status"`
+	SubscriptionType                     string   `json:"subscription_type"`
+	RateMultiplier                       float64  `json:"rate_multiplier"`
+	LimitedTimeMultiplierEnabled         bool     `json:"limited_time_multiplier_enabled"`
+	LimitedTimeMultiplierCron            string   `json:"limited_time_multiplier_cron,omitempty"`
+	LimitedTimeMultiplierDurationMinutes int      `json:"limited_time_multiplier_duration_minutes"`
+	LimitedTimeMultiplierValue           float64  `json:"limited_time_multiplier_value"`
+	DailyLimitUSD                        *float64 `json:"daily_limit_usd,omitempty"`
+	WeeklyLimitUSD                       *float64 `json:"weekly_limit_usd,omitempty"`
+	MonthlyLimitUSD                      *float64 `json:"monthly_limit_usd,omitempty"`
+	AllowImageGeneration                 bool     `json:"allow_image_generation"`
+	ImageRateIndependent                 bool     `json:"image_rate_independent"`
+	ImageRateMultiplier                  float64  `json:"image_rate_multiplier"`
+	ImagePrice1K                         *float64 `json:"image_price_1k,omitempty"`
+	ImagePrice2K                         *float64 `json:"image_price_2k,omitempty"`
+	ImagePrice4K                         *float64 `json:"image_price_4k,omitempty"`
+	ClaudeCodeOnly                       bool     `json:"claude_code_only"`
+	FallbackGroupID                      *int64   `json:"fallback_group_id,omitempty"`
+	FallbackGroupIDOnInvalidRequest      *int64   `json:"fallback_group_id_on_invalid_request,omitempty"`
 
 	// Model routing is used by gateway account selection, so it must be part of auth cache snapshot.
 	// Only anthropic groups use these fields; others may leave them empty.
@@ -91,6 +99,12 @@ type APIKeyAuthGroupSnapshot struct {
 
 	// RPMLimit 分组级每分钟请求数上限（0 = 不限制）；用于 billing_cache_service.checkRPM 级联判断。
 	RPMLimit int `json:"rpm_limit"`
+	// LimitedTimeRPMLimit 限时倍率窗口内分组级 RPM 上限（0 = 不设置专属限时 RPM）。
+	LimitedTimeRPMLimit int `json:"limited_time_rpm_limit"`
+	// LimitedTimeUserConcurrencyLimit 限时倍率窗口内分组内每用户最大并发数（0 = 不设置专属限时并发）。
+	LimitedTimeUserConcurrencyLimit int `json:"limited_time_user_concurrency_limit"`
+	// UserConcurrencyLimit 分组内每用户最大并发数（0 = 不限制）。
+	UserConcurrencyLimit int `json:"user_concurrency_limit"`
 }
 
 // APIKeyAuthCacheEntry 缓存条目，支持负缓存

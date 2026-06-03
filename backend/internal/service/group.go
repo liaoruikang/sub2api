@@ -5,20 +5,27 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/robfig/cron/v3"
 )
 
 type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfig
 type GroupModelsListConfig = domain.GroupModelsListConfig
 
+var groupLimitedTimeMultiplierCronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+
 type Group struct {
-	ID             int64
-	Name           string
-	Description    string
-	Platform       string
-	RateMultiplier float64
-	IsExclusive    bool
-	Status         string
-	Hydrated       bool // indicates the group was loaded from a trusted repository source
+	ID                                   int64
+	Name                                 string
+	Description                          string
+	Platform                             string
+	RateMultiplier                       float64
+	LimitedTimeMultiplierEnabled         bool
+	LimitedTimeMultiplierCron            string
+	LimitedTimeMultiplierDurationMinutes int
+	LimitedTimeMultiplierValue           float64
+	IsExclusive                          bool
+	Status                               string
+	Hydrated                             bool // indicates the group was loaded from a trusted repository source
 
 	SubscriptionType    string
 	DailyLimitUSD       *float64
@@ -67,6 +74,12 @@ type Group struct {
 	// RPMLimit 分组级每分钟请求数上限（0 = 不限制）。
 	// 一旦设置即接管该分组用户的限流（覆盖用户级 rpm_limit），可被 user-group rpm_override 进一步覆盖。
 	RPMLimit int
+	// LimitedTimeRPMLimit 限时倍率窗口内分组级 RPM 上限（0 = 不设置专属限时 RPM，回落普通 RPM 规则）。
+	LimitedTimeRPMLimit int
+	// LimitedTimeUserConcurrencyLimit 限时倍率窗口内分组内每用户最大并发数（0 = 不设置专属限时并发，回落普通分组并发规则）。
+	LimitedTimeUserConcurrencyLimit int
+	// UserConcurrencyLimit 分组内每用户最大并发数（0 = 不限制）。
+	UserConcurrencyLimit int
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -83,6 +96,56 @@ func (g *Group) IsActive() bool {
 
 func (g *Group) IsSubscriptionType() bool {
 	return g.SubscriptionType == SubscriptionTypeSubscription
+}
+
+func (g *Group) BillingRateMultiplierAt(now time.Time) float64 {
+	if g == nil {
+		return 1
+	}
+	return g.BillingRateMultiplierForBaseAt(g.RateMultiplier, now)
+}
+
+func (g *Group) BillingRateMultiplierForBaseAt(base float64, now time.Time) float64 {
+	if g == nil {
+		return base
+	}
+	if g.IsLimitedTimeMultiplierActiveAt(now) && g.LimitedTimeMultiplierValue < base {
+		return g.LimitedTimeMultiplierValue
+	}
+	return base
+}
+
+func (g *Group) EffectiveUserConcurrencyLimitAt(now time.Time) int {
+	if g == nil {
+		return 0
+	}
+	if g.IsLimitedTimeMultiplierActiveAt(now) && g.LimitedTimeUserConcurrencyLimit > 0 {
+		return g.LimitedTimeUserConcurrencyLimit
+	}
+	return g.UserConcurrencyLimit
+}
+
+func (g *Group) IsLimitedTimeMultiplierActiveAt(now time.Time) bool {
+	if g == nil || !g.LimitedTimeMultiplierEnabled || g.SubscriptionType == SubscriptionTypeSubscription {
+		return false
+	}
+	if g.LimitedTimeMultiplierValue <= 0 || g.LimitedTimeMultiplierDurationMinutes <= 0 {
+		return false
+	}
+	cronExpr := strings.TrimSpace(g.LimitedTimeMultiplierCron)
+	if cronExpr == "" {
+		return false
+	}
+	schedule, err := groupLimitedTimeMultiplierCronParser.Parse(cronExpr)
+	if err != nil {
+		return false
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	duration := time.Duration(g.LimitedTimeMultiplierDurationMinutes) * time.Minute
+	start := schedule.Next(now.Add(-duration))
+	return !start.After(now) && now.Before(start.Add(duration))
 }
 
 func (g *Group) HasDailyLimit() bool {
