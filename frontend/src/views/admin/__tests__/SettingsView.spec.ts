@@ -662,6 +662,23 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("renders only top-level providers in enabled services", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const text = wrapper.text();
+    expect(text).toContain("payment.methods.easypay");
+    expect(text).toContain("payment.methods.alipay");
+    expect(text).toContain("payment.methods.wxpay");
+    expect(text).toContain("payment.methods.stripe");
+    expect(text).toContain("payment.methods.airwallex");
+    expect(text).not.toContain("payment.methods.creditcard");
+    expect(text).not.toContain("payment.methods.crypto");
+    expect(text).not.toContain("payment.methods.paynow");
+  });
+
   it("passes Kyren EasyPay international methods to provider management", async () => {
     const seenPaymentTypes: string[][] = [];
     const PaymentProviderListStub = defineComponent({
