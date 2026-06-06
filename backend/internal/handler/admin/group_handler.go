@@ -133,7 +133,7 @@ type CreateGroupRequest struct {
 // UpdateGroupRequest represents update group request
 type UpdateGroupRequest struct {
 	Name                                 string             `json:"name"`
-	Description                          string             `json:"description"`
+	Description                          *string            `json:"description"`
 	Platform                             string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
 	RateMultiplier                       *float64           `json:"rate_multiplier"`
 	LimitedTimeMultiplierEnabled         *bool              `json:"limited_time_multiplier_enabled"`
