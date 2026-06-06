@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -14,7 +15,12 @@ func RegisterUserRoutes(
 	h *handler.Handlers,
 	jwtAuth middleware.JWTAuthMiddleware,
 	settingService *service.SettingService,
+	cfg *config.Config,
 ) {
+	bodyLimit := func(c *gin.Context) { c.Next() }
+	if cfg != nil && cfg.Gateway.MaxBodySize > 0 {
+		bodyLimit = middleware.RequestBodyLimit(cfg.Gateway.MaxBodySize)
+	}
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
@@ -33,6 +39,12 @@ func RegisterUserRoutes(
 			user.POST("/auth-identities/bind/start", h.User.StartIdentityBinding)
 			user.GET("/api-keys/:id/usage/daily", h.Usage.GetMyAPIKeyDailyUsage)
 			user.GET("/platform-quotas", h.User.GetMyPlatformQuotas)
+
+			images := user.Group("/images")
+			{
+				images.GET("/options", h.UserImage.Options)
+				images.POST("/generations", bodyLimit, h.UserImage.Generate)
+			}
 
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")

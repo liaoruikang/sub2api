@@ -61,4 +61,15 @@ describe('router WeChat OAuth route', () => {
     expect(route?.meta.requiresAuth).toBe(false)
     expect(route?.meta.title).toBe('WeChat Payment Callback')
   })
+
+  it('registers the image playground route as an authenticated user route', async () => {
+    const { default: router } = await import('@/router')
+    const route = router.getRoutes().find((record) => record.name === 'ImagePlayground')
+
+    expect(route?.path).toBe('/images')
+    expect(route?.meta.requiresAuth).toBe(true)
+    expect(route?.meta.requiresAdmin).toBe(false)
+    expect(route?.meta.titleKey).toBe('imagePlayground.title')
+    expect(route?.meta.descriptionKey).toBe('imagePlayground.description')
+  })
 })
