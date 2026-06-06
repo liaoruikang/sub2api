@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
@@ -215,7 +216,7 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	}
 
 	applyOpenAIImagesDefaults(req)
-	if err := validateOpenAIImagesModel(req.Model); err != nil {
+	if err := validateOpenAIImagesModel(c.Request.Context(), req.Model); err != nil {
 		return nil, err
 	}
 	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
@@ -458,9 +459,52 @@ func isOpenAIImageGenerationModel(model string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image-")
 }
 
-func validateOpenAIImagesModel(model string) error {
+func IsOpenAIImageModelName(model string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	if normalized == "" {
+		return false
+	}
+	if strings.HasPrefix(normalized, "gpt-image-") || strings.HasPrefix(normalized, "dall-e") {
+		return true
+	}
+	if strings.Contains(normalized, "image") || strings.Contains(normalized, "imagen") || strings.Contains(normalized, "flux") {
+		return true
+	}
+	for _, marker := range []string{"stable-diffusion", "midjourney", "recraft", "ideogram", "seedream", "kling"} {
+		if strings.Contains(normalized, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func isOpenAICustomImageGenerationModel(ctx context.Context, model string) bool {
 	model = strings.TrimSpace(model)
-	if isOpenAIImageGenerationModel(model) {
+	if model == "" || ctx == nil {
+		return false
+	}
+	if !IsOpenAIImageModelName(model) {
+		return false
+	}
+	group, _ := ctx.Value(ctxkey.Group).(*Group)
+	if group == nil || !group.CustomModelsListEnabled() {
+		return false
+	}
+	for _, candidate := range group.ModelsListConfig.Models {
+		if strings.TrimSpace(candidate) == model {
+			return true
+		}
+	}
+	return false
+}
+
+func isOpenAIImagesAllowedModel(ctx context.Context, model string) bool {
+	return isOpenAIImageGenerationModel(model) || isOpenAICustomImageGenerationModel(ctx, model)
+}
+
+func validateOpenAIImagesModel(ctx context.Context, model string) error {
+	model = strings.TrimSpace(model)
+	if isOpenAIImagesAllowedModel(ctx, model) {
 		return nil
 	}
 	if model == "" {
@@ -569,11 +613,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
 		requestModel = mapped
 	}
-	if err := validateOpenAIImagesModel(requestModel); err != nil {
+	if err := validateOpenAIImagesModel(ctx, requestModel); err != nil {
 		return nil, err
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
-	if err := validateOpenAIImagesModel(upstreamModel); err != nil {
+	if err := validateOpenAIImagesModel(ctx, upstreamModel); err != nil {
 		return nil, err
 	}
 	logger.LegacyPrintf(

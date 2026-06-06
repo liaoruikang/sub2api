@@ -30,3 +30,9 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 })
+
+describe('AppSidebar image playground navigation', () => {
+  it('includes the online image generation route in shared user navigation', () => {
+    expect(componentSource).toContain("{ path: '/images', label: t('nav.imagePlayground'), icon: ImageIcon")
+  })
+})

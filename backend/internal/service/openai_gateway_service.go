@@ -5660,6 +5660,101 @@ type OpenAIRecordUsageInput struct {
 	ChannelUsageFields
 }
 
+type OpenAIImageCostSummary struct {
+	EstimatedPrice *float64
+	ActualCost     *float64
+	TotalCost      *float64
+	ImageCount     int
+	ImageSize      string
+	BillingMode    string
+}
+
+func (s *OpenAIGatewayService) BuildOpenAIImageCostSummary(ctx context.Context, input *OpenAIRecordUsageInput) *OpenAIImageCostSummary {
+	if s == nil || input == nil || input.Result == nil || input.APIKey == nil {
+		return nil
+	}
+	result := input.Result
+	ApplyOpenAIImageBillingResolution(result)
+
+	summary := &OpenAIImageCostSummary{
+		ImageCount: result.ImageCount,
+		ImageSize:  strings.TrimSpace(result.ImageSize),
+	}
+	if summary.ImageSize == "" && result.ImageCount > 0 {
+		summary.ImageSize = NormalizeImageBillingTierOrDefault(result.ImageInputSize)
+	}
+	if result.ImageCount > 0 {
+		summary.BillingMode = string(BillingModeImage)
+	}
+
+	apiKey := input.APIKey
+	user := input.User
+	if user == nil {
+		user = apiKey.User
+	}
+
+	multiplier := 1.0
+	if s.cfg != nil {
+		multiplier = s.cfg.Default.RateMultiplier
+	}
+	if user != nil && apiKey.GroupID != nil && apiKey.Group != nil {
+		resolver := s.userGroupRateResolver
+		if resolver == nil {
+			resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
+		}
+		multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+	}
+	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
+
+	actualInputTokens := result.Usage.InputTokens - result.Usage.CacheReadInputTokens
+	if actualInputTokens < 0 {
+		actualInputTokens = 0
+	}
+	tokens := UsageTokens{
+		InputTokens:         actualInputTokens,
+		OutputTokens:        result.Usage.OutputTokens,
+		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:     result.Usage.CacheReadInputTokens,
+		ImageOutputTokens:   result.Usage.ImageOutputTokens,
+	}
+
+	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
+	if result.BillingModel != "" {
+		billingModel = strings.TrimSpace(result.BillingModel)
+	}
+	if input.BillingModelSource == BillingModelSourceChannelMapped && input.ChannelMappedModel != "" && input.ChannelMappedModel != input.OriginalModel {
+		billingModel = input.ChannelMappedModel
+	}
+	if input.BillingModelSource == BillingModelSourceRequested && input.OriginalModel != "" {
+		billingModel = input.OriginalModel
+	}
+	billingModels := usageBillingModelCandidates(
+		billingModel,
+		result.BillingModel,
+		input.ChannelMappedModel,
+		input.OriginalModel,
+		result.UpstreamModel,
+		result.Model,
+	)
+	serviceTier := ""
+	if result.ServiceTier != nil {
+		serviceTier = strings.TrimSpace(*result.ServiceTier)
+	}
+	cost, err := s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier)
+	if err != nil || cost == nil {
+		return summary
+	}
+
+	summary.BillingMode = strings.TrimSpace(cost.BillingMode)
+	totalCost := cost.TotalCost
+	actualCost := cost.ActualCost
+	estimatedPrice := actualCost
+	summary.TotalCost = &totalCost
+	summary.ActualCost = &actualCost
+	summary.EstimatedPrice = &estimatedPrice
+	return summary
+}
+
 // RecordUsage records usage and deducts balance
 func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRecordUsageInput) error {
 	if input == nil {

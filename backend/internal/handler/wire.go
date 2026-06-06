@@ -99,6 +99,7 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 func ProvideHandlers(
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
+	userImageHandler *UserImageHandler,
 	apiKeyHandler *APIKeyHandler,
 	usageHandler *UsageHandler,
 	redeemHandler *RedeemHandler,
@@ -116,9 +117,11 @@ func ProvideHandlers(
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
+	userImageHandler.SetGateway(openaiGatewayHandler)
 	return &Handlers{
 		Auth:             authHandler,
 		User:             userHandler,
+		UserImage:        userImageHandler,
 		APIKey:           apiKeyHandler,
 		Usage:            usageHandler,
 		Redeem:           redeemHandler,
@@ -141,6 +144,7 @@ var ProviderSet = wire.NewSet(
 	// Top-level handlers
 	NewAuthHandler,
 	NewUserHandler,
+	NewUserImageHandler,
 	NewAPIKeyHandler,
 	NewUsageHandler,
 	NewRedeemHandler,
@@ -191,4 +195,6 @@ var ProviderSet = wire.NewSet(
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,
 	ProvideHandlers,
+
+	wire.Bind(new(userImageAPIKeyLister), new(*service.APIKeyService)),
 )

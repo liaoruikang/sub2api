@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -229,6 +230,36 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_LegacyImageModelUnknownSiz
 	require.Equal(t, "2K", parsed.SizeTier)
 }
 
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_CustomImageModelPassthrough(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"flux-kontext-pro","prompt":"draw a cat","size":"1024x1024"}`)
+	group := &Group{
+		ID:                   9,
+		Platform:             PlatformOpenAI,
+		Status:               StatusActive,
+		Hydrated:             true,
+		AllowImageGeneration: true,
+		ModelsListConfig: GroupModelsListConfig{
+			Enabled: true,
+			Models:  []string{"flux-kontext-pro"},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req = req.WithContext(context.WithValue(req.Context(), ctxkey.Group, group))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.Equal(t, "flux-kontext-pro", parsed.Model)
+	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
+}
+
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEditWithMaskAndNativeOptions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -403,14 +434,14 @@ func TestResolveOpenAIImageBytes_PrefersInlineBase64(t *testing.T) {
 	require.Equal(t, []byte("ABC"), data)
 }
 
-func TestAccountSupportsOpenAIImageCapability_OAuthSupportsNative(t *testing.T) {
+func TestAccountSupportsOpenAIImageCapability_OAuthDoesNotSupportNative(t *testing.T) {
 	account := &Account{
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeOAuth,
 	}
 
 	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityBasic))
-	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
+	require.False(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
 }
 
 func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
