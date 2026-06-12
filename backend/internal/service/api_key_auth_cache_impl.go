@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 17 // v17: reload snapshots with group user concurrency limit field
+const apiKeyAuthSnapshotVersion = 18 // v18: reload snapshots with exclusive group auth and group user concurrency fields
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -226,6 +226,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			Role:                       apiKey.User.Role,
 			Balance:                    apiKey.User.Balance,
 			Concurrency:                apiKey.User.Concurrency,
+			AllowedGroups:              apiKey.User.AllowedGroups,
 			Email:                      apiKey.User.Email,
 			Username:                   apiKey.User.Username,
 			BalanceNotifyEnabled:       apiKey.User.BalanceNotifyEnabled,
@@ -249,44 +250,45 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		}
 		// 查询失败或无 override 时留 nil，checkRPM 会回退到 DB 查询
 	}
-	if apiKey.Group != nil {
-		snapshot.Group = &APIKeyAuthGroupSnapshot{
-			ID:                                   apiKey.Group.ID,
-			Name:                                 apiKey.Group.Name,
-			Platform:                             apiKey.Group.Platform,
-			Status:                               apiKey.Group.Status,
-			SubscriptionType:                     apiKey.Group.SubscriptionType,
-			RateMultiplier:                       apiKey.Group.RateMultiplier,
-			LimitedTimeMultiplierEnabled:         apiKey.Group.LimitedTimeMultiplierEnabled,
-			LimitedTimeMultiplierCron:            apiKey.Group.LimitedTimeMultiplierCron,
-			LimitedTimeMultiplierDurationMinutes: apiKey.Group.LimitedTimeMultiplierDurationMinutes,
-			LimitedTimeMultiplierValue:           apiKey.Group.LimitedTimeMultiplierValue,
-			DailyLimitUSD:                        apiKey.Group.DailyLimitUSD,
-			WeeklyLimitUSD:                       apiKey.Group.WeeklyLimitUSD,
-			MonthlyLimitUSD:                      apiKey.Group.MonthlyLimitUSD,
-			AllowImageGeneration:                 apiKey.Group.AllowImageGeneration,
-			ImageRateIndependent:                 apiKey.Group.ImageRateIndependent,
-			ImageRateMultiplier:                  apiKey.Group.ImageRateMultiplier,
-			ImagePrice1K:                         apiKey.Group.ImagePrice1K,
-			ImagePrice2K:                         apiKey.Group.ImagePrice2K,
-			ImagePrice4K:                         apiKey.Group.ImagePrice4K,
-			ClaudeCodeOnly:                       apiKey.Group.ClaudeCodeOnly,
-			FallbackGroupID:                      apiKey.Group.FallbackGroupID,
-			FallbackGroupIDOnInvalidRequest:      apiKey.Group.FallbackGroupIDOnInvalidRequest,
-			ModelRouting:                         apiKey.Group.ModelRouting,
-			ModelRoutingEnabled:                  apiKey.Group.ModelRoutingEnabled,
-			MCPXMLInject:                         apiKey.Group.MCPXMLInject,
-			SupportedModelScopes:                 apiKey.Group.SupportedModelScopes,
-			AllowMessagesDispatch:                apiKey.Group.AllowMessagesDispatch,
-			DefaultMappedModel:                   apiKey.Group.DefaultMappedModel,
-			MessagesDispatchModelConfig:          apiKey.Group.MessagesDispatchModelConfig,
-			ModelsListConfig:                     apiKey.Group.ModelsListConfig,
-			RPMLimit:                             apiKey.Group.RPMLimit,
-			LimitedTimeRPMLimit:                  apiKey.Group.LimitedTimeRPMLimit,
-			LimitedTimeUserConcurrencyLimit:      apiKey.Group.LimitedTimeUserConcurrencyLimit,
-			UserConcurrencyLimit:                 apiKey.Group.UserConcurrencyLimit,
+		if apiKey.Group != nil {
+			snapshot.Group = &APIKeyAuthGroupSnapshot{
+				ID:                                   apiKey.Group.ID,
+				Name:                                 apiKey.Group.Name,
+				Platform:                             apiKey.Group.Platform,
+				IsExclusive:                          apiKey.Group.IsExclusive,
+				Status:                               apiKey.Group.Status,
+				SubscriptionType:                     apiKey.Group.SubscriptionType,
+				RateMultiplier:                       apiKey.Group.RateMultiplier,
+				LimitedTimeMultiplierEnabled:         apiKey.Group.LimitedTimeMultiplierEnabled,
+				LimitedTimeMultiplierCron:            apiKey.Group.LimitedTimeMultiplierCron,
+				LimitedTimeMultiplierDurationMinutes: apiKey.Group.LimitedTimeMultiplierDurationMinutes,
+				LimitedTimeMultiplierValue:           apiKey.Group.LimitedTimeMultiplierValue,
+				DailyLimitUSD:                        apiKey.Group.DailyLimitUSD,
+				WeeklyLimitUSD:                       apiKey.Group.WeeklyLimitUSD,
+				MonthlyLimitUSD:                      apiKey.Group.MonthlyLimitUSD,
+				AllowImageGeneration:                 apiKey.Group.AllowImageGeneration,
+				ImageRateIndependent:                 apiKey.Group.ImageRateIndependent,
+				ImageRateMultiplier:                  apiKey.Group.ImageRateMultiplier,
+				ImagePrice1K:                         apiKey.Group.ImagePrice1K,
+				ImagePrice2K:                         apiKey.Group.ImagePrice2K,
+				ImagePrice4K:                         apiKey.Group.ImagePrice4K,
+				ClaudeCodeOnly:                       apiKey.Group.ClaudeCodeOnly,
+				FallbackGroupID:                      apiKey.Group.FallbackGroupID,
+				FallbackGroupIDOnInvalidRequest:      apiKey.Group.FallbackGroupIDOnInvalidRequest,
+				ModelRouting:                         apiKey.Group.ModelRouting,
+				ModelRoutingEnabled:                  apiKey.Group.ModelRoutingEnabled,
+				MCPXMLInject:                         apiKey.Group.MCPXMLInject,
+				SupportedModelScopes:                 apiKey.Group.SupportedModelScopes,
+				AllowMessagesDispatch:                apiKey.Group.AllowMessagesDispatch,
+				DefaultMappedModel:                   apiKey.Group.DefaultMappedModel,
+				MessagesDispatchModelConfig:          apiKey.Group.MessagesDispatchModelConfig,
+				ModelsListConfig:                     apiKey.Group.ModelsListConfig,
+				RPMLimit:                             apiKey.Group.RPMLimit,
+				LimitedTimeRPMLimit:                  apiKey.Group.LimitedTimeRPMLimit,
+				LimitedTimeUserConcurrencyLimit:      apiKey.Group.LimitedTimeUserConcurrencyLimit,
+				UserConcurrencyLimit:                 apiKey.Group.UserConcurrencyLimit,
+			}
 		}
-	}
 	return snapshot
 }
 
@@ -315,6 +317,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			Role:                            snapshot.User.Role,
 			Balance:                         snapshot.User.Balance,
 			Concurrency:                     snapshot.User.Concurrency,
+			AllowedGroups:                   snapshot.User.AllowedGroups,
 			Email:                           snapshot.User.Email,
 			Username:                        snapshot.User.Username,
 			BalanceNotifyEnabled:            snapshot.User.BalanceNotifyEnabled,
@@ -332,6 +335,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			ID:                                   snapshot.Group.ID,
 			Name:                                 snapshot.Group.Name,
 			Platform:                             snapshot.Group.Platform,
+			IsExclusive:                          snapshot.Group.IsExclusive,
 			Status:                               snapshot.Group.Status,
 			Hydrated:                             true,
 			SubscriptionType:                     snapshot.Group.SubscriptionType,
