@@ -68,9 +68,13 @@ CC Switch 用来统一管理 Claude Code、Codex、Gemini CLI 等客户端的 Pr
 5. 浏览器提示打开 CC Switch 时确认。
 6. 在 CC Switch 中启用导入的 Provider。
 
-::: info 截图占位
-这里放“导入到 CCS”的截图。
+::: info 官方截图
+以下截图来自 CC Switch 官方仓库，用于说明 Provider 管理界面。
 :::
+
+![CC Switch 主界面](/images/ccswitch-main.png)
+
+![CC Switch 添加 Provider](/images/ccswitch-add-provider.png)
 
 导入规则：
 

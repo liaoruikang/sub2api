@@ -16,20 +16,25 @@
       <div v-else-if="!loadingOptions" class="grid items-start gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
         <div class="xl:relative">
           <section
-            class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800 xl:fixed xl:top-24 xl:w-[440px]"
+            data-test="image-generator-panel"
+            class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800 xl:fixed xl:top-24 xl:flex xl:max-h-[calc(100vh-7rem)] xl:w-[440px] xl:flex-col"
           >
-          <div class="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t('imagePlayground.generatorTitle') }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                {{ t('imagePlayground.generatorDescription') }}
-              </p>
-            </div>
-          </div>
+            <div
+              data-test="image-generator-scroll"
+              class="xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-2"
+            >
+              <div class="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ t('imagePlayground.generatorTitle') }}
+                  </h2>
+                  <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    {{ t('imagePlayground.generatorDescription') }}
+                  </p>
+                </div>
+              </div>
 
-          <form class="space-y-5" @submit.prevent="handleGenerate">
+              <form class="space-y-5" @submit.prevent="handleGenerate">
             <div class="grid gap-5 md:grid-cols-2">
               <div>
                 <label for="image-key" class="input-label">
@@ -284,7 +289,6 @@
                   type="number"
                   inputmode="numeric"
                   min="1"
-                  max="4"
                   step="1"
                   :aria-invalid="invalidCount ? 'true' : 'false'"
                   :aria-describedby="invalidCount ? 'image-count-error' : undefined"
@@ -300,21 +304,46 @@
               </div>
             </div>
 
-            <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
-              <button
-                type="submit"
-                data-test="image-generate"
-                :disabled="generateDisabled"
-                class="btn btn-primary btn-lg w-full"
-              >
-                <span
-                  v-if="generating"
-                  class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+            <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-700/70">
+              <label for="image-stream" class="flex cursor-pointer items-start gap-3">
+                <input
+                  id="image-stream"
+                  v-model="streamEnabled"
+                  data-test="image-stream"
+                  type="checkbox"
+                  :disabled="!streamSupported"
+                  class="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
                 />
-                {{ generating ? t('imagePlayground.generatingButton') : t('imagePlayground.generateButton') }}
-              </button>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-medium text-gray-900 dark:text-white">
+                    {{ t('imagePlayground.streamLabel') }}
+                  </span>
+                  <span class="mt-1 block text-xs leading-5 text-gray-500 dark:text-gray-400">
+                    {{ streamSupported ? t('imagePlayground.streamHint') : t('imagePlayground.streamUnsupportedHint') }}
+                  </span>
+                </span>
+              </label>
             </div>
-          </form>
+
+                <div
+                  data-test="image-generator-actions"
+                  class="border-t border-gray-200 pt-4 dark:border-dark-600 xl:sticky xl:bottom-0 xl:mt-5 xl:bg-white xl:pb-1 dark:xl:bg-dark-800"
+                >
+                  <button
+                    type="submit"
+                    data-test="image-generate"
+                    :disabled="generateDisabled"
+                    class="btn btn-primary btn-lg w-full"
+                  >
+                    <span
+                      v-if="generating"
+                      class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                    />
+                    {{ generating ? t('imagePlayground.generatingButton') : t('imagePlayground.generateButton') }}
+                  </button>
+                </div>
+              </form>
+            </div>
           </section>
         </div>
 
@@ -341,7 +370,7 @@
             </div>
 
             <div
-              v-if="statusMessage || errorMessage"
+              v-if="statusMessage || errorMessage || generationProgressActive"
               class="mt-4 rounded-xl border px-4 py-3 text-sm"
               :class="errorMessage ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300'"
               aria-live="polite"
@@ -349,9 +378,35 @@
               <p v-if="errorMessage" aria-live="assertive">
                 {{ errorMessage }}
               </p>
-              <p v-else>
+              <p v-else-if="statusMessage">
                 {{ statusMessage }}
               </p>
+              <div
+                v-if="generationProgressActive"
+                class="mt-3 space-y-2"
+              >
+                <div class="flex items-center justify-between gap-3 text-xs font-medium">
+                  <span>{{ t('imagePlayground.generationProgressLabel') }}</span>
+                  <span data-test="image-generation-progress-value">
+                    {{ generationProgressValueText }}
+                  </span>
+                </div>
+                <div
+                  data-test="image-generation-progress"
+                  role="progressbar"
+                  :aria-label="t('imagePlayground.generationProgressLabel')"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  :aria-valuenow="generationProgressRounded ?? undefined"
+                  class="image-generation-progress-track"
+                >
+                  <div
+                    class="image-generation-progress-bar"
+                    :class="generationProgressRounded == null ? 'image-generation-progress-bar-indeterminate' : ''"
+                    :style="generationProgressBarStyle"
+                  />
+                </div>
+              </div>
             </div>
 
             <div v-if="currentResults.length === 0" class="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500 dark:bg-dark-700 dark:text-gray-400">
@@ -756,11 +811,68 @@
           </div>
         </header>
 
-        <div class="flex min-h-0 flex-1 items-center justify-center bg-gray-100 p-4 dark:bg-dark-900">
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-3 text-sm dark:border-dark-600"
+          :aria-label="t('imagePlayground.previewZoomControlsLabel')"
+        >
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              data-test="image-preview-zoom-out"
+              class="btn btn-secondary btn-sm"
+              :aria-label="t('imagePlayground.previewZoomOutAction')"
+              @click="zoomImagePreviewOut"
+            >
+              −
+            </button>
+            <span
+              data-test="image-preview-zoom-level"
+              class="min-w-14 rounded-full bg-gray-100 px-3 py-1 text-center font-medium text-gray-700 dark:bg-dark-700 dark:text-gray-200"
+            >
+              {{ previewZoomPercent }}
+            </span>
+            <button
+              type="button"
+              data-test="image-preview-zoom-in"
+              class="btn btn-secondary btn-sm"
+              :aria-label="t('imagePlayground.previewZoomInAction')"
+              @click="zoomImagePreviewIn"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              data-test="image-preview-reset"
+              class="btn btn-secondary btn-sm"
+              @click="resetImagePreviewTransform"
+            >
+              {{ t('imagePlayground.previewZoomResetAction') }}
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            {{ t('imagePlayground.previewPanHint') }}
+          </p>
+        </div>
+
+        <div
+          data-test="image-preview-pan-area"
+          class="flex min-h-0 flex-1 touch-none cursor-grab select-none items-center justify-center overflow-hidden bg-gray-100 p-4 focus:outline-none focus:ring-2 focus:ring-primary-500/40 active:cursor-grabbing dark:bg-dark-900"
+          tabindex="0"
+          @wheel.prevent="handleImagePreviewWheel"
+          @keydown="handleImagePreviewKeydown"
+          @pointerdown="startImagePreviewPan"
+          @pointermove="moveImagePreviewPan"
+          @pointerup="endImagePreviewPan"
+          @pointercancel="endImagePreviewPan"
+        >
           <img
+            data-test="image-preview-img"
             :src="imagePreview.source"
             :alt="imagePreview.alt"
-            class="max-h-[calc(100vh-14rem)] w-full object-contain"
+            :style="{ transform: previewImageTransform }"
+            :class="previewDragState ? 'transition-none' : 'transition-transform duration-150'"
+            draggable="false"
+            class="max-h-[calc(100vh-17rem)] w-full select-none object-contain will-change-transform"
           />
         </div>
       </section>
@@ -769,18 +881,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   generateImage,
+  generateImageStream,
   getImageOptions,
   type ImagePlaygroundCostMetadata,
   type ImagePlaygroundGenerateResponse,
   type ImagePlaygroundImageResult,
   type ImagePlaygroundKeyOption,
+  type ImagePlaygroundStreamEvent,
 } from '@/api/imagePlayground'
 import {
   addImageHistoryRecord,
@@ -834,9 +948,27 @@ interface ImagePreviewState {
   filename: string
 }
 
+interface ImagePreviewOffset {
+  x: number
+  y: number
+}
+
+interface ImagePreviewDragState {
+  pointerId: number
+  startX: number
+  startY: number
+  originX: number
+  originY: number
+}
+
 type ImageHistoryItem = ImageHistoryRecord['images'][number]
 
 const MAX_REFERENCE_FILE_SIZE = 20 * 1024 * 1024
+const IMAGE_GENERATION_BATCH_SIZE = 4
+const IMAGE_PREVIEW_MIN_ZOOM = 0.5
+const IMAGE_PREVIEW_MAX_ZOOM = 4
+const IMAGE_PREVIEW_ZOOM_STEP = 0.25
+const IMAGE_PREVIEW_KEYBOARD_PAN_STEP = 24
 const qualityOptions = ['auto', 'low', 'medium', 'high']
 const outputFormatOptions: OutputFormat[] = ['png', 'jpeg', 'webp']
 const moderationOptions = ['auto', 'low']
@@ -891,6 +1023,14 @@ const referenceInputRef = ref<HTMLInputElement | null>(null)
 const referenceDragging = ref(false)
 const pendingReuseModel = ref<string | null>(null)
 const imagePreview = ref<ImagePreviewState | null>(null)
+const streamEnabled = ref(false)
+const generationProgressActive = ref(false)
+const generationProgressPercent = ref<number | null>(null)
+const generationProgressText = ref('')
+const previewZoom = ref(1)
+const previewOffset = ref<ImagePreviewOffset>({ x: 0, y: 0 })
+const previewDragState = ref<ImagePreviewDragState | null>(null)
+let streamAbortController: AbortController | null = null
 
 const clearMessages = (): void => {
   statusMessage.value = ''
@@ -1056,10 +1196,43 @@ const confirmSizePicker = (): void => {
   closeSizePicker()
 }
 
-const invalidCount = computed(() => !Number.isInteger(count.value) || count.value < 1 || count.value > 4)
 const hasOversizeFile = computed(() => referenceItems.value.some((item) => item.tooLarge))
 const referenceImagesForSubmit = computed(() =>
   referenceItems.value.filter((item) => !item.tooLarge).map((item) => item.file)
+)
+const streamSupported = computed(() => {
+  return (
+    model.value.trim().toLowerCase().startsWith('gpt-image-') &&
+    referenceImagesForSubmit.value.length === 0 &&
+    !hasOversizeFile.value
+  )
+})
+const effectiveStreamEnabled = computed(() => streamEnabled.value && streamSupported.value)
+const invalidCount = computed(() => !Number.isSafeInteger(count.value) || count.value < 1)
+const generationProgressRounded = computed(() => {
+  if (generationProgressPercent.value == null) {
+    return null
+  }
+
+  return Math.round(clampPercent(generationProgressPercent.value))
+})
+const generationProgressValueText = computed(() => {
+  if (generationProgressRounded.value != null) {
+    return `${generationProgressRounded.value}%`
+  }
+
+  return generationProgressText.value || t('imagePlayground.generationProgressIndeterminate')
+})
+const generationProgressBarStyle = computed(() => {
+  if (generationProgressRounded.value == null) {
+    return {}
+  }
+
+  return { width: `${generationProgressRounded.value}%` }
+})
+const previewZoomPercent = computed(() => `${Math.round(previewZoom.value * 100)}%`)
+const previewImageTransform = computed(
+  () => `translate(${formatPreviewTransformNumber(previewOffset.value.x)}px, ${formatPreviewTransformNumber(previewOffset.value.y)}px) scale(${formatPreviewTransformNumber(previewZoom.value)})`
 )
 const generateDisabled = computed(() => {
   return (
@@ -1323,6 +1496,104 @@ const historyImageFilename = (record: ImageHistoryRecord, image: ImageHistoryIte
   return `history-${sanitizeFilenamePart(record.prompt || record.id)}-${index + 1}.${extension}`
 }
 
+const formatPreviewTransformNumber = (value: number): string => {
+  if (!Number.isFinite(value)) {
+    return '0'
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+}
+
+const resetImagePreviewTransform = (): void => {
+  previewZoom.value = 1
+  previewOffset.value = { x: 0, y: 0 }
+  previewDragState.value = null
+}
+
+const setImagePreviewZoom = (nextZoom: number): void => {
+  previewZoom.value = Math.min(IMAGE_PREVIEW_MAX_ZOOM, Math.max(IMAGE_PREVIEW_MIN_ZOOM, nextZoom))
+}
+
+const zoomImagePreviewIn = (): void => {
+  setImagePreviewZoom(previewZoom.value + IMAGE_PREVIEW_ZOOM_STEP)
+}
+
+const zoomImagePreviewOut = (): void => {
+  setImagePreviewZoom(previewZoom.value - IMAGE_PREVIEW_ZOOM_STEP)
+}
+
+const startImagePreviewPan = (event: PointerEvent): void => {
+  previewDragState.value = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: previewOffset.value.x,
+    originY: previewOffset.value.y,
+  }
+  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
+}
+
+const moveImagePreviewPan = (event: PointerEvent): void => {
+  const dragState = previewDragState.value
+  if (!dragState || dragState.pointerId !== event.pointerId) {
+    return
+  }
+
+  previewOffset.value = {
+    x: dragState.originX + event.clientX - dragState.startX,
+    y: dragState.originY + event.clientY - dragState.startY,
+  }
+}
+
+const endImagePreviewPan = (event: PointerEvent): void => {
+  if (previewDragState.value?.pointerId === event.pointerId) {
+    previewDragState.value = null
+    ;(event.currentTarget as HTMLElement | null)?.releasePointerCapture?.(event.pointerId)
+  }
+}
+
+const handleImagePreviewWheel = (event: WheelEvent): void => {
+  setImagePreviewZoom(previewZoom.value + (event.deltaY < 0 ? IMAGE_PREVIEW_ZOOM_STEP : -IMAGE_PREVIEW_ZOOM_STEP))
+}
+
+const handleImagePreviewKeydown = (event: KeyboardEvent): void => {
+  if (event.key === '+' || event.key === '=') {
+    event.preventDefault()
+    zoomImagePreviewIn()
+    return
+  }
+  if (event.key === '-') {
+    event.preventDefault()
+    zoomImagePreviewOut()
+    return
+  }
+  if (event.key === '0') {
+    event.preventDefault()
+    resetImagePreviewTransform()
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeImagePreview()
+    return
+  }
+  const deltaByKey: Record<string, ImagePreviewOffset> = {
+    ArrowLeft: { x: IMAGE_PREVIEW_KEYBOARD_PAN_STEP, y: 0 },
+    ArrowRight: { x: -IMAGE_PREVIEW_KEYBOARD_PAN_STEP, y: 0 },
+    ArrowUp: { x: 0, y: IMAGE_PREVIEW_KEYBOARD_PAN_STEP },
+    ArrowDown: { x: 0, y: -IMAGE_PREVIEW_KEYBOARD_PAN_STEP },
+  }
+  const delta = deltaByKey[event.key]
+  if (!delta) {
+    return
+  }
+  event.preventDefault()
+  previewOffset.value = {
+    x: previewOffset.value.x + delta.x,
+    y: previewOffset.value.y + delta.y,
+  }
+}
+
 const triggerBrowserDownload = (source: string, filename: string): void => {
   const link = document.createElement('a')
   link.href = source
@@ -1367,6 +1638,7 @@ const openGeneratedResultPreview = (result: ImagePlaygroundImageResult, index: n
     return
   }
 
+  resetImagePreviewTransform()
   imagePreview.value = {
     source,
     alt: generatedResultAlt(index),
@@ -1377,6 +1649,7 @@ const openGeneratedResultPreview = (result: ImagePlaygroundImageResult, index: n
 }
 
 const openHistoryImagePreview = (record: ImageHistoryRecord, image: ImageHistoryItem, index: number): void => {
+  resetImagePreviewTransform()
   imagePreview.value = {
     source: image.url_or_base64,
     alt: historyImageAlt(record, index),
@@ -1388,6 +1661,7 @@ const openHistoryImagePreview = (record: ImageHistoryRecord, image: ImageHistory
 
 const closeImagePreview = (): void => {
   imagePreview.value = null
+  resetImagePreviewTransform()
 }
 
 const downloadGeneratedResult = (result: ImagePlaygroundImageResult, index: number): void => {
@@ -1559,29 +1833,237 @@ const createHistoryRecordFromResponse = async (
   }
 }
 
+const generationInputFromSnapshot = (snapshot: GenerationSnapshot, countOverride = snapshot.count) => ({
+  api_key_id: snapshot.apiKeyId,
+  model: snapshot.model,
+  prompt: snapshot.prompt,
+  size: snapshot.size,
+  quality: snapshot.quality,
+  output_format: snapshot.outputFormat,
+  output_compression: snapshot.outputCompression,
+  moderation: snapshot.moderation,
+  n: countOverride,
+  reference_images: snapshot.referenceImages,
+})
+
+const generationBatchCounts = (totalCount: number): number[] => {
+  const counts: number[] = []
+  let remaining = totalCount
+
+  while (remaining > 0) {
+    const batchCount = Math.min(remaining, IMAGE_GENERATION_BATCH_SIZE)
+    counts.push(batchCount)
+    remaining -= batchCount
+  }
+
+  return counts
+}
+
+const mergeNumberMetadataField = (
+  metadata: ImagePlaygroundCostMetadata[],
+  key: keyof ImagePlaygroundCostMetadata
+): number | undefined => {
+  const values = metadata
+    .map((item) => item[key])
+    .filter((value): value is number => typeof value === 'number' && !Number.isNaN(value))
+
+  return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) : undefined
+}
+
+const mergeImagePlaygroundCostMetadata = (
+  responses: ImagePlaygroundGenerateResponse[]
+): ImagePlaygroundCostMetadata | undefined => {
+  const metadata = responses
+    .map((response) => response._sub2api_image_playground)
+    .filter((item): item is ImagePlaygroundCostMetadata => Boolean(item))
+
+  if (metadata.length === 0) {
+    return undefined
+  }
+
+  const merged: ImagePlaygroundCostMetadata = {}
+  const estimatedPrice = mergeNumberMetadataField(metadata, 'estimated_price')
+  const actualCost = mergeNumberMetadataField(metadata, 'actual_cost')
+  const totalCost = mergeNumberMetadataField(metadata, 'total_cost')
+  const imageCount = mergeNumberMetadataField(metadata, 'image_count')
+  if (estimatedPrice != null) merged.estimated_price = estimatedPrice
+  if (actualCost != null) merged.actual_cost = actualCost
+  if (totalCost != null) merged.total_cost = totalCost
+  if (imageCount != null) merged.image_count = imageCount
+
+  const imageSize = metadata.find((item) => typeof item.image_size === 'string' && item.image_size.trim())?.image_size
+  const billingMode = metadata.find((item) => typeof item.billing_mode === 'string' && item.billing_mode.trim())?.billing_mode
+  if (imageSize) merged.image_size = imageSize
+  if (billingMode) merged.billing_mode = billingMode
+
+  return Object.keys(merged).length > 0 ? merged : undefined
+}
+
+const mergeImageGenerateResponses = (
+  responses: ImagePlaygroundGenerateResponse[]
+): ImagePlaygroundGenerateResponse => ({
+  data: responses.flatMap((response) => response.data ?? []),
+  _sub2api_image_playground: mergeImagePlaygroundCostMetadata(responses),
+})
+
+const clampPercent = (value: number): number => Math.min(100, Math.max(0, value))
+
+const numberField = (record: Record<string, unknown>, key: string): number | null => {
+  const value = record[key]
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const progressPercentFromEvent = (event: ImagePlaygroundStreamEvent): number | null => {
+  const record = event as Record<string, unknown>
+  const directPercent = numberField(record, 'percent') ?? numberField(record, 'percentage') ?? numberField(record, 'progress_percent')
+  if (directPercent != null) {
+    return clampPercent(directPercent)
+  }
+
+  const progress = numberField(record, 'progress')
+  if (progress != null) {
+    return clampPercent(progress >= 0 && progress <= 1 ? progress * 100 : progress)
+  }
+
+  return null
+}
+
+const progressTextFromEvent = (event: ImagePlaygroundStreamEvent): string => {
+  const record = event as Record<string, unknown>
+  const progressText = record.progress_text
+  if (typeof progressText === 'string' && progressText.trim()) {
+    return progressText.trim()
+  }
+
+  return ''
+}
+
+const startGenerationProgress = (): void => {
+  generationProgressActive.value = true
+  generationProgressPercent.value = null
+  generationProgressText.value = ''
+}
+
+const finishGenerationProgress = (): void => {
+  generationProgressActive.value = false
+  generationProgressPercent.value = null
+  generationProgressText.value = ''
+}
+
+const updateGenerationProgress = (percent: number | null): void => {
+  if (percent == null) {
+    return
+  }
+  generationProgressPercent.value = clampPercent(percent)
+}
+
+const updateGenerationProgressFromImages = (snapshot: GenerationSnapshot): void => {
+  if (snapshot.count > 0) {
+    generationProgressText.value = t('imagePlayground.generationProgressImages', {
+      count: currentResults.value.length,
+      total: snapshot.count,
+    })
+  }
+}
+
+const handleStreamProgress = (event: ImagePlaygroundStreamEvent): void => {
+  updateGenerationProgress(progressPercentFromEvent(event))
+  const progressText = progressTextFromEvent(event)
+  if (progressText && generationProgressPercent.value == null) {
+    generationProgressText.value = progressText
+  }
+
+  const eventType = `${event.type ?? event.object ?? ''}`
+  if (
+    eventType.includes('partial_image') ||
+    eventType.includes('chunk') ||
+    eventType.includes('completed') ||
+    eventType.includes('result')
+  ) {
+    showStatus(t('imagePlayground.streamingProgressStatus'))
+  }
+}
+
+const appendStreamedImage = (image: ImagePlaygroundImageResult, snapshot: GenerationSnapshot): void => {
+  if (!image.b64_json && !image.url) {
+    return
+  }
+
+  if (!currentPrompt.value) {
+    currentPrompt.value = snapshot.prompt
+    currentOutputFormat.value = snapshot.outputFormat
+    currentRequestId.value = globalThis.crypto?.randomUUID?.() ?? String(Date.now())
+  }
+
+  const imageKey = image.url || image.b64_json
+  if (currentResults.value.some((result) => (result.url || result.b64_json) === imageKey)) {
+    return
+  }
+
+  currentResults.value = [...currentResults.value, image]
+  updateGenerationProgressFromImages(snapshot)
+  currentPrice.value = undefined
+  showStatus(t('imagePlayground.streamingProgressStatus'))
+}
+
 const handleGenerate = async (): Promise<void> => {
   const snapshot = createGenerationSnapshot()
   if (generateDisabled.value || !snapshot) {
     return
   }
 
+  const useStream = effectiveStreamEnabled.value
   generating.value = true
-  showStatus(t('imagePlayground.generatingStatus'))
+  startGenerationProgress()
+  showStatus(useStream ? t('imagePlayground.streamingStatus') : t('imagePlayground.generatingStatus'))
+
+  if (streamAbortController) {
+    streamAbortController.abort()
+    streamAbortController = null
+  }
 
   try {
-    const response = await generateImage({
-      api_key_id: snapshot.apiKeyId,
-      model: snapshot.model,
-      prompt: snapshot.prompt,
-      size: snapshot.size,
-      quality: snapshot.quality,
-      output_format: snapshot.outputFormat,
-      output_compression: snapshot.outputCompression,
-      moderation: snapshot.moderation,
-      n: snapshot.count,
-      reference_images: snapshot.referenceImages,
-    })
+    const batchCounts = generationBatchCounts(snapshot.count)
+    const responses: ImagePlaygroundGenerateResponse[] = []
+    if (useStream) {
+      streamAbortController = new AbortController()
+      currentResults.value = []
+      currentPrice.value = undefined
+      currentPrompt.value = snapshot.prompt
+      currentOutputFormat.value = snapshot.outputFormat
+      currentRequestId.value = globalThis.crypto?.randomUUID?.() ?? String(Date.now())
+    }
 
+    for (const batchCount of batchCounts) {
+      const input = generationInputFromSnapshot(snapshot, batchCount)
+      const response = useStream
+        ? await generateImageStream(input, {
+            signal: streamAbortController?.signal,
+            onProgress: handleStreamProgress,
+            onImage: (image) => appendStreamedImage(image, snapshot),
+          })
+        : await generateImage(input)
+
+      responses.push(response)
+      if (!useStream) {
+        const receivedCount = responses.reduce((sum, item) => sum + (item.data?.length ?? 0), 0)
+        if (receivedCount > 0) {
+          generationProgressText.value = t('imagePlayground.generationProgressImages', {
+            count: receivedCount,
+            total: snapshot.count,
+          })
+        }
+      }
+    }
+
+    const response = mergeImageGenerateResponses(responses)
     const generatedImages = await localizeGeneratedImages(response.data ?? [], snapshot.outputFormat)
 
     currentResults.value = generatedImages
@@ -1605,6 +2087,10 @@ const handleGenerate = async (): Promise<void> => {
     currentPrice.value = undefined
     showError(t('imagePlayground.generateFailed'))
   } finally {
+    if (useStream) {
+      streamAbortController = null
+    }
+    finishGenerationProgress()
     generating.value = false
   }
 }
@@ -1662,6 +2148,13 @@ const handleClearHistory = async (): Promise<void> => {
 onMounted(() => {
   void loadPageData()
 })
+
+onBeforeUnmount(() => {
+  if (streamAbortController) {
+    streamAbortController.abort()
+    streamAbortController = null
+  }
+})
 </script>
 
 <style scoped>
@@ -1674,5 +2167,37 @@ onMounted(() => {
   background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
+}
+
+.image-generation-progress-track {
+  @apply h-2 overflow-hidden rounded-full bg-white/70 dark:bg-dark-900/70;
+}
+
+.image-generation-progress-bar {
+  @apply h-full rounded-full bg-primary-500 transition-all duration-300;
+}
+
+.image-generation-progress-bar-indeterminate {
+  width: 45%;
+  animation: image-generation-progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes image-generation-progress-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(240%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-generation-progress-bar-indeterminate {
+    animation: none;
+    width: 100%;
+  }
 }
 </style>

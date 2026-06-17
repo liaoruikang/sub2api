@@ -120,6 +120,7 @@ func ProvideHandlers(
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
 	userImageHandler.SetGateway(openaiGatewayHandler)
+	userImageHandler.SetGeminiGateway(gatewayHandler)
 	return &Handlers{
 		Auth:             authHandler,
 		User:             userHandler,
@@ -198,6 +199,4 @@ var ProviderSet = wire.NewSet(
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,
 	ProvideHandlers,
-
-	wire.Bind(new(userImageAPIKeyLister), new(*service.APIKeyService)),
 )

@@ -850,8 +850,8 @@ export interface Account {
   // 改为通过 credentials_status.has_<key> 暴露存在性。
   credentials?: Record<string, unknown>
   credentials_status?: Record<string, boolean>
-  // Extra fields including Codex usage, OpenAI compact capability, and model-level rate limits.
-  extra?: (CodexUsageSnapshot & OpenAICompactState & {
+  // Extra fields including Codex usage, OpenAI compact capability, highest scheduling, and model-level rate limits.
+  extra?: (CodexUsageSnapshot & OpenAICompactState & OpenAIResponsesState & HighestSchedulingExtraState & {
     model_rate_limits?: Record<string, { rate_limited_at: string; rate_limit_reset_at: string }>
     antigravity_credits_overages?: Record<string, { activated_at: string; active_until: string }>
   } & Record<string, unknown>)
@@ -1040,6 +1040,15 @@ export interface OpenAICompactState {
 export interface OpenAIResponsesState {
   openai_responses_mode?: OpenAIResponsesMode
   openai_responses_supported?: boolean
+}
+
+export interface HighestSchedulingExtraState {
+  highest_scheduling_mode?: boolean
+  highest_scheduling_recovery_minutes?: number
+  highest_scheduling_suppressed?: boolean
+  highest_scheduling_suppressed_until?: string | null
+  highest_scheduling_suppressed_at?: string | null
+  highest_scheduling_suppressed_reason?: string | null
 }
 
 export interface CreateAccountRequest {

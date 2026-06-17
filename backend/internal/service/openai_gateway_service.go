@@ -1721,6 +1721,9 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
 	}
+	if s.shouldPreferHighestSchedulingOverOpenAISticky(ctx, groupID, account, requestedModel, excludedIDs, requireCompact, requiredCapability) {
+		return nil
+	}
 
 	// 刷新会话 TTL 并返回账号
 	// Refresh session TTL and return account
@@ -1735,6 +1738,43 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 // Returns nil if no available account. The second return reports whether at
 // least one candidate was filtered out solely because it lacks compact support
 // (only meaningful when requireCompact=true).
+func (s *OpenAIGatewayService) shouldPreferHighestSchedulingOverOpenAISticky(ctx context.Context, groupID *int64, sticky *Account, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability) bool {
+	if sticky == nil || accountHighestSchedulingEffective(sticky, time.Now()) {
+		return false
+	}
+	accounts, err := s.listSchedulableAccounts(ctx, groupID)
+	if err != nil {
+		return false
+	}
+	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
+	for i := range accounts {
+		candidate := &accounts[i]
+		if candidate.ID == sticky.ID {
+			continue
+		}
+		if excludedIDs != nil {
+			if _, excluded := excludedIDs[candidate.ID]; excluded {
+				continue
+			}
+		}
+		fresh := s.resolveFreshSchedulableOpenAIAccount(ctx, candidate, requestedModel, requireCompact, requiredCapability)
+		if fresh == nil {
+			continue
+		}
+		fresh = s.recheckSelectedOpenAIAccountFromDB(ctx, fresh, requestedModel, requireCompact, requiredCapability)
+		if fresh == nil {
+			continue
+		}
+		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, fresh, requestedModel, requireCompact) {
+			continue
+		}
+		if accountHighestSchedulingEffective(fresh, time.Now()) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *int64, accounts []Account, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability) (*Account, bool) {
 	var selected *Account
 	selectedCompactTier := -1
@@ -1802,31 +1842,7 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 // isBetterAccount checks if candidate is better than current.
 // Rules: higher priority (lower value) wins; same priority: never used > least recently used.
 func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool {
-	// 优先级更高（数值更小）
-	// Higher priority (lower value)
-	if candidate.Priority < current.Priority {
-		return true
-	}
-	if candidate.Priority > current.Priority {
-		return false
-	}
-
-	// 同优先级，比较最后使用时间
-	// Same priority, compare last used time
-	switch {
-	case candidate.LastUsedAt == nil && current.LastUsedAt != nil:
-		// candidate 从未使用，优先
-		return true
-	case candidate.LastUsedAt != nil && current.LastUsedAt == nil:
-		// current 从未使用，保持
-		return false
-	case candidate.LastUsedAt == nil && current.LastUsedAt == nil:
-		// 都未使用，保持
-		return false
-	default:
-		// 都使用过，选择最久未使用的
-		return candidate.LastUsedAt.Before(*current.LastUsedAt)
-	}
+	return isBetterAccountByHighestSchedulingPriorityAndLastUsed(candidate, current, false, time.Now())
 }
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
@@ -1914,6 +1930,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 						_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 					} else if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, account, requestedModel, requireCompact) {
 						_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+					} else if s.shouldPreferHighestSchedulingOverOpenAISticky(ctx, groupID, account, requestedModel, excludedIDs, requireCompact, requiredCapability) {
 					} else {
 						result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 						if err == nil && result != nil && result.Acquired {
@@ -1995,24 +2012,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			return nil, false, nil
 		}
 
+		now := time.Now()
 		sort.SliceStable(available, func(i, j int) bool {
-			a, b := available[i], available[j]
-			if a.account.Priority != b.account.Priority {
-				return a.account.Priority < b.account.Priority
-			}
-			if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
-				return a.loadInfo.LoadRate < b.loadInfo.LoadRate
-			}
-			switch {
-			case a.account.LastUsedAt == nil && b.account.LastUsedAt != nil:
-				return true
-			case a.account.LastUsedAt != nil && b.account.LastUsedAt == nil:
-				return false
-			case a.account.LastUsedAt == nil && b.account.LastUsedAt == nil:
-				return false
-			default:
-				return a.account.LastUsedAt.Before(*b.account.LastUsedAt)
-			}
+			return isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(available[i], available[j], false, now)
 		})
 		shuffleWithinSortGroups(available)
 

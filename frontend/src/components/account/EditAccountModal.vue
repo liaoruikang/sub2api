@@ -1759,6 +1759,69 @@
         </div>
       </div>
 
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.highestSchedulingMode') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.highestSchedulingModeHint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="highest-scheduling-mode-toggle"
+            :aria-pressed="highestSchedulingEnabled"
+            @click="highestSchedulingEnabled = !highestSchedulingEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              highestSchedulingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                highestSchedulingEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+        <div v-if="highestSchedulingEnabled" class="mt-4">
+          <label class="input-label">{{ t('admin.accounts.highestSchedulingRecoveryMinutes') }}</label>
+          <input
+            v-model.number="highestSchedulingRecoveryMinutes"
+            type="number"
+            min="0"
+            :max="HIGHEST_SCHEDULING_RECOVERY_MINUTES_MAX"
+            step="1"
+            class="input"
+            data-testid="highest-scheduling-recovery-minutes"
+          />
+          <p class="input-hint">{{ t('admin.accounts.highestSchedulingRecoveryMinutesHint') }}</p>
+        </div>
+        <div
+          v-if="highestSchedulingSuppressionActive"
+          class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200"
+          data-testid="highest-scheduling-suppression"
+        >
+          <p class="font-medium">{{ t('admin.accounts.highestSchedulingSuppressed') }}</p>
+          <p v-if="highestSchedulingSuppressionType === 'timed' && highestSchedulingSuppressedUntilText" class="mt-1">
+            {{ t('admin.accounts.highestSchedulingSuppressedUntil', { time: highestSchedulingSuppressedUntilText }) }}
+          </p>
+          <p v-else class="mt-1">{{ t('admin.accounts.highestSchedulingSuppressedManual') }}</p>
+          <p v-if="highestSchedulingSuppressedReason" class="mt-1">
+            {{ t('admin.accounts.highestSchedulingSuppressedReason', { reason: highestSchedulingSuppressedReason }) }}
+          </p>
+          <button
+            type="button"
+            class="mt-3 rounded-md bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-100 dark:hover:bg-amber-800/70"
+            data-testid="highest-scheduling-manual-resume"
+            @click="handleHighestSchedulingManualResume"
+          >
+            {{ t('admin.accounts.highestSchedulingManualResume') }}
+          </button>
+        </div>
+      </div>
+
       <div>
         <div class="flex items-center justify-between">
           <div>
@@ -2399,6 +2462,12 @@ import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
+import {
+  HIGHEST_SCHEDULING_RECOVERY_MINUTES_MAX,
+  applyHighestSchedulingExtra,
+  clearHighestSchedulingSuppression,
+  readHighestSchedulingState
+} from '@/components/account/highestScheduling'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
@@ -2525,6 +2594,13 @@ const selectedErrorCodes = ref<number[]>([])
 const customErrorCodeInput = ref<number | null>(null)
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(false)
+const highestSchedulingEnabled = ref(false)
+const highestSchedulingRecoveryMinutes = ref<number | null>(0)
+const highestSchedulingSuppressionActive = ref(false)
+const highestSchedulingSuppressionType = ref<'none' | 'timed' | 'manual'>('none')
+const highestSchedulingSuppressedUntilRaw = ref<string | null>(null)
+const highestSchedulingSuppressedReason = ref<string | null>(null)
+const highestSchedulingManualResumeRequested = ref(false)
 const autoPause5hThreshold = ref<number | null>(null)
 const autoPause7dThreshold = ref<number | null>(null)
 const autoPause5hDisabled = ref(false)
@@ -2883,6 +2959,14 @@ const expiresAtInput = computed({
   }
 })
 
+const highestSchedulingSuppressedUntilText = computed(() => {
+  if (!highestSchedulingSuppressedUntilRaw.value) {
+    return ''
+  }
+  const parsed = new Date(highestSchedulingSuppressedUntilRaw.value)
+  return Number.isNaN(parsed.getTime()) ? highestSchedulingSuppressedUntilRaw.value : formatDateTime(parsed)
+})
+
 // Watchers
 const normalizePoolModeRetryCount = (value: number) => {
   if (!Number.isFinite(value)) {
@@ -2944,13 +3028,21 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Load mixed scheduling setting (only for antigravity accounts)
   mixedScheduling.value = false
   allowOverages.value = false
-	const extra = newAccount.extra as Record<string, unknown> | undefined
-	mixedScheduling.value = extra?.mixed_scheduling === true
-	allowOverages.value = extra?.allow_overages === true
-	autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
-	autoPause7dThreshold.value = typeof extra?.auto_pause_7d_threshold === 'number' ? extra.auto_pause_7d_threshold * 100 : null
-	autoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
-	autoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
+  const extra = newAccount.extra as Record<string, unknown> | undefined
+  mixedScheduling.value = extra?.mixed_scheduling === true
+  allowOverages.value = extra?.allow_overages === true
+  const highestSchedulingState = readHighestSchedulingState(extra)
+  highestSchedulingEnabled.value = highestSchedulingState.enabled
+  highestSchedulingRecoveryMinutes.value = highestSchedulingState.recoveryMinutes
+  highestSchedulingSuppressionActive.value = highestSchedulingState.suppressionActive
+  highestSchedulingSuppressionType.value = highestSchedulingState.suppressionType
+  highestSchedulingSuppressedUntilRaw.value = highestSchedulingState.suppressedUntilRaw
+  highestSchedulingSuppressedReason.value = highestSchedulingState.suppressedReason
+  highestSchedulingManualResumeRequested.value = false
+  autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
+  autoPause7dThreshold.value = typeof extra?.auto_pause_7d_threshold === 'number' ? extra.auto_pause_7d_threshold * 100 : null
+  autoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
+  autoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/API Key)
   openaiPassthroughEnabled.value = false
@@ -3632,6 +3724,14 @@ const handleClose = () => {
   emit('close')
 }
 
+const handleHighestSchedulingManualResume = () => {
+  highestSchedulingSuppressionActive.value = false
+  highestSchedulingSuppressionType.value = 'none'
+  highestSchedulingSuppressedUntilRaw.value = null
+  highestSchedulingSuppressedReason.value = null
+  highestSchedulingManualResumeRequested.value = true
+}
+
 const submitUpdateAccount = async (accountID: number, updatePayload: Record<string, unknown>) => {
   submitting.value = true
   try {
@@ -4205,6 +4305,17 @@ const handleSubmit = async () => {
       writeQuotaNotifyToExtra(newExtra, 'update')
       updatePayload.extra = newExtra
     }
+
+    const currentHighestSchedulingExtra = (updatePayload.extra as Record<string, unknown>) ||
+      (props.account.extra as Record<string, unknown>) || {}
+    let highestSchedulingExtra = applyHighestSchedulingExtra(currentHighestSchedulingExtra, {
+      enabled: highestSchedulingEnabled.value,
+      recoveryMinutes: highestSchedulingRecoveryMinutes.value
+    })
+    if (highestSchedulingManualResumeRequested.value) {
+      highestSchedulingExtra = clearHighestSchedulingSuppression(highestSchedulingExtra)
+    }
+    updatePayload.extra = highestSchedulingExtra
 
     const canContinue = await ensureAntigravityMixedChannelConfirmed(async () => {
       await submitUpdateAccount(accountID, updatePayload)

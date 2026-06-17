@@ -320,6 +320,10 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 	schedulable := account.Schedulable
 	if account.Status == service.StatusError {
 		schedulable = false
+		updates, deleteKeys, ok := buildHighestSchedulingSuppressionExtraUpdates(account, account.ErrorMessage, time.Now())
+		if ok {
+			account.Extra = mergeHighestSchedulingSuppressionExtra(account.Extra, updates, deleteKeys)
+		}
 	}
 
 	builder := r.client.Account.UpdateOneID(account.ID).
@@ -717,6 +721,9 @@ func (r *accountRepository) BatchUpdateLastUsed(ctx context.Context, updates map
 }
 
 func (r *accountRepository) SetError(ctx context.Context, id int64, errorMsg string) error {
+	account, _ := r.GetByID(ctx, id)
+	suppressionUpdates, deleteKeys, shouldSuppress := buildHighestSchedulingSuppressionExtraUpdates(account, errorMsg, time.Now())
+
 	_, err := r.client.Account.Update().
 		Where(dbaccount.IDEQ(id)).
 		SetStatus(service.StatusError).
@@ -725,6 +732,11 @@ func (r *accountRepository) SetError(ctx context.Context, id int64, errorMsg str
 		Save(ctx)
 	if err != nil {
 		return err
+	}
+	if shouldSuppress {
+		if err := r.applyHighestSchedulingSuppressionExtraUpdates(ctx, id, suppressionUpdates, deleteKeys); err != nil {
+			return err
+		}
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue set error failed: account=%d err=%v", id, err)
@@ -1497,6 +1509,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		return 0, err
 	}
 	if rows > 0 {
+		if updates.Status != nil && *updates.Status == service.StatusError {
+			if err := r.applyHighestSchedulingSuppressionForErrorStatus(ctx, ids, "account marked error"); err != nil {
+				return 0, err
+			}
+		}
 		payload := map[string]any{"account_ids": ids}
 		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountBulkChanged, nil, nil, payload); err != nil {
 			logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue bulk update failed: err=%v", err)

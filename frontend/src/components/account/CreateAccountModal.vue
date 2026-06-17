@@ -2752,6 +2752,47 @@
         </div>
       </div>
 
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.highestSchedulingMode') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.highestSchedulingModeHint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="highest-scheduling-mode-toggle"
+            :aria-pressed="highestSchedulingEnabled"
+            @click="highestSchedulingEnabled = !highestSchedulingEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              highestSchedulingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                highestSchedulingEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+        <div v-if="highestSchedulingEnabled" class="mt-4">
+          <label class="input-label">{{ t('admin.accounts.highestSchedulingRecoveryMinutes') }}</label>
+          <input
+            v-model.number="highestSchedulingRecoveryMinutes"
+            type="number"
+            min="0"
+            :max="HIGHEST_SCHEDULING_RECOVERY_MINUTES_MAX"
+            step="1"
+            class="input"
+            data-testid="highest-scheduling-recovery-minutes"
+          />
+          <p class="input-hint">{{ t('admin.accounts.highestSchedulingRecoveryMinutesHint') }}</p>
+        </div>
+      </div>
+
       <div>
         <div class="flex items-center justify-between">
           <div>
@@ -3239,6 +3280,10 @@ import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
+import {
+  HIGHEST_SCHEDULING_RECOVERY_MINUTES_MAX,
+  applyHighestSchedulingExtra
+} from '@/components/account/highestScheduling'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
@@ -3413,6 +3458,8 @@ const selectedErrorCodes = ref<number[]>([])
 const customErrorCodeInput = ref<number | null>(null)
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
+const highestSchedulingEnabled = ref(false)
+const highestSchedulingRecoveryMinutes = ref<number | null>(0)
 const openaiPassthroughEnabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
@@ -4240,6 +4287,8 @@ const resetForm = () => {
   customErrorCodeInput.value = null
   interceptWarmupRequests.value = false
   autoPauseOnExpired.value = true
+  highestSchedulingEnabled.value = false
+  highestSchedulingRecoveryMinutes.value = 0
   openaiPassthroughEnabled.value = false
   openAICompactMode.value = 'auto'
   openAIResponsesMode.value = 'auto'
@@ -4371,6 +4420,14 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
     extra.web_search_emulation = webSearchEmulationMode.value
   }
 
+  return Object.keys(extra).length > 0 ? extra : undefined
+}
+
+const buildHighestSchedulingExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
+  const extra = applyHighestSchedulingExtra(base, {
+    enabled: highestSchedulingEnabled.value,
+    recoveryMinutes: highestSchedulingRecoveryMinutes.value
+  })
   return Object.keys(extra).length > 0 ? extra : undefined
 }
 
@@ -4665,7 +4722,7 @@ const handleSubmit = async () => {
   }
 
   form.credentials = credentials
-  const extra = buildAnthropicExtra(buildOpenAIExtra())
+  const extra = buildHighestSchedulingExtra(buildAnthropicExtra(buildOpenAIExtra()))
 
   await doCreateAccount({
     ...form,
@@ -4769,6 +4826,7 @@ const createAccountAndFinish = async (
       delete credentials.compact_model_mapping
     }
   }
+  finalExtra = buildHighestSchedulingExtra(finalExtra)
   await doCreateAccount({
     name: form.name,
     notes: form.notes,
@@ -4813,7 +4871,7 @@ const handleOpenAIExchange = async (authCode: string) => {
 
     const credentials = oauthClient.buildCredentials(tokenInfo)
     const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
-    const extra = buildOpenAIExtra(oauthExtra)
+    const extra = buildHighestSchedulingExtra(buildOpenAIExtra(oauthExtra))
     const shouldCreateOpenAI = form.platform === 'openai'
 
     // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
@@ -4915,7 +4973,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
   oauthClient.error.value = ''
 
   try {
-    const extra = buildOpenAIExtra()
+    const extra = buildHighestSchedulingExtra(buildOpenAIExtra())
     const result = await adminAPI.accounts.importCodexSession({
       content: trimmed,
       name: form.name,
@@ -5019,7 +5077,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
           credentials.client_id = clientId
         }
         const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
-        const extra = buildOpenAIExtra(oauthExtra)
+        const extra = buildHighestSchedulingExtra(buildOpenAIExtra(oauthExtra))
 
         // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
         if (shouldCreateOpenAI && !isOpenAIModelRestrictionDisabled.value) {
@@ -5137,14 +5195,14 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
         // Generate account name with index for batch
         const accountName = refreshTokens.length > 1 ? `${form.name} #${i + 1}` : form.name
 
-        // Note: Antigravity doesn't have buildExtraInfo, so we pass empty extra or rely on credentials
+        const extra = buildHighestSchedulingExtra(buildAntigravityExtra())
         const createPayload = withAntigravityConfirmFlag({
           name: accountName,
           notes: form.notes,
           platform: 'antigravity',
           type: 'oauth',
           credentials,
-          extra: {},
+          extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,
@@ -5479,13 +5537,14 @@ const handleCookieAuth = async (sessionKey: string) => {
           credentials.temp_unschedulable_rules = tempUnschedPayload
         }
 
+        const finalExtra = buildHighestSchedulingExtra(extra)
         await adminAPI.accounts.create({
           name: accountName,
           notes: form.notes,
           platform: form.platform,
           type: addMethod.value, // Use addMethod as type: 'oauth' or 'setup-token'
           credentials,
-          extra,
+          extra: finalExtra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,

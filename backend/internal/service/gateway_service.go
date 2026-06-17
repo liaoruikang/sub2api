@@ -2131,13 +2131,15 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 		}
 
-		// 分层过滤选择：优先级 → 负载率 → LRU
+		// 分层过滤选择：最高调度 → 优先级 → 负载率 → LRU
 		for len(available) > 0 {
-			// 1. 取优先级最小的集合
-			candidates := filterByMinPriority(available)
-			// 2. 取负载率最低的集合
+			// 1. 最高调度账号优先；全部尝试失败后自动回退普通账号
+			candidates := filterByHighestSchedulingLoadCandidates(available, time.Now())
+			// 2. 取优先级最小的集合
+			candidates = filterByMinPriority(candidates)
+			// 3. 取负载率最低的集合
 			candidates = filterByMinLoadRate(candidates)
-			// 3. LRU 选择最久未用的账号
+			// 4. LRU 选择最久未用的账号
 			selected := selectByLRU(candidates, preferOAuth)
 			if selected == nil {
 				break
@@ -2957,24 +2959,10 @@ func selectByLRU(accounts []accountWithLoad, preferOAuth bool) *accountWithLoad 
 }
 
 func sortAccountsByPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
+	now := time.Now()
 	sort.SliceStable(accounts, func(i, j int) bool {
 		a, b := accounts[i], accounts[j]
-		if a.Priority != b.Priority {
-			return a.Priority < b.Priority
-		}
-		switch {
-		case a.LastUsedAt == nil && b.LastUsedAt != nil:
-			return true
-		case a.LastUsedAt != nil && b.LastUsedAt == nil:
-			return false
-		case a.LastUsedAt == nil && b.LastUsedAt == nil:
-			if preferOAuth && a.Type != b.Type {
-				return a.Type == AccountTypeOAuth
-			}
-			return false
-		default:
-			return a.LastUsedAt.Before(*b.LastUsedAt)
-		}
+		return isBetterAccountByHighestSchedulingPriorityAndLastUsed(a, b, preferOAuth, now)
 	})
 	shuffleWithinPriorityAndLastUsed(accounts, preferOAuth)
 }
@@ -3002,6 +2990,10 @@ func shuffleWithinSortGroups(accounts []accountWithLoad) {
 
 // sameAccountWithLoadGroup 判断两个 accountWithLoad 是否属于同一排序组
 func sameAccountWithLoadGroup(a, b accountWithLoad) bool {
+	now := time.Now()
+	if accountHighestSchedulingEffective(a.account, now) != accountHighestSchedulingEffective(b.account, now) {
+		return false
+	}
 	if a.account.Priority != b.account.Priority {
 		return false
 	}
@@ -3058,6 +3050,10 @@ func shuffleWithinPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
 
 // sameAccountGroup 判断两个 Account 是否属于同一排序组（Priority + LastUsedAt）
 func sameAccountGroup(a, b *Account) bool {
+	now := time.Now()
+	if accountHighestSchedulingEffective(a, now) != accountHighestSchedulingEffective(b, now) {
+		return false
+	}
 	if a.Priority != b.Priority {
 		return false
 	}
@@ -3080,9 +3076,10 @@ func sameLastUsedAt(a, b *time.Time) bool {
 // mode: "last_used"(按最后使用时间) 或 "random"(随机)
 func (s *GatewayService) sortCandidatesForFallback(accounts []*Account, preferOAuth bool, mode string) {
 	if mode == "random" {
-		// 先按优先级排序，然后在同优先级内随机打乱
-		sortAccountsByPriorityOnly(accounts, preferOAuth)
-		shuffleWithinPriority(accounts)
+		// 先按最高调度和优先级排序，然后在同最高调度/优先级组内随机打乱
+		now := time.Now()
+		sortAccountsByHighestSchedulingPriorityOnly(accounts, preferOAuth, now)
+		shuffleWithinPriority(accounts, preferOAuth, now)
 	} else {
 		// 默认按最后使用时间排序
 		sortAccountsByPriorityAndLastUsed(accounts, preferOAuth)
@@ -3103,17 +3100,19 @@ func sortAccountsByPriorityOnly(accounts []*Account, preferOAuth bool) {
 	})
 }
 
-// shuffleWithinPriority 在同优先级内随机打乱顺序
-func shuffleWithinPriority(accounts []*Account) {
+// shuffleWithinPriority 在同最高调度/优先级组内随机打乱顺序。
+func shuffleWithinPriority(accounts []*Account, preferOAuth bool, now time.Time) {
 	if len(accounts) <= 1 {
 		return
 	}
 	r := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
 	start := 0
 	for start < len(accounts) {
+		startHighest := accountHighestSchedulingEffective(accounts[start], now)
 		priority := accounts[start].Priority
+		accountType := accounts[start].Type
 		end := start + 1
-		for end < len(accounts) && accounts[end].Priority == priority {
+		for end < len(accounts) && accountHighestSchedulingEffective(accounts[end], now) == startHighest && accounts[end].Priority == priority && (!preferOAuth || accounts[end].Type == accountType) {
 			end++
 		}
 		// 对 [start, end) 范围内的账户随机打乱

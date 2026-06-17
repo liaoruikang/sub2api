@@ -1,0 +1,48 @@
+<h2>在线生图页布局草图</h2>
+<p class="subtitle">推荐方向：保留你截图里的极简输入条，把复杂内容收进展开面板，页面下半部分用于结果和本地历史。</p>
+
+<div class="mockup">
+  <div class="mockup-header">用户端 / 在线生图</div>
+  <div class="mockup-body" style="background:linear-gradient(180deg,#f8fafc,#eef2f7);padding:24px;border-radius:14px;">
+    <div style="max-width:980px;margin:0 auto;">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">
+        <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:16px;padding:10px 14px;color:#64748b;font-size:13px;box-shadow:0 14px 40px rgba(15,23,42,.08);">Key：生产环境 Key · 支持生图分组</div>
+        <div style="width:180px;background:white;border:1px solid #e5e7eb;border-radius:16px;padding:10px 14px;color:#64748b;font-size:13px;box-shadow:0 14px 40px rgba(15,23,42,.08);">模型：gpt-image-2</div>
+      </div>
+
+      <div style="background:white;border:1px solid #e5e7eb;border-radius:24px;padding:16px 18px;box-shadow:0 24px 64px rgba(15,23,42,.14);">
+        <div style="border:1px solid #e5e7eb;border-radius:16px;height:56px;display:flex;align-items:center;padding:0 16px;color:#a1a1aa;font-size:15px;margin-bottom:14px;">描述你想生成的图片，可输入 @ 来指定参考图...</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto auto;gap:10px;align-items:end;">
+          <div><div class="label">尺寸</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:9px 12px;font-size:12px;">auto</div></div>
+          <div><div class="label">质量</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:9px 12px;font-size:12px;">auto</div></div>
+          <div><div class="label">格式</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:9px 12px;font-size:12px;">PNG</div></div>
+          <div><div class="label">压缩率</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:9px 12px;font-size:12px;color:#c4c4cc;">0-100</div></div>
+          <div><div class="label">审核</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:9px 12px;font-size:12px;">auto</div></div>
+          <div><div class="label">数量</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:9px 12px;font-size:12px;">1</div></div>
+          <button style="width:42px;height:42px;border:0;border-radius:13px;background:#e5e7eb;color:#64748b;font-size:18px;">↥</button>
+          <button style="width:42px;height:42px;border:0;border-radius:13px;background:#111827;color:white;font-size:18px;">→</button>
+        </div>
+      </div>
+
+      <div style="margin-top:22px;display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+        <div style="background:white;border:1px dashed #cbd5e1;border-radius:20px;min-height:230px;display:flex;align-items:center;justify-content:center;color:#94a3b8;">生成结果网格</div>
+        <div style="background:rgba(255,255,255,.75);border:1px solid #e5e7eb;border-radius:20px;padding:16px;color:#64748b;">本地历史 / 参数摘要 / 下载</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="accept-layout" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>这个布局方向可以</h3><p>继续基于这个结构细化字段、状态和交互。</p></div>
+  </div>
+  <div class="option" data-choice="more-compact" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>希望更紧凑</h3><p>减少结果区和历史区存在感，更像单一输入组件。</p></div>
+  </div>
+  <div class="option" data-choice="more-workbench" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content"><h3>希望更像工作台</h3><p>左侧参数、右侧预览/历史，更适合重度使用。</p></div>
+  </div>
+</div>

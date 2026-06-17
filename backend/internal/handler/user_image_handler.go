@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +13,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/gemini"
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -51,6 +54,10 @@ type userImageGateway interface {
 	Images(*gin.Context)
 }
 
+type userImageGeminiGateway interface {
+	GeminiV1BetaModels(*gin.Context)
+}
+
 type userImageSubscriptionService interface {
 	GetActiveSubscription(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
 	ValidateAndCheckLimits(subscription *service.UserSubscription, group *service.Group) (bool, error)
@@ -62,6 +69,7 @@ type UserImageHandler struct {
 	apiKeyService       userImageAPIKeyService
 	subscriptionService userImageSubscriptionService
 	gateway             userImageGateway
+	geminiGateway       userImageGeminiGateway
 }
 
 // NewUserImageHandler creates a new UserImageHandler.
@@ -84,6 +92,14 @@ func (h *UserImageHandler) SetGateway(gateway userImageGateway) {
 		return
 	}
 	h.gateway = gateway
+}
+
+// SetGeminiGateway injects the delegated Gemini native gateway handler.
+func (h *UserImageHandler) SetGeminiGateway(gateway userImageGeminiGateway) {
+	if h == nil {
+		return
+	}
+	h.geminiGateway = gateway
 }
 
 type userImageOptionsResponse struct {
@@ -169,11 +185,6 @@ func (h *UserImageHandler) Generate(c *gin.Context) {
 		response.Unauthorized(c, "User not authenticated")
 		return
 	}
-	if h.gateway == nil {
-		response.InternalError(c, "Image gateway unavailable")
-		return
-	}
-
 	body, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
 	if err != nil {
 		if maxErr, ok := extractMaxBytesError(err); ok {
@@ -225,17 +236,27 @@ func (h *UserImageHandler) Generate(c *gin.Context) {
 	}
 	setUserImageGroupContext(c, apiKey.Group)
 
-	c.Request.URL.Path = upstreamPath
-	c.Request.Body = io.NopCloser(bytes.NewReader(sanitizedBody))
-	c.Request.ContentLength = int64(len(sanitizedBody))
-	c.Request.Header.Set("Content-Type", sanitizedContentType)
-	c.ContentType()
-
 	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
 	c.Set(string(middleware2.ContextKeyUser), subject)
 	if role, ok := middleware2.GetUserRoleFromContext(c); ok {
 		c.Set(string(middleware2.ContextKeyUserRole), role)
 	}
+
+	if userImageShouldUseGemini(apiKey.Group) {
+		h.generateWithGemini(c, sanitizedContentType, sanitizedBody)
+		return
+	}
+
+	if h.gateway == nil {
+		response.InternalError(c, "Image gateway unavailable")
+		return
+	}
+
+	c.Request.URL.Path = upstreamPath
+	c.Request.Body = io.NopCloser(bytes.NewReader(sanitizedBody))
+	c.Request.ContentLength = int64(len(sanitizedBody))
+	c.Request.Header.Set("Content-Type", sanitizedContentType)
+	c.ContentType()
 
 	if userImageRequestWantsStream(sanitizedContentType, sanitizedBody) {
 		h.gateway.Images(c)
@@ -273,6 +294,331 @@ func (h *UserImageHandler) Generate(c *gin.Context) {
 	copyUserImageProxyHeaders(c.Writer.Header(), responseHeaders)
 	c.Status(statusCode)
 	_, _ = c.Writer.Write(responseBody)
+}
+
+func (h *UserImageHandler) generateWithGemini(c *gin.Context, contentType string, body []byte) {
+	if h.geminiGateway == nil {
+		response.InternalError(c, "Gemini image gateway unavailable")
+		return
+	}
+
+	model, nativeBody, err := buildUserImageGeminiNativeRequest(contentType, body)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	modelAction := "/" + model + ":generateContent"
+	upstreamPath := "/v1beta/models/" + model + ":generateContent"
+
+	delegateRecorder := httptest.NewRecorder()
+	delegateCtx, _ := gin.CreateTestContext(delegateRecorder)
+	delegateReq := c.Request.Clone(c.Request.Context())
+	if delegateReq.URL != nil {
+		delegateReq.URL.Path = upstreamPath
+		delegateReq.URL.RawPath = ""
+	}
+	delegateReq.Body = io.NopCloser(bytes.NewReader(nativeBody))
+	delegateReq.ContentLength = int64(len(nativeBody))
+	delegateReq.Header.Set("Content-Type", "application/json")
+	delegateCtx.Request = delegateReq
+	delegateCtx.Params = append(append([]gin.Param(nil), c.Params...), gin.Param{Key: "modelAction", Value: modelAction})
+	delegateCtx.Keys = cloneGinKeys(c.Keys)
+	if len(c.Errors) > 0 {
+		delegateCtx.Errors = append(delegateCtx.Errors, c.Errors...)
+	}
+
+	h.geminiGateway.GeminiV1BetaModels(delegateCtx)
+
+	statusCode := delegateRecorder.Code
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	responseBody := delegateRecorder.Body.Bytes()
+	responseHeaders := delegateRecorder.Header()
+	if statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices {
+		if convertedBody, ok := convertGeminiNativeImageResponse(responseBody); ok {
+			responseBody = convertedBody
+			responseHeaders.Set("Content-Type", "application/json")
+			responseHeaders.Del("Content-Length")
+		}
+	}
+
+	copyUserImageProxyHeaders(c.Writer.Header(), responseHeaders)
+	c.Status(statusCode)
+	_, _ = c.Writer.Write(responseBody)
+}
+
+func buildUserImageGeminiNativeRequest(contentType string, body []byte) (string, []byte, error) {
+	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(contentType))
+	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
+		return buildUserImageGeminiNativeMultipartRequest(contentType, body)
+	}
+	return buildUserImageGeminiNativeJSONRequest(body)
+}
+
+func buildUserImageGeminiNativeJSONRequest(body []byte) (string, []byte, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "", nil, fmt.Errorf("invalid JSON request body")
+	}
+
+	model := normalizeUserImageGeminiModelName(stringFromMap(payload, "model"))
+	prompt := strings.TrimSpace(stringFromMap(payload, "prompt"))
+	size := strings.TrimSpace(stringFromMap(payload, "size"))
+	return buildUserImageGeminiNativeBody(model, prompt, nil, size)
+}
+
+func buildUserImageGeminiNativeMultipartRequest(contentType string, body []byte) (string, []byte, error) {
+	_, params, err := mime.ParseMediaType(strings.TrimSpace(contentType))
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid multipart content type")
+	}
+	boundary := strings.TrimSpace(params["boundary"])
+	if boundary == "" {
+		return "", nil, fmt.Errorf("multipart boundary is required")
+	}
+
+	reader := multipart.NewReader(bytes.NewReader(body), boundary)
+	fields := map[string]string{}
+	imageParts := []map[string]any{}
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to parse multipart request")
+		}
+
+		content, readErr := io.ReadAll(part)
+		if readErr != nil {
+			return "", nil, fmt.Errorf("failed to read multipart request")
+		}
+		if part.FormName() == "image" {
+			mimeType := userImageMultipartImageMimeType(part, content)
+			imageParts = append(imageParts, map[string]any{
+				"inlineData": map[string]any{
+					"mimeType": mimeType,
+					"data":     base64.StdEncoding.EncodeToString(content),
+				},
+			})
+			continue
+		}
+		fields[part.FormName()] = string(content)
+	}
+
+	model := normalizeUserImageGeminiModelName(fields["model"])
+	prompt := strings.TrimSpace(fields["prompt"])
+	size := strings.TrimSpace(fields["size"])
+	return buildUserImageGeminiNativeBody(model, prompt, imageParts, size)
+}
+
+func buildUserImageGeminiNativeBody(model string, prompt string, imageParts []map[string]any, size string) (string, []byte, error) {
+	model = normalizeUserImageGeminiModelName(model)
+	if model == "" {
+		return "", nil, fmt.Errorf("model is required")
+	}
+	if !userImageIsGeminiImageModelName(model) {
+		return "", nil, fmt.Errorf("model is not a Gemini image generation model")
+	}
+
+	parts := make([]map[string]any, 0, 1+len(imageParts))
+	if strings.TrimSpace(prompt) != "" {
+		parts = append(parts, map[string]any{"text": strings.TrimSpace(prompt)})
+	}
+	parts = append(parts, imageParts...)
+	if len(parts) == 0 {
+		return "", nil, fmt.Errorf("prompt or reference image is required")
+	}
+
+	generationConfig := map[string]any{
+		"responseModalities": []string{"TEXT", "IMAGE"},
+		"imageConfig":        userImageGeminiImageConfig(size),
+	}
+	nativePayload := map[string]any{
+		"contents": []map[string]any{
+			{
+				"role":  "user",
+				"parts": parts,
+			},
+		},
+		"generationConfig": generationConfig,
+	}
+
+	nativeBody, err := json.Marshal(nativePayload)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to build Gemini image request")
+	}
+	return model, nativeBody, nil
+}
+
+func userImageMultipartImageMimeType(part *multipart.Part, content []byte) string {
+	if part != nil {
+		if contentType := strings.TrimSpace(part.Header.Get("Content-Type")); contentType != "" {
+			if mediaType, _, err := mime.ParseMediaType(contentType); err == nil && strings.HasPrefix(strings.ToLower(mediaType), "image/") {
+				return mediaType
+			}
+		}
+		if ext := strings.ToLower(filepath.Ext(part.FileName())); ext != "" {
+			if contentType := mime.TypeByExtension(ext); strings.HasPrefix(strings.ToLower(contentType), "image/") {
+				return contentType
+			}
+		}
+	}
+	if detected := http.DetectContentType(content); strings.HasPrefix(strings.ToLower(detected), "image/") {
+		return detected
+	}
+	return "image/png"
+}
+
+func userImageGeminiImageConfig(size string) map[string]any {
+	imageConfig := map[string]any{
+		"aspectRatio": userImageGeminiAspectRatio(size),
+	}
+	if tier, ok := service.ClassifyImageBillingTier(size); ok {
+		imageConfig["imageSize"] = tier
+	}
+	return imageConfig
+}
+
+func userImageGeminiAspectRatio(size string) string {
+	width, height, ok := parseUserImageDimensions(size)
+	if !ok || width <= 0 || height <= 0 {
+		return "1:1"
+	}
+	divisor := gcd(width, height)
+	return fmt.Sprintf("%d:%d", width/divisor, height/divisor)
+}
+
+func parseUserImageDimensions(size string) (int, int, bool) {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "x")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	width, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil || width <= 0 {
+		return 0, 0, false
+	}
+	height, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil || height <= 0 {
+		return 0, 0, false
+	}
+	return width, height, true
+}
+
+func gcd(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		return -a
+	}
+	if a == 0 {
+		return 1
+	}
+	return a
+}
+
+func convertGeminiNativeImageResponse(body []byte) ([]byte, bool) {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return body, false
+	}
+
+	candidates, ok := payload["candidates"].([]any)
+	if !ok || len(candidates) == 0 {
+		return body, false
+	}
+
+	images := []map[string]any{}
+	for _, candidateValue := range candidates {
+		candidate, ok := candidateValue.(map[string]any)
+		if !ok {
+			continue
+		}
+		content, ok := candidate["content"].(map[string]any)
+		if !ok {
+			continue
+		}
+		parts, ok := content["parts"].([]any)
+		if !ok {
+			continue
+		}
+
+		textParts := []string{}
+		candidateImages := []map[string]any{}
+		for _, partValue := range parts {
+			part, ok := partValue.(map[string]any)
+			if !ok {
+				continue
+			}
+			if text := strings.TrimSpace(stringFromMap(part, "text")); text != "" {
+				textParts = append(textParts, text)
+			}
+			if image := geminiInlineImageToOpenAIResult(part); image != nil {
+				candidateImages = append(candidateImages, image)
+			}
+		}
+		revisedPrompt := strings.Join(textParts, "\n")
+		for _, image := range candidateImages {
+			if revisedPrompt != "" {
+				image["revised_prompt"] = revisedPrompt
+			}
+			images = append(images, image)
+		}
+	}
+
+	if len(images) == 0 {
+		return body, false
+	}
+	converted := map[string]any{"data": images}
+	convertedBody, err := json.Marshal(converted)
+	if err != nil {
+		return body, false
+	}
+	return convertedBody, true
+}
+
+func geminiInlineImageToOpenAIResult(part map[string]any) map[string]any {
+	inlineData, ok := part["inlineData"].(map[string]any)
+	if !ok {
+		inlineData, ok = part["inline_data"].(map[string]any)
+	}
+	if !ok {
+		return nil
+	}
+
+	mimeType := strings.TrimSpace(stringFromMap(inlineData, "mimeType"))
+	if mimeType == "" {
+		mimeType = strings.TrimSpace(stringFromMap(inlineData, "mime_type"))
+	}
+	if mimeType == "" {
+		mimeType = "image/png"
+	}
+	data := strings.TrimSpace(stringFromMap(inlineData, "data"))
+	if data == "" {
+		return nil
+	}
+	if _, err := base64.StdEncoding.DecodeString(data); err != nil {
+		return nil
+	}
+	return map[string]any{"url": fmt.Sprintf("data:%s;base64,%s", mimeType, data)}
+}
+
+func stringFromMap(payload map[string]any, key string) string {
+	value, ok := payload[key]
+	if !ok {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case json.Number:
+		return typed.String()
+	default:
+		return fmt.Sprint(typed)
+	}
 }
 
 func setUserImageGroupContext(c *gin.Context, group *service.Group) {
@@ -320,6 +666,23 @@ func (h *UserImageHandler) setSubscriptionContextForUserImage(c *gin.Context, su
 }
 
 func userImageModelsForGroup(group *service.Group) []string {
+	if userImageShouldUseGemini(group) {
+		if group != nil && group.CustomModelsListEnabled() {
+			models := make([]string, 0, len(group.ModelsListConfig.Models))
+			for _, model := range group.ModelsListConfig.Models {
+				model = normalizeUserImageGeminiModelName(model)
+				if model == "" || !userImageIsGeminiImageModelName(model) {
+					continue
+				}
+				models = append(models, model)
+			}
+			if len(models) > 0 {
+				return models
+			}
+		}
+		return userImageGeminiFallbackModels()
+	}
+
 	if group != nil && group.CustomModelsListEnabled() {
 		models := make([]string, 0, len(group.ModelsListConfig.Models))
 		for _, model := range group.ModelsListConfig.Models {
@@ -334,6 +697,46 @@ func userImageModelsForGroup(group *service.Group) []string {
 		}
 	}
 	return append([]string(nil), userImageFallbackModels...)
+}
+
+func userImageShouldUseGemini(group *service.Group) bool {
+	return group != nil && group.Platform == service.PlatformGemini
+}
+
+func userImageGeminiFallbackModels() []string {
+	models := []string{}
+	seen := map[string]struct{}{}
+	for _, model := range gemini.DefaultModels() {
+		name := normalizeUserImageGeminiModelName(model.Name)
+		if name == "" || !userImageIsGeminiImageModelName(name) {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		models = append(models, name)
+	}
+	return models
+}
+
+func normalizeUserImageGeminiModelName(model string) string {
+	model = strings.TrimSpace(model)
+	model = strings.TrimPrefix(model, "models/")
+	return model
+}
+
+func userImageIsGeminiImageModelName(model string) bool {
+	model = strings.ToLower(normalizeUserImageGeminiModelName(model))
+	return model == "gemini-3.1-flash-image" ||
+		model == "gemini-3.1-flash-image-preview" ||
+		strings.HasPrefix(model, "gemini-3.1-flash-image-") ||
+		model == "gemini-3-pro-image" ||
+		model == "gemini-3-pro-image-preview" ||
+		strings.HasPrefix(model, "gemini-3-pro-image-") ||
+		model == "gemini-2.5-flash-image" ||
+		model == "gemini-2.5-flash-image-preview" ||
+		strings.HasPrefix(model, "gemini-2.5-flash-image-")
 }
 
 func maskUserImageAPIKey(key string) string {
@@ -375,6 +778,9 @@ func sanitizeUserImageJSONBody(body []byte) (int64, []byte, error) {
 		return 0, nil, err
 	}
 	delete(payload, userImageGenerateFieldAPIKeyID)
+	if strings.TrimSpace(stringFromMap(payload, "prompt")) == "" {
+		return 0, nil, fmt.Errorf("prompt is required")
+	}
 	sanitizedBody, err := json.Marshal(payload)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to sanitize request body")

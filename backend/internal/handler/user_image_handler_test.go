@@ -79,6 +79,41 @@ func (f *fakeUserImageGateway) Images(c *gin.Context) {
 	c.Data(statusCode, contentType, []byte(f.body))
 }
 
+type fakeUserImageGeminiGateway struct {
+	called       bool
+	imagesCalled bool
+
+	assertContext func(c *gin.Context)
+	statusCode    int
+	contentType   string
+	body          string
+}
+
+func (f *fakeUserImageGeminiGateway) Images(c *gin.Context) {
+	f.imagesCalled = true
+	f.writeResponse(c)
+}
+
+func (f *fakeUserImageGeminiGateway) GeminiV1BetaModels(c *gin.Context) {
+	f.called = true
+	if f.assertContext != nil {
+		f.assertContext(c)
+	}
+	f.writeResponse(c)
+}
+
+func (f *fakeUserImageGeminiGateway) writeResponse(c *gin.Context) {
+	statusCode := f.statusCode
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	contentType := f.contentType
+	if contentType == "" {
+		contentType = "application/json"
+	}
+	c.Data(statusCode, contentType, []byte(f.body))
+}
+
 type fakeUserImageSubscriptionService struct {
 	activeSubscription *service.UserSubscription
 	receivedUserID     int64
@@ -134,6 +169,19 @@ func TestUserImageHandlerOptionsFiltersEligibleKeys(t *testing.T) {
 				Name:   "Inactive key",
 				Status: service.StatusDisabled,
 				Group:  &service.Group{AllowImageGeneration: true},
+			},
+			{
+				ID:     7,
+				UserID: 7,
+				Key:    "sk-test-gemini-1357",
+				Name:   "Gemini image key",
+				Status: service.StatusActive,
+				Group: &service.Group{
+					ID:                   int64(107),
+					Name:                 "Gemini Images",
+					Platform:             service.PlatformGemini,
+					AllowImageGeneration: true,
+				},
 			},
 			{
 				ID:      3,
@@ -222,7 +270,7 @@ func TestUserImageHandlerOptionsFiltersEligibleKeys(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
-	require.Len(t, resp.Data.Keys, 2)
+	require.Len(t, resp.Data.Keys, 3)
 	require.Equal(t, []string{"gpt-image-2", "gpt-image-1.5", "gpt-image-1"}, resp.Data.FallbackModels)
 	for _, model := range resp.Data.FallbackModels {
 		require.Truef(t, strings.HasPrefix(model, "gpt-image-"), "fallback model %q must pass the images endpoint model validator", model)
@@ -272,6 +320,14 @@ func TestUserImageHandlerOptionsFiltersEligibleKeys(t *testing.T) {
 	require.True(t, ungrouped.AllowImageGeneration)
 	require.Equal(t, []string{"gpt-image-2", "gpt-image-1.5", "gpt-image-1"}, ungrouped.Models)
 	require.Equal(t, "gpt-image-2", ungrouped.DefaultModel)
+
+	gemini, ok := byName["Gemini image key"]
+	require.True(t, ok)
+	require.Equal(t, "Gemini Images", gemini.GroupName)
+	require.True(t, gemini.AllowImageGeneration)
+	require.Equal(t, []string{"gemini-2.5-flash-image", "gemini-3.1-flash-image"}, gemini.Models)
+	require.Equal(t, "gemini-2.5-flash-image", gemini.DefaultModel)
+	require.NotContains(t, gemini.Models, "gpt-image-1")
 
 	_, hasInactive := byName["Inactive key"]
 	require.False(t, hasInactive)
@@ -371,6 +427,207 @@ func TestUserImageHandlerGenerateJSONDelegatesToGenerations(t *testing.T) {
 	require.JSONEq(t, `{"data":[{"b64_json":"abc"}],"_sub2api_image_playground":{"estimated_price":0.12,"actual_cost":0.12,"total_cost":0.12,"image_count":1,"image_size":"1K","billing_mode":"image"}}`, recorder.Body.String())
 }
 
+func TestUserImageHandlerGenerateJSONStreamDelegatesDirectly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(305)
+	apiKey := &service.APIKey{
+		ID:      66,
+		UserID:  7,
+		Key:     "sk-test-stream-6666",
+		Name:    "Streaming key",
+		Status:  service.StatusActive,
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:                   groupID,
+			Name:                 "Images",
+			Platform:             service.PlatformOpenAI,
+			Status:               service.StatusActive,
+			Hydrated:             true,
+			AllowImageGeneration: true,
+		},
+		User: &service.User{ID: 7, Role: service.RoleUser},
+	}
+	keyService := &fakeUserImageAPIKeyService{
+		getByIDFunc: func(_ context.Context, id int64) (*service.APIKey, error) {
+			require.Equal(t, int64(66), id)
+			return apiKey, nil
+		},
+	}
+	actualCost := 0.34
+	gateway := &fakeUserImageGateway{
+		contentType: "text/event-stream",
+		body:        "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"abc\"}\n\n",
+		summary: &service.OpenAIImageCostSummary{
+			ActualCost: &actualCost,
+			ImageCount: 4,
+		},
+		assertContext: func(c *gin.Context) {
+			selectedKey, ok := middleware2.GetAPIKeyFromContext(c)
+			require.True(t, ok)
+			require.Equal(t, int64(66), selectedKey.ID)
+
+			contextGroup, ok := c.Request.Context().Value(ctxkey.Group).(*service.Group)
+			require.True(t, ok)
+			require.Equal(t, groupID, contextGroup.ID)
+
+			require.Equal(t, "/v1/images/generations", c.Request.URL.Path)
+			require.Equal(t, http.MethodPost, c.Request.Method)
+			require.Contains(t, c.GetHeader("Content-Type"), "application/json")
+
+			body, err := io.ReadAll(c.Request.Body)
+			require.NoError(t, err)
+
+			var payload map[string]any
+			require.NoError(t, json.Unmarshal(body, &payload))
+			_, hasAPIKeyID := payload["api_key_id"]
+			require.False(t, hasAPIKeyID)
+			require.Equal(t, "gpt-image-2", payload["model"])
+			require.Equal(t, "draw four cats", payload["prompt"])
+			require.EqualValues(t, 4, payload["n"])
+			require.Equal(t, true, payload["stream"])
+		},
+	}
+	h := NewUserImageHandlerWithDeps(keyService, gateway)
+
+	body := strings.NewReader(`{"api_key_id":66,"model":"gpt-image-2","prompt":"draw four cats","size":"auto","n":4,"stream":true}`)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/user/images/generations", body)
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 7})
+	c.Set(string(middleware2.ContextKeyUserRole), service.RoleUser)
+
+	h.Generate(c)
+
+	require.True(t, gateway.called)
+	require.Equal(t, int64(66), keyService.receivedKeyID)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Header().Get("Content-Type"), "text/event-stream")
+	require.Equal(t, "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"abc\"}\n\n", recorder.Body.String())
+	require.NotContains(t, recorder.Body.String(), userImagePlaygroundResponseField)
+}
+
+func TestUserImageHandlerGenerateRejectsBlankJSONPromptBeforeDelegating(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	gateway := &fakeUserImageGateway{body: `{"data":[{"b64_json":"abc"}]}`}
+	h := NewUserImageHandlerWithDeps(&fakeUserImageAPIKeyService{}, gateway)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/user/images/generations", strings.NewReader(`{"api_key_id":42,"model":"gpt-image-2","prompt":"    \t   ","size":"auto"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 7})
+	c.Set(string(middleware2.ContextKeyUserRole), service.RoleUser)
+
+	h.Generate(c)
+
+	require.False(t, gateway.called)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "prompt is required")
+}
+
+func TestUserImageHandlerGenerateGeminiJSONUsesNativeRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(304)
+	apiKey := &service.APIKey{
+		ID:      64,
+		UserID:  7,
+		Key:     "sk-test-gemini-6464",
+		Name:    "Gemini image key",
+		Status:  service.StatusActive,
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:                   groupID,
+			Name:                 "Gemini Images",
+			Platform:             service.PlatformGemini,
+			Status:               service.StatusActive,
+			Hydrated:             true,
+			AllowImageGeneration: true,
+		},
+		User: &service.User{ID: 7, Role: service.RoleUser},
+	}
+	keyService := &fakeUserImageAPIKeyService{
+		getByIDFunc: func(_ context.Context, id int64) (*service.APIKey, error) {
+			require.Equal(t, int64(64), id)
+			return apiKey, nil
+		},
+	}
+	openAIGateway := &fakeUserImageGateway{body: `{"data":[{"b64_json":"openai"}]}`}
+	geminiGateway := &fakeUserImageGeminiGateway{
+		body: `{"candidates":[{"content":{"parts":[{"text":"ok"},{"inlineData":{"mimeType":"image/png","data":"QUJD"}}]}}]}`,
+		assertContext: func(c *gin.Context) {
+			selectedKey, ok := middleware2.GetAPIKeyFromContext(c)
+			require.True(t, ok)
+			require.Equal(t, int64(64), selectedKey.ID)
+
+			contextGroup, ok := c.Request.Context().Value(ctxkey.Group).(*service.Group)
+			require.True(t, ok)
+			require.Equal(t, groupID, contextGroup.ID)
+
+			subject, ok := middleware2.GetAuthSubjectFromContext(c)
+			require.True(t, ok)
+			require.Equal(t, int64(7), subject.UserID)
+
+			require.Equal(t, "/v1beta/models/gemini-2.5-flash-image:generateContent", c.Request.URL.Path)
+			require.Equal(t, "/gemini-2.5-flash-image:generateContent", c.Param("modelAction"))
+			require.Equal(t, http.MethodPost, c.Request.Method)
+			require.Contains(t, c.GetHeader("Content-Type"), "application/json")
+
+			body, err := io.ReadAll(c.Request.Body)
+			require.NoError(t, err)
+
+			var payload map[string]any
+			require.NoError(t, json.Unmarshal(body, &payload))
+			_, hasAPIKeyID := payload["api_key_id"]
+			require.False(t, hasAPIKeyID)
+			_, hasOpenAISize := payload["size"]
+			require.False(t, hasOpenAISize)
+
+			contents, ok := payload["contents"].([]any)
+			require.True(t, ok)
+			require.Len(t, contents, 1)
+			content, ok := contents[0].(map[string]any)
+			require.True(t, ok)
+			parts, ok := content["parts"].([]any)
+			require.True(t, ok)
+			require.Len(t, parts, 1)
+			part, ok := parts[0].(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, "draw a cat", part["text"])
+
+			generationConfig, ok := payload["generationConfig"].(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, []any{"TEXT", "IMAGE"}, generationConfig["responseModalities"])
+			imageConfig, ok := generationConfig["imageConfig"].(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, "1K", imageConfig["imageSize"])
+			require.Equal(t, "1:1", imageConfig["aspectRatio"])
+		},
+	}
+	h := NewUserImageHandlerWithDeps(keyService, openAIGateway)
+	h.SetGeminiGateway(geminiGateway)
+
+	body := strings.NewReader(`{"api_key_id":64,"model":"gemini-2.5-flash-image","prompt":"draw a cat","size":"1024x1024","n":2}`)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/user/images/generations", body)
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 7})
+	c.Set(string(middleware2.ContextKeyUserRole), service.RoleUser)
+
+	h.Generate(c)
+
+	require.False(t, openAIGateway.called)
+	require.True(t, geminiGateway.called)
+	require.False(t, geminiGateway.imagesCalled)
+	require.Equal(t, int64(64), keyService.receivedKeyID)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.JSONEq(t, `{"data":[{"url":"data:image/png;base64,QUJD","revised_prompt":"ok"}]}`, recorder.Body.String())
+}
+
 func TestUserImageHandlerGenerateMultipartDelegatesToEdits(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -460,6 +717,95 @@ func TestUserImageHandlerGenerateMultipartDelegatesToEdits(t *testing.T) {
 	require.Equal(t, int64(51), keyService.receivedKeyID)
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.JSONEq(t, `{"data":[{"url":"https://example.com/image.png"}]}`, recorder.Body.String())
+}
+
+func TestUserImageHandlerGenerateMultipartStreamFieldStillUsesBufferedEdits(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(306)
+	apiKey := &service.APIKey{
+		ID:      67,
+		UserID:  7,
+		Key:     "sk-test-edit-stream-6767",
+		Status:  service.StatusActive,
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:                   groupID,
+			Name:                 "Images",
+			AllowImageGeneration: true,
+		},
+		User: &service.User{ID: 7, Role: service.RoleUser},
+	}
+	keyService := &fakeUserImageAPIKeyService{
+		getByIDFunc: func(_ context.Context, id int64) (*service.APIKey, error) {
+			require.Equal(t, int64(67), id)
+			return apiKey, nil
+		},
+	}
+	actualCost := 0.22
+	gateway := &fakeUserImageGateway{
+		body: `{"data":[{"url":"https://example.com/edited.png"}]}`,
+		summary: &service.OpenAIImageCostSummary{
+			ActualCost: &actualCost,
+			ImageCount: 1,
+		},
+		assertContext: func(c *gin.Context) {
+			require.Equal(t, "/v1/images/edits", c.Request.URL.Path)
+			require.Contains(t, c.GetHeader("Content-Type"), "multipart/form-data")
+
+			body, err := io.ReadAll(c.Request.Body)
+			require.NoError(t, err)
+			mediaType, params, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
+			require.NoError(t, err)
+			require.Equal(t, "multipart/form-data", mediaType)
+
+			reader := multipart.NewReader(bytes.NewReader(body), params["boundary"])
+			fields := map[string]string{}
+			for {
+				part, err := reader.NextPart()
+				if err == io.EOF {
+					break
+				}
+				require.NoError(t, err)
+				content, err := io.ReadAll(part)
+				require.NoError(t, err)
+				if part.FormName() != "image" {
+					fields[part.FormName()] = string(content)
+				}
+			}
+
+			require.Equal(t, "true", fields["stream"])
+			_, hasAPIKeyID := fields["api_key_id"]
+			require.False(t, hasAPIKeyID)
+		},
+	}
+	h := NewUserImageHandlerWithDeps(keyService, gateway)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("api_key_id", "67"))
+	require.NoError(t, writer.WriteField("model", "gpt-image-1"))
+	require.NoError(t, writer.WriteField("prompt", "edit this image"))
+	require.NoError(t, writer.WriteField("stream", "true"))
+	fileWriter, err := writer.CreateFormFile("image", "reference.png")
+	require.NoError(t, err)
+	_, err = fileWriter.Write([]byte("fake image bytes"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/user/images/generations", bytes.NewReader(body.Bytes()))
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 7})
+	c.Set(string(middleware2.ContextKeyUserRole), service.RoleUser)
+
+	h.Generate(c)
+
+	require.True(t, gateway.called)
+	require.Equal(t, int64(67), keyService.receivedKeyID)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.JSONEq(t, `{"data":[{"url":"https://example.com/edited.png"}],"_sub2api_image_playground":{"actual_cost":0.22,"image_count":1}}`, recorder.Body.String())
 }
 
 func TestUserImageHandlerGeneratePreservesExistingResponseHeaders(t *testing.T) {

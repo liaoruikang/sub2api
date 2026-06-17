@@ -9,6 +9,7 @@ import ImagePlaygroundView from '../ImagePlaygroundView.vue'
 const {
   getImageOptionsMock,
   generateImageMock,
+  generateImageStreamMock,
   addImageHistoryRecordMock,
   listImageHistoryRecordsMock,
   deleteImageHistoryRecordMock,
@@ -17,6 +18,7 @@ const {
 } = vi.hoisted(() => ({
   getImageOptionsMock: vi.fn(),
   generateImageMock: vi.fn(),
+  generateImageStreamMock: vi.fn(),
   addImageHistoryRecordMock: vi.fn(),
   listImageHistoryRecordsMock: vi.fn(),
   deleteImageHistoryRecordMock: vi.fn(),
@@ -34,6 +36,7 @@ const {
 vi.mock('@/api/imagePlayground', () => ({
   getImageOptions: getImageOptionsMock,
   generateImage: generateImageMock,
+  generateImageStream: generateImageStreamMock,
 }))
 
 vi.mock('@/utils/imagePlaygroundHistory', () => ({
@@ -182,6 +185,7 @@ describe('ImagePlaygroundView', () => {
   beforeEach(() => {
     getImageOptionsMock.mockReset()
     generateImageMock.mockReset()
+    generateImageStreamMock.mockReset()
     addImageHistoryRecordMock.mockReset()
     listImageHistoryRecordsMock.mockReset()
     deleteImageHistoryRecordMock.mockReset()
@@ -229,6 +233,14 @@ describe('ImagePlaygroundView', () => {
 
     const modelInput = wrapper.get('[data-test="image-model"]')
     expect((modelInput.element as HTMLInputElement).value).toBe('gpt-image-1')
+  })
+
+  it('renders the generator panel with an independent scroll area and fixed action footer', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.get('[data-test="image-generator-panel"]').classes()).toContain('xl:max-h-[calc(100vh-7rem)]')
+    expect(wrapper.get('[data-test="image-generator-scroll"]').classes()).toContain('xl:overflow-y-auto')
+    expect(wrapper.get('[data-test="image-generator-actions"]').classes()).toContain('xl:sticky')
   })
 
   it('disables compression for png and enables it for webp', async () => {
@@ -287,6 +299,244 @@ describe('ImagePlaygroundView', () => {
 
     expect(wrapper.text()).toContain('imagePlayground.countInvalid')
     expect(getGenerateButton(wrapper).disabled).toBe(true)
+  })
+
+  it('renders stream toggle and enables it for OpenAI image generation without references', async () => {
+    const wrapper = await mountView()
+
+    const streamToggle = wrapper.get('[data-test="image-stream"]')
+    expect((streamToggle.element as HTMLInputElement).disabled).toBe(false)
+    expect(wrapper.text()).toContain('imagePlayground.streamHint')
+  })
+
+  it('disables stream toggle for reference-image edit mode', async () => {
+    const wrapper = await mountView()
+    const referenceFile = new File(['image-bytes'], 'reference.png', { type: 'image/png' })
+
+    await uploadReferenceFiles(wrapper, [referenceFile])
+
+    const streamToggle = wrapper.get('[data-test="image-stream"]')
+    expect((streamToggle.element as HTMLInputElement).disabled).toBe(true)
+    expect(wrapper.text()).toContain('imagePlayground.streamUnsupportedHint')
+  })
+
+  it('disables stream toggle for Gemini image models', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-model"]').setValue('gemini-2.5-flash-image')
+    await flushPromises()
+
+    const streamToggle = wrapper.get('[data-test="image-stream"]')
+    expect((streamToggle.element as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('uses streaming API when stream mode is enabled and supported', async () => {
+    generateImageStreamMock.mockResolvedValue({
+      data: [{ b64_json: 'stream-base64', revised_prompt: 'stream done' }],
+    })
+
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-stream"]').setValue(true)
+    await wrapper.get('[data-test="image-prompt"]').setValue('A streamable prompt')
+    await submitGeneration(wrapper)
+
+    expect(generateImageStreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'gpt-image-1',
+        prompt: 'A streamable prompt',
+        n: 1,
+      }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onProgress: expect.any(Function),
+        onImage: expect.any(Function),
+      })
+    )
+    expect(generateImageMock).not.toHaveBeenCalled()
+    expect(wrapper.get('img[alt="A streamable prompt 1"]').attributes('src')).toBe(
+      'data:image/png;base64,stream-base64'
+    )
+    expect(wrapper.find('[data-test="image-price"]').exists()).toBe(false)
+    expect(addImageHistoryRecordMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'A streamable prompt',
+        price: undefined,
+      })
+    )
+  })
+
+  it('renders streamed images as each image result arrives', async () => {
+    const deferred = createDeferred<ImagePlaygroundGenerateResponse>()
+    let streamOptions: { onImage?: (image: { b64_json?: string }, event: Record<string, unknown>) => void } | undefined
+    generateImageStreamMock.mockImplementation((_input, options) => {
+      streamOptions = options
+      return deferred.promise
+    })
+
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-stream"]').setValue(true)
+    await wrapper.get('[data-test="image-prompt"]').setValue('Progressive stream prompt')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    streamOptions?.onImage?.({ b64_json: 'first-stream-base64' }, { object: 'image.generation.result' })
+    await flushPromises()
+
+    expect(wrapper.get('img[alt="Progressive stream prompt 1"]').attributes('src')).toBe(
+      'data:image/png;base64,first-stream-base64'
+    )
+
+    deferred.resolve({
+      data: [{ b64_json: 'first-stream-base64' }, { b64_json: 'second-stream-base64' }],
+    })
+    await flushPromises()
+
+    expect(wrapper.get('img[alt="Progressive stream prompt 2"]').attributes('src')).toBe(
+      'data:image/png;base64,second-stream-base64'
+    )
+  })
+
+  it('splits stream generation counts greater than four into smaller upstream requests', async () => {
+    generateImageStreamMock.mockResolvedValue({ data: [{ b64_json: 'stream-base64' }] })
+
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-stream"]').setValue(true)
+    await wrapper.get('#image-count').setValue('10')
+    await wrapper.get('[data-test="image-prompt"]').setValue('Many streamed images')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('imagePlayground.countInvalid')
+    expect(getGenerateButton(wrapper).disabled).toBe(false)
+
+    await submitGeneration(wrapper)
+
+    expect(generateImageStreamMock).toHaveBeenCalledTimes(3)
+    expect(generateImageStreamMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ prompt: 'Many streamed images', n: 4 }),
+      expect.any(Object)
+    )
+    expect(generateImageStreamMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ prompt: 'Many streamed images', n: 4 }),
+      expect.any(Object)
+    )
+    expect(generateImageStreamMock).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ prompt: 'Many streamed images', n: 2 }),
+      expect.any(Object)
+    )
+    expect(generateImageMock).not.toHaveBeenCalled()
+  })
+
+  it('splits non-stream generation counts greater than four into smaller upstream requests', async () => {
+    generateImageMock.mockResolvedValue({ data: [{ b64_json: 'many-base64' }] })
+
+    const wrapper = await mountView()
+
+    await wrapper.get('#image-count').setValue('10')
+    await wrapper.get('[data-test="image-prompt"]').setValue('Many sync images')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('imagePlayground.countInvalid')
+    expect(getGenerateButton(wrapper).disabled).toBe(false)
+
+    await submitGeneration(wrapper)
+
+    expect(generateImageMock).toHaveBeenCalledTimes(3)
+    expect(generateImageMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ prompt: 'Many sync images', n: 4 }))
+    expect(generateImageMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ prompt: 'Many sync images', n: 4 }))
+    expect(generateImageMock).toHaveBeenNthCalledWith(3, expect.objectContaining({ prompt: 'Many sync images', n: 2 }))
+    expect(generateImageStreamMock).not.toHaveBeenCalled()
+  })
+
+  it('shows indeterminate progress while non-stream generation is pending', async () => {
+    const deferred = createDeferred<ImagePlaygroundGenerateResponse>()
+    generateImageMock.mockReturnValue(deferred.promise)
+
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-prompt"]').setValue('Pending sync generation')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    const progress = wrapper.get('[data-test="image-generation-progress"]')
+    expect(progress.attributes('role')).toBe('progressbar')
+    expect(progress.attributes('aria-valuenow')).toBeUndefined()
+    expect(wrapper.get('[data-test="image-generation-progress-value"]').text()).toContain(
+      'imagePlayground.generationProgressIndeterminate'
+    )
+
+    deferred.resolve({ data: [{ b64_json: 'sync-done-base64' }] })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="image-generation-progress"]').exists()).toBe(false)
+  })
+
+  it('updates stream generation progress from stream events', async () => {
+    const deferred = createDeferred<ImagePlaygroundGenerateResponse>()
+    let streamOptions: { onProgress?: (event: Record<string, unknown>) => void; onImage?: (image: { b64_json?: string }, event: Record<string, unknown>) => void } | undefined
+    generateImageStreamMock.mockImplementation((_input, options) => {
+      streamOptions = options
+      return deferred.promise
+    })
+
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-stream"]').setValue(true)
+    await wrapper.get('#image-count').setValue('4')
+    await wrapper.get('[data-test="image-prompt"]').setValue('Progress stream prompt')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-generation-progress"]').attributes('aria-valuenow')).toBeUndefined()
+
+    streamOptions?.onProgress?.({ object: 'image.generation.chunk', index: 1, total: 4, progress_text: 'Rendering fur' })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-generation-progress"]').attributes('aria-valuenow')).toBeUndefined()
+    expect(wrapper.get('[data-test="image-generation-progress-value"]').text()).toContain('Rendering fur')
+
+    streamOptions?.onProgress?.({ object: 'image.generation.chunk', progress: 0.25 })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-generation-progress"]').attributes('aria-valuenow')).toBe('25')
+    expect(wrapper.get('[data-test="image-generation-progress-value"]').text()).toContain('25%')
+
+    streamOptions?.onImage?.({ b64_json: 'first-progress-base64' }, { object: 'image.generation.result' })
+    await flushPromises()
+
+    expect(wrapper.get('img[alt="Progress stream prompt 1"]').attributes('src')).toBe(
+      'data:image/png;base64,first-progress-base64'
+    )
+
+    deferred.resolve({ data: [{ b64_json: 'first-progress-base64' }] })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="image-generation-progress"]').exists()).toBe(false)
+  })
+
+  it('falls back to non-streaming API when stream mode is enabled but unsupported', async () => {
+    generateImageMock.mockResolvedValue({ data: [{ b64_json: 'fallback-base64' }] })
+
+    const wrapper = await mountView()
+    const referenceFile = new File(['image-bytes'], 'reference.png', { type: 'image/png' })
+
+    await wrapper.get('[data-test="image-stream"]').setValue(true)
+    await uploadReferenceFiles(wrapper, [referenceFile])
+    await wrapper.get('[data-test="image-prompt"]').setValue('Edit with reference')
+    await submitGeneration(wrapper)
+
+    expect(generateImageStreamMock).not.toHaveBeenCalled()
+    expect(generateImageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'Edit with reference',
+        reference_images: [referenceFile],
+      })
+    )
   })
 
   it('disables generation when any reference image is larger than 20MB', async () => {
@@ -368,6 +618,68 @@ describe('ImagePlaygroundView', () => {
       })
     )
     expect(listImageHistoryRecordsMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('zooms and resets the image preview', async () => {
+    generateImageMock.mockResolvedValue({ data: [{ b64_json: 'preview-base64' }] })
+
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-prompt"]').setValue('Preview zoom prompt')
+    await submitGeneration(wrapper)
+    await wrapper.get('img[alt="Preview zoom prompt 1"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-preview-zoom-level"]').text()).toBe('100%')
+    expect(wrapper.get('[data-test="image-preview-img"]').attributes('style')).toContain(
+      'translate(0px, 0px) scale(1)'
+    )
+
+    await wrapper.get('[data-test="image-preview-zoom-in"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-preview-zoom-level"]').text()).toBe('125%')
+    expect(wrapper.get('[data-test="image-preview-img"]').attributes('style')).toContain('scale(1.25)')
+
+    await wrapper.get('[data-test="image-preview-reset"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-preview-zoom-level"]').text()).toBe('100%')
+    expect(wrapper.get('[data-test="image-preview-img"]').attributes('style')).toContain(
+      'translate(0px, 0px) scale(1)'
+    )
+  })
+
+  it('pans the image preview without requiring zoom and clears pan on reset', async () => {
+    generateImageMock.mockResolvedValue({ data: [{ b64_json: 'pan-base64' }] })
+
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-prompt"]').setValue('Preview pan prompt')
+    await submitGeneration(wrapper)
+    await wrapper.get('img[alt="Preview pan prompt 1"]').trigger('click')
+    await flushPromises()
+
+    const panArea = wrapper.get('[data-test="image-preview-pan-area"]')
+    await panArea.trigger('pointerdown', { clientX: 10, clientY: 10, pointerId: 1 })
+    await flushPromises()
+    expect(wrapper.get('[data-test="image-preview-img"]').classes()).toContain('transition-none')
+
+    await panArea.trigger('pointermove', { clientX: 30, clientY: 45, pointerId: 1 })
+    await panArea.trigger('pointerup', { pointerId: 1 })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-preview-img"]').classes()).toContain('transition-transform')
+    expect(wrapper.get('[data-test="image-preview-img"]').attributes('style')).toContain(
+      'translate(20px, 35px) scale(1)'
+    )
+
+    await wrapper.get('[data-test="image-preview-reset"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="image-preview-img"]').attributes('style')).toContain(
+      'translate(0px, 0px) scale(1)'
+    )
   })
 
   it('shows edit-mode hint for uploaded references and submits non-empty reference images', async () => {

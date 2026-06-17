@@ -380,6 +380,9 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
 		return nil, false, nil
 	}
+	if s.service.shouldPreferHighestSchedulingOverOpenAISticky(ctx, req.GroupID, account, req.RequestedModel, req.ExcludedIDs, req.RequireCompact, req.RequiredCapability) {
+		return nil, false, nil
+	}
 	escapeCfg := s.service.openAIStickyEscapeConfig()
 	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); shouldEscape {
 		slog.Info("sticky_escape_triggered",
@@ -783,6 +786,7 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 	req OpenAIAccountScheduleRequest,
 	plan openAIAccountLoadPlan,
 ) []openAIAccountCandidateScore {
+	now := time.Now()
 	buildSelectionOrder := func(pool []openAIAccountCandidateScore) []openAIAccountCandidateScore {
 		if len(pool) == 0 || plan.topK <= 0 {
 			return nil
@@ -793,6 +797,24 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 		}
 		ranked := selectTopKOpenAICandidates(pool, groupTopK)
 		return buildOpenAIWeightedSelectionOrder(ranked, req)
+	}
+	buildHighestAwareSelectionOrder := func(pool []openAIAccountCandidateScore) []openAIAccountCandidateScore {
+		if len(pool) == 0 {
+			return nil
+		}
+		highest := make([]openAIAccountCandidateScore, 0, len(pool))
+		normal := make([]openAIAccountCandidateScore, 0, len(pool))
+		for _, candidate := range pool {
+			if accountHighestSchedulingEffective(candidate.account, now) {
+				highest = append(highest, candidate)
+			} else {
+				normal = append(normal, candidate)
+			}
+		}
+		selectionOrder := make([]openAIAccountCandidateScore, 0, len(pool))
+		selectionOrder = append(selectionOrder, buildSelectionOrder(highest)...)
+		selectionOrder = append(selectionOrder, buildSelectionOrder(normal)...)
+		return selectionOrder
 	}
 
 	if req.RequireCompact {
@@ -807,15 +829,15 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 			}
 		}
 		selectionOrder := make([]openAIAccountCandidateScore, 0, len(plan.allCandidates))
-		selectionOrder = append(selectionOrder, buildSelectionOrder(supported)...)
-		selectionOrder = append(selectionOrder, buildSelectionOrder(unknown)...)
+		selectionOrder = append(selectionOrder, buildHighestAwareSelectionOrder(supported)...)
+		selectionOrder = append(selectionOrder, buildHighestAwareSelectionOrder(unknown)...)
 		if len(plan.staleSnapshotCompactRetry) > 0 && s.service.schedulerSnapshot != nil {
 			selectionOrder = append(selectionOrder, sortOpenAICompactRetryCandidates(plan.staleSnapshotCompactRetry)...)
 		}
 		return selectionOrder
 	}
 
-	return buildSelectionOrder(plan.candidates)
+	return buildHighestAwareSelectionOrder(plan.candidates)
 }
 
 func sortOpenAICompactRetryCandidates(pool []openAIAccountCandidateScore) []openAIAccountCandidateScore {
@@ -823,27 +845,15 @@ func sortOpenAICompactRetryCandidates(pool []openAIAccountCandidateScore) []open
 		return nil
 	}
 	ordered := append([]openAIAccountCandidateScore(nil), pool...)
+	now := time.Now()
 	sort.SliceStable(ordered, func(i, j int) bool {
 		a, b := ordered[i], ordered[j]
-		if a.account.Priority != b.account.Priority {
-			return a.account.Priority < b.account.Priority
-		}
-		if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
-			return a.loadInfo.LoadRate < b.loadInfo.LoadRate
-		}
-		if a.loadInfo.WaitingCount != b.loadInfo.WaitingCount {
-			return a.loadInfo.WaitingCount < b.loadInfo.WaitingCount
-		}
-		switch {
-		case a.account.LastUsedAt == nil && b.account.LastUsedAt != nil:
-			return true
-		case a.account.LastUsedAt != nil && b.account.LastUsedAt == nil:
-			return false
-		case a.account.LastUsedAt == nil && b.account.LastUsedAt == nil:
-			return false
-		default:
-			return a.account.LastUsedAt.Before(*b.account.LastUsedAt)
-		}
+		return isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(
+			accountWithLoad{account: a.account, loadInfo: a.loadInfo},
+			accountWithLoad{account: b.account, loadInfo: b.loadInfo},
+			false,
+			now,
+		)
 	})
 	return ordered
 }

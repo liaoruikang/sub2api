@@ -579,4 +579,57 @@ describe('EditAccountModal', () => {
 
     expect(updateAccountMock).not.toHaveBeenCalled()
   })
+
+  it('submits highest scheduling config while preserving unrelated extra', async () => {
+    const account = buildAccount()
+    account.extra = { unrelated: 'kept' }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="highest-scheduling-mode-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="highest-scheduling-recovery-minutes"]').setValue('45')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({
+      unrelated: 'kept',
+      highest_scheduling_mode: true,
+      highest_scheduling_recovery_minutes: 45
+    })
+  })
+
+  it('clears highest scheduling suppression metadata when manually resumed', async () => {
+    const account = buildAccount()
+    account.extra = {
+      highest_scheduling_mode: true,
+      highest_scheduling_recovery_minutes: 15,
+      highest_scheduling_suppressed: true,
+      highest_scheduling_suppressed_until: '2026-06-09T12:15:00Z',
+      highest_scheduling_suppressed_at: '2026-06-09T12:00:00Z',
+      highest_scheduling_suppressed_reason: 'boom'
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    expect(wrapper.find('[data-testid="highest-scheduling-suppression"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="highest-scheduling-manual-resume"]').trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    const extra = updateAccountMock.mock.calls[0]?.[1]?.extra
+    expect(extra?.highest_scheduling_mode).toBe(true)
+    expect(extra?.highest_scheduling_recovery_minutes).toBe(15)
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed')
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed_until')
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed_at')
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed_reason')
+  })
 })
