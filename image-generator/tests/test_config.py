@@ -39,6 +39,57 @@ def test_missing_config_loads_defaults(tmp_path: Path) -> None:
     assert config.default_endpoint_type is EndpointType.IMAGES
 
 
+def test_load_config_recovers_from_malformed_unreadable_or_non_object_json(tmp_path: Path) -> None:
+    malformed_path = tmp_path / "malformed.json"
+    malformed_path.write_text("{not valid json", encoding="utf-8")
+    non_object_path = tmp_path / "non-object.json"
+    non_object_path.write_text("[1, 2, 3]", encoding="utf-8")
+
+    malformed_config = load_config(malformed_path)
+    unreadable_config = load_config(tmp_path)
+    non_object_config = load_config(non_object_path)
+
+    assert malformed_config.base_url == ""
+    assert unreadable_config.default_endpoint_type is EndpointType.IMAGES
+    assert non_object_config.default_model == "gpt-image-1"
+
+
+def test_from_dict_defaults_bad_values_and_null_strings() -> None:
+    config = AppConfig.from_dict(
+        {
+            "base_url": None,
+            "api_key": None,
+            "timeout_seconds": "fast",
+            "max_concurrency": None,
+            "default_save_dir": None,
+            "default_endpoint_type": "unknown",
+            "default_model": None,
+        }
+    )
+
+    assert config.base_url == ""
+    assert config.api_key == ""
+    assert config.timeout_seconds == 120
+    assert config.max_concurrency == 3
+    assert config.default_save_dir.name == "ImageGenerator"
+    assert config.default_endpoint_type is EndpointType.IMAGES
+    assert config.default_model == "gpt-image-1"
+
+
+def test_validate_config_reports_raw_numeric_limits() -> None:
+    config = AppConfig(
+        base_url="https://api.example.com",
+        api_key="sk-test-secret",
+        timeout_seconds=0,
+        max_concurrency=-2,
+    )
+
+    messages = validate_config(config)
+
+    assert "Timeout must be at least 1 second" in messages
+    assert "Concurrency must be at least 1" in messages
+
+
 def test_validate_config_reports_actionable_messages(tmp_path: Path) -> None:
     config = AppConfig(base_url="", api_key="", default_save_dir=tmp_path / "not-created")
 
@@ -50,5 +101,6 @@ def test_validate_config_reports_actionable_messages(tmp_path: Path) -> None:
 
 def test_redacted_api_key_never_returns_full_secret() -> None:
     assert redacted_api_key("") == "Not configured"
+    assert redacted_api_key("abc") == "Configured"
     assert redacted_api_key("sk-short") == "Configured ending with hort"
     assert redacted_api_key("sk-1234567890abcdef") == "Configured ending with cdef"

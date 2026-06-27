@@ -29,6 +29,47 @@ def config_path() -> Path:
     return config_dir() / "config.json"
 
 
+def _string_value(value: Any, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value)
+
+
+def _float_value(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _positive_float_value(value: Any, default: float) -> float:
+    converted = _float_value(value, default)
+    if converted < 1:
+        return default
+    return converted
+
+
+def _int_value(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _positive_int_value(value: Any, default: int) -> int:
+    converted = _int_value(value, default)
+    if converted < 1:
+        return default
+    return converted
+
+
+def _endpoint_type(value: Any) -> EndpointType:
+    try:
+        return EndpointType(value)
+    except (TypeError, ValueError):
+        return EndpointType.IMAGES
+
+
 @dataclass(slots=True)
 class AppConfig:
     base_url: str = ""
@@ -41,13 +82,13 @@ class AppConfig:
 
     def normalized(self) -> "AppConfig":
         return AppConfig(
-            base_url=self.base_url.rstrip("/"),
-            api_key=self.api_key.strip(),
-            timeout_seconds=max(1, float(self.timeout_seconds)),
-            max_concurrency=max(1, int(self.max_concurrency)),
-            default_save_dir=Path(self.default_save_dir).expanduser(),
-            default_endpoint_type=self.default_endpoint_type,
-            default_model=self.default_model.strip() or "gpt-image-1",
+            base_url=_string_value(self.base_url).rstrip("/"),
+            api_key=_string_value(self.api_key).strip(),
+            timeout_seconds=max(1, _float_value(self.timeout_seconds, 120)),
+            max_concurrency=max(1, _int_value(self.max_concurrency, 3)),
+            default_save_dir=Path(_string_value(self.default_save_dir, str(default_save_dir()))).expanduser(),
+            default_endpoint_type=_endpoint_type(self.default_endpoint_type),
+            default_model=_string_value(self.default_model).strip() or "gpt-image-1",
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -64,15 +105,16 @@ class AppConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AppConfig":
-        endpoint_value = data.get("default_endpoint_type", EndpointType.IMAGES.value)
         return cls(
-            base_url=str(data.get("base_url", "")),
-            api_key=str(data.get("api_key", "")),
-            timeout_seconds=float(data.get("timeout_seconds", 120)),
-            max_concurrency=int(data.get("max_concurrency", 3)),
-            default_save_dir=Path(str(data.get("default_save_dir", default_save_dir()))),
-            default_endpoint_type=EndpointType(endpoint_value),
-            default_model=str(data.get("default_model", "gpt-image-1")),
+            base_url=_string_value(data.get("base_url")),
+            api_key=_string_value(data.get("api_key")),
+            timeout_seconds=_positive_float_value(data.get("timeout_seconds", 120), 120),
+            max_concurrency=_positive_int_value(data.get("max_concurrency", 3), 3),
+            default_save_dir=Path(_string_value(data.get("default_save_dir"), str(default_save_dir()))),
+            default_endpoint_type=_endpoint_type(
+                data.get("default_endpoint_type", EndpointType.IMAGES.value)
+            ),
+            default_model=_string_value(data.get("default_model"), "gpt-image-1"),
         ).normalized()
 
 
@@ -80,7 +122,10 @@ def load_config(path: Path | None = None) -> AppConfig:
     target = path or config_path()
     if not target.exists():
         return AppConfig().normalized()
-    data = json.loads(target.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return AppConfig().normalized()
     if not isinstance(data, dict):
         return AppConfig().normalized()
     return AppConfig.from_dict(data)
@@ -102,9 +147,9 @@ def validate_config(config: AppConfig) -> list[str]:
         messages.append("Base URL is required")
     if not normalized.api_key:
         messages.append("API key is required")
-    if normalized.timeout_seconds < 1:
+    if _float_value(config.timeout_seconds, 0) < 1:
         messages.append("Timeout must be at least 1 second")
-    if normalized.max_concurrency < 1:
+    if _int_value(config.max_concurrency, 0) < 1:
         messages.append("Concurrency must be at least 1")
     return messages
 
@@ -113,4 +158,6 @@ def redacted_api_key(api_key: str) -> str:
     stripped = api_key.strip()
     if not stripped:
         return "Not configured"
+    if len(stripped) < 4:
+        return "Configured"
     return f"Configured ending with {stripped[-4:]}"
