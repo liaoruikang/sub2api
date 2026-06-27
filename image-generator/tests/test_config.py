@@ -1,6 +1,15 @@
 from pathlib import Path
 
-from image_generator.config import AppConfig, load_config, redacted_api_key, save_config, validate_config
+import pytest
+
+from image_generator.config import (
+    AppConfig,
+    default_save_dir,
+    load_config,
+    redacted_api_key,
+    save_config,
+    validate_config,
+)
 from image_generator.models import EndpointType
 
 
@@ -54,11 +63,20 @@ def test_load_config_recovers_from_malformed_unreadable_or_non_object_json(tmp_p
     assert non_object_config.default_model == "gpt-image-1"
 
 
-def test_from_dict_defaults_bad_values_and_null_strings() -> None:
+@pytest.mark.parametrize(
+    ("persisted_base_url", "persisted_api_key"),
+    [
+        (None, None),
+        ([], {}),
+    ],
+)
+def test_from_dict_defaults_bad_values_and_null_strings(
+    persisted_base_url: object, persisted_api_key: object
+) -> None:
     config = AppConfig.from_dict(
         {
-            "base_url": None,
-            "api_key": None,
+            "base_url": persisted_base_url,
+            "api_key": persisted_api_key,
             "timeout_seconds": "fast",
             "max_concurrency": None,
             "default_save_dir": None,
@@ -74,6 +92,34 @@ def test_from_dict_defaults_bad_values_and_null_strings() -> None:
     assert config.default_save_dir.name == "ImageGenerator"
     assert config.default_endpoint_type is EndpointType.IMAGES
     assert config.default_model == "gpt-image-1"
+
+
+def test_from_dict_uses_default_save_dir_for_empty_persisted_directory() -> None:
+    config = AppConfig.from_dict(
+        {
+            "base_url": "https://api.example.com",
+            "api_key": "sk-test-secret",
+            "default_save_dir": "",
+        }
+    )
+
+    assert config.default_save_dir == default_save_dir()
+
+
+def test_normalized_strips_base_url_whitespace_before_trailing_slashes() -> None:
+    config = AppConfig(base_url="  https://api.example.com/path///  ", api_key="sk-test-secret")
+
+    normalized = config.normalized()
+
+    assert normalized.base_url == "https://api.example.com/path"
+
+
+def test_validate_config_treats_whitespace_only_base_url_as_missing() -> None:
+    config = AppConfig(base_url="   ", api_key="sk-test-secret")
+
+    messages = validate_config(config)
+
+    assert "Base URL is required" in messages
 
 
 def test_validate_config_reports_raw_numeric_limits() -> None:
@@ -102,5 +148,6 @@ def test_validate_config_reports_actionable_messages(tmp_path: Path) -> None:
 def test_redacted_api_key_never_returns_full_secret() -> None:
     assert redacted_api_key("") == "Not configured"
     assert redacted_api_key("abc") == "Configured"
+    assert redacted_api_key("abcd") == "Configured"
     assert redacted_api_key("sk-short") == "Configured ending with hort"
     assert redacted_api_key("sk-1234567890abcdef") == "Configured ending with cdef"

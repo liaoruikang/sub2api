@@ -32,7 +32,21 @@ def config_path() -> Path:
 def _string_value(value: Any, default: str = "") -> str:
     if value is None:
         return default
-    return str(value)
+    if isinstance(value, str):
+        return value
+    return default
+
+
+def _path_value(value: Any, default: Path) -> Path:
+    if value is None:
+        return default
+    if isinstance(value, os.PathLike):
+        return Path(value).expanduser()
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped:
+            return Path(stripped).expanduser()
+    return default
 
 
 def _float_value(value: Any, default: float) -> float:
@@ -81,14 +95,15 @@ class AppConfig:
     default_model: str = "gpt-image-1"
 
     def normalized(self) -> "AppConfig":
+        normalized_base_url = _string_value(self.base_url).strip().rstrip("/")
         return AppConfig(
-            base_url=_string_value(self.base_url).rstrip("/"),
+            base_url=normalized_base_url,
             api_key=_string_value(self.api_key).strip(),
             timeout_seconds=max(1, _float_value(self.timeout_seconds, 120)),
             max_concurrency=max(1, _int_value(self.max_concurrency, 3)),
-            default_save_dir=Path(_string_value(self.default_save_dir, str(default_save_dir()))).expanduser(),
+            default_save_dir=_path_value(self.default_save_dir, default_save_dir()),
             default_endpoint_type=_endpoint_type(self.default_endpoint_type),
-            default_model=_string_value(self.default_model).strip() or "gpt-image-1",
+            default_model=_string_value(self.default_model, "gpt-image-1").strip() or "gpt-image-1",
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -110,7 +125,7 @@ class AppConfig:
             api_key=_string_value(data.get("api_key")),
             timeout_seconds=_positive_float_value(data.get("timeout_seconds", 120), 120),
             max_concurrency=_positive_int_value(data.get("max_concurrency", 3), 3),
-            default_save_dir=Path(_string_value(data.get("default_save_dir"), str(default_save_dir()))),
+            default_save_dir=_path_value(data.get("default_save_dir"), default_save_dir()),
             default_endpoint_type=_endpoint_type(
                 data.get("default_endpoint_type", EndpointType.IMAGES.value)
             ),
@@ -158,6 +173,6 @@ def redacted_api_key(api_key: str) -> str:
     stripped = api_key.strip()
     if not stripped:
         return "Not configured"
-    if len(stripped) < 4:
+    if len(stripped) <= 4:
         return "Configured"
     return f"Configured ending with {stripped[-4:]}"
