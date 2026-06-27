@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -90,7 +90,7 @@ class AppConfig:
     api_key: str = ""
     timeout_seconds: float = 120
     max_concurrency: int = 3
-    default_save_dir: Path = default_save_dir()
+    default_save_dir: Path = field(default_factory=default_save_dir)
     default_endpoint_type: EndpointType = EndpointType.IMAGES
     default_model: str = "gpt-image-1"
 

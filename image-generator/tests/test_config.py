@@ -48,6 +48,21 @@ def test_missing_config_loads_defaults(tmp_path: Path) -> None:
     assert config.default_endpoint_type is EndpointType.IMAGES
 
 
+def test_app_config_default_save_dir_uses_current_home_at_instance_creation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    first_home = tmp_path / "first-home"
+    second_home = tmp_path / "second-home"
+
+    monkeypatch.setattr(Path, "home", lambda: first_home)
+    first_config = AppConfig()
+    monkeypatch.setattr(Path, "home", lambda: second_home)
+    second_config = AppConfig()
+
+    assert first_config.default_save_dir == first_home / "Pictures" / "ImageGenerator"
+    assert second_config.default_save_dir == second_home / "Pictures" / "ImageGenerator"
+
+
 def test_load_config_recovers_from_malformed_unreadable_or_non_object_json(tmp_path: Path) -> None:
     malformed_path = tmp_path / "malformed.json"
     malformed_path.write_text("{not valid json", encoding="utf-8")
