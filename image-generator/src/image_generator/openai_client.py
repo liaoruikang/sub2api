@@ -61,20 +61,26 @@ def parse_image_payloads(payload: dict[str, Any]) -> list[ImagePayload]:
 
 def _read_data_url_base64(text: str, start: int) -> str:
     chars: list[str] = []
-    pending_whitespace = False
-    for char in text[start:]:
+    index = start
+    while index < len(text):
+        char = text[index]
         if char in BASE64_CHARS:
             chars.append(char)
-            pending_whitespace = False
+            index += 1
             continue
-        if char in ASCII_WHITESPACE:
-            if chars and len(chars) % 4 != 0:
-                pending_whitespace = True
-                continue
+        if char not in ASCII_WHITESPACE:
             break
+
+        whitespace_start = index
+        while index < len(text) and text[index] in ASCII_WHITESPACE:
+            index += 1
+        whitespace = text[whitespace_start:index]
+        next_char = text[index] if index < len(text) else ""
+        if not chars or next_char not in BASE64_CHARS:
+            break
+        if len(chars) % 4 != 0 or "\r" in whitespace or "\n" in whitespace:
+            continue
         break
-    if pending_whitespace:
-        return ""
     return "".join(chars)
 
 

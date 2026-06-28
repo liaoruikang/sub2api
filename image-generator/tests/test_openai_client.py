@@ -196,6 +196,14 @@ def test_parse_text_for_images_stops_data_url_before_trailing_prose() -> None:
     assert payloads[0].value == "YWJj"
 
 
+def test_parse_text_for_images_allows_crlf_wrapped_data_url_base64() -> None:
+    payloads = parse_text_for_images("data:image/png;base64,YWJj\r\nZA==")
+
+    assert len(payloads) == 1
+    assert payloads[0].kind == "b64_json"
+    assert payloads[0].value == "YWJjZA=="
+
+
 @pytest.mark.asyncio
 async def test_streaming_chat_response_raises_api_error_with_status(httpx_mock) -> None:
     httpx_mock.add_response(
