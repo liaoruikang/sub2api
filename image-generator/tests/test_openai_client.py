@@ -4,7 +4,12 @@ import pytest
 
 from image_generator.config import AppConfig
 from image_generator.models import EndpointType, GenerationParams
-from image_generator.openai_client import APIError, OpenAIImageClient, parse_chat_payloads
+from image_generator.openai_client import (
+    APIError,
+    OpenAIImageClient,
+    parse_chat_payloads,
+    parse_image_payloads,
+)
 
 
 def make_client() -> OpenAIImageClient:
@@ -26,6 +31,17 @@ def test_build_images_payload_uses_common_image_fields() -> None:
         "style": "natural",
         "response_format": "b64_json",
     }
+
+
+def test_parse_image_payloads_extracts_b64_and_url_from_same_item() -> None:
+    payloads = parse_image_payloads(
+        {"data": [{"b64_json": "YWJj", "url": "https://cdn.example.com/image.png"}]}
+    )
+
+    assert [(payload.kind, payload.value) for payload in payloads] == [
+        ("b64_json", "YWJj"),
+        ("url", "https://cdn.example.com/image.png"),
+    ]
 
 
 def test_build_chat_payload_sets_messages_and_stream() -> None:
@@ -81,6 +97,23 @@ async def test_generate_images_raises_api_error_with_status(httpx_mock) -> None:
     assert "sk-secret" not in str(exc_info.value)
 
 
+@pytest.mark.asyncio
+async def test_generate_images_raises_api_error_for_redirect_status(httpx_mock) -> None:
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.example.com/v1/images/generations",
+        status_code=302,
+        headers={"location": "https://api.example.com/login"},
+    )
+    client = make_client()
+
+    with pytest.raises(APIError) as exc_info:
+        await client.generate(GenerationParams(prompt="fox"))
+
+    assert "302" in str(exc_info.value)
+    assert "sk-secret" not in str(exc_info.value)
+
+
 def test_parse_chat_payloads_extracts_image_url_from_content() -> None:
     payloads = parse_chat_payloads(
         {
@@ -128,3 +161,33 @@ async def test_streaming_chat_response_records_events(httpx_mock) -> None:
     assert payloads[0].kind == "url"
     assert payloads[0].value == "https://cdn.example.com/a.png"
     assert "stream event received" in events
+
+
+@pytest.mark.asyncio
+async def test_streaming_chat_response_parses_split_url_across_deltas(httpx_mock) -> None:
+    body = "\n".join(
+        [
+            'data: {"choices":[{"delta":{"content":"https://cdn.example.com/out/"}}]}',
+            'data: {"choices":[{"delta":{"content":"split-image.png"}}]}',
+            "data: [DONE]",
+            "",
+        ]
+    )
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.example.com/v1/chat/completions",
+        content=body.encode("utf-8"),
+        headers={"content-type": "text/event-stream"},
+    )
+    client = make_client()
+
+    payloads = await client.generate(
+        GenerationParams(
+            endpoint_type=EndpointType.CHAT_COMPLETIONS,
+            prompt="fox",
+            stream=True,
+        )
+    )
+
+    assert payloads[0].kind == "url"
+    assert payloads[0].value == "https://cdn.example.com/out/split-image.png"

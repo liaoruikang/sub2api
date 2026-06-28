@@ -52,7 +52,7 @@ def parse_image_payloads(payload: dict[str, Any]) -> list[ImagePayload]:
         url = item.get("url")
         if isinstance(b64_json, str) and b64_json:
             results.append(ImagePayload(kind="b64_json", value=b64_json))
-        elif isinstance(url, str) and url:
+        if isinstance(url, str) and url:
             results.append(ImagePayload(kind="url", value=url))
     return results
 
@@ -64,6 +64,37 @@ def parse_text_for_images(text: str) -> list[ImagePayload]:
     for match in IMAGE_URL_RE.finditer(text):
         results.append(ImagePayload(kind="url", value=match.group(0)))
     return results
+
+
+def _content_texts(container: dict[str, Any]) -> list[str]:
+    content = container.get("content")
+    if isinstance(content, str):
+        return [content]
+    if not isinstance(content, list):
+        return []
+
+    texts: list[str] = []
+    for part in content:
+        if isinstance(part, dict):
+            text = part.get("text") or part.get("image_url") or part.get("url")
+            if isinstance(text, str):
+                texts.append(text)
+    return texts
+
+
+def _delta_texts(payload: dict[str, Any]) -> list[str]:
+    choices = payload.get("choices")
+    if not isinstance(choices, list):
+        return []
+
+    texts: list[str] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        delta = choice.get("delta")
+        if isinstance(delta, dict):
+            texts.extend(_content_texts(delta))
+    return texts
 
 
 def parse_chat_payloads(payload: dict[str, Any]) -> list[ImagePayload]:
@@ -79,15 +110,8 @@ def parse_chat_payloads(payload: dict[str, Any]) -> list[ImagePayload]:
         for container in (message, delta):
             if not isinstance(container, dict):
                 continue
-            content = container.get("content")
-            if isinstance(content, str):
-                results.extend(parse_text_for_images(content))
-            elif isinstance(content, list):
-                for part in content:
-                    if isinstance(part, dict):
-                        text = part.get("text") or part.get("image_url") or part.get("url")
-                        if isinstance(text, str):
-                            results.extend(parse_text_for_images(text))
+            for text in _content_texts(container):
+                results.extend(parse_text_for_images(text))
     return results
 
 
@@ -197,14 +221,14 @@ class OpenAIImageClient:
                 parsed = parse_chat_payloads(payload)
                 if parsed:
                     return parsed
-                chunks.append(data)
-        parsed_from_text = parse_text_for_images("\n".join(chunks))
+                chunks.extend(_delta_texts(payload))
+        parsed_from_text = parse_text_for_images("".join(chunks))
         if parsed_from_text:
             return parsed_from_text
         raise APIError("Streaming response ended without an image URL or base64 image data")
 
     def _raise_for_status(self, response: httpx.Response) -> None:
-        if response.status_code < 400:
+        if 200 <= response.status_code <= 299:
             return
         message = _error_message(response)
         raise APIError(f"Upstream API returned HTTP {response.status_code}: {message}")
