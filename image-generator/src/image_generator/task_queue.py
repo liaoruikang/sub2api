@@ -91,6 +91,9 @@ class GenerationQueue:
         task = self.tasks.get(task_id)
         if task is None:
             return False
+        handle = self._running.get(task_id)
+        if handle and not handle.done():
+            return False
         if task.status in {TaskStatus.CONNECTING, TaskStatus.GENERATING, TaskStatus.SAVING}:
             return False
         self.tasks.pop(task_id, None)

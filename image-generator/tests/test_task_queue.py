@@ -108,6 +108,19 @@ async def test_retry_creates_new_task_with_same_params() -> None:
 
 
 @pytest.mark.asyncio
+async def test_delete_task_rejects_submitted_task_before_it_runs() -> None:
+    queue = GenerationQueue(FakeClient(delay=0.01), FakeStorage(), max_concurrency=1)
+    task = queue.submit(GenerationParams(prompt="queued"))
+
+    removed = queue.delete_task(task.id)
+    await asyncio.sleep(0.03)
+
+    assert removed is False
+    assert task.id in queue.tasks
+    await queue.wait_idle()
+
+
+@pytest.mark.asyncio
 async def test_delete_task_removes_completed_task() -> None:
     queue = GenerationQueue(FakeClient(), FakeStorage(), max_concurrency=1)
     task = queue.submit(GenerationParams(prompt="fox"))
