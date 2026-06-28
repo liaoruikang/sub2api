@@ -204,6 +204,8 @@ class OpenAIImageClient:
         if event_callback:
             event_callback("connecting to streaming chat completions endpoint")
         async with client.stream("POST", self.chat_url, json=self.build_chat_payload(params)) as response:
+            if response.status_code < 200 or response.status_code > 299:
+                await response.aread()
             self._raise_for_status(response)
             async for line in response.aiter_lines():
                 if not line.startswith("data:"):

@@ -132,6 +132,30 @@ def test_parse_chat_payloads_extracts_image_url_from_content() -> None:
 
 
 @pytest.mark.asyncio
+async def test_streaming_chat_response_raises_api_error_with_status(httpx_mock) -> None:
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.example.com/v1/chat/completions",
+        status_code=401,
+        json={"error": {"message": "bad stream key"}},
+    )
+    client = make_client()
+
+    with pytest.raises(APIError) as exc_info:
+        await client.generate(
+            GenerationParams(
+                endpoint_type=EndpointType.CHAT_COMPLETIONS,
+                prompt="fox",
+                stream=True,
+            )
+        )
+
+    assert "401" in str(exc_info.value)
+    assert "bad stream key" in str(exc_info.value)
+    assert "sk-secret" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
 async def test_streaming_chat_response_records_events(httpx_mock) -> None:
     events: list[str] = []
     body = "\n".join(
