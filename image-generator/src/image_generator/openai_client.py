@@ -11,7 +11,7 @@ from image_generator.config import AppConfig
 from image_generator.models import EndpointType, GenerationParams, ImagePayload
 
 IMAGE_URL_RE = re.compile(r"https?://[^\s\"'<>]+?\.(?:png|jpg|jpeg|webp|gif)(?:\?[^\s\"'<>]*)?", re.I)
-DATA_URL_RE = re.compile(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=\r\n]+)", re.I)
+DATA_URL_RE = re.compile(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=\s]+)", re.I)
 
 
 class APIError(RuntimeError):
@@ -76,13 +76,20 @@ def _content_texts(container: dict[str, Any]) -> list[str]:
 
     texts: list[str] = []
     for part in content:
-        if isinstance(part, dict):
-            image_url = part.get("image_url")
-            text = part.get("text") or image_url or part.get("url")
-            if isinstance(image_url, dict) and isinstance(image_url.get("url"), str):
-                text = image_url["url"]
-            if isinstance(text, str):
-                texts.append(text)
+        if not isinstance(part, dict):
+            continue
+
+        text = part.get("text")
+        image_url = part.get("image_url")
+        url = part.get("url")
+        if isinstance(text, str):
+            texts.append(text)
+        elif isinstance(image_url, dict) and isinstance(image_url.get("url"), str):
+            texts.append(image_url["url"])
+        elif isinstance(image_url, str):
+            texts.append(image_url)
+        elif isinstance(url, str):
+            texts.append(url)
     return texts
 
 
