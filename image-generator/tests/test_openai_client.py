@@ -131,6 +131,45 @@ def test_parse_chat_payloads_extracts_image_url_from_content() -> None:
     assert payloads[0].value == "https://cdn.example.com/out/image.png"
 
 
+def test_parse_chat_payloads_extracts_image_url_from_multimodal_dict() -> None:
+    payloads = parse_chat_payloads(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": "https://cdn.example.com/out/multi.png"},
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    )
+
+    assert payloads[0].kind == "url"
+    assert payloads[0].value == "https://cdn.example.com/out/multi.png"
+
+
+def test_parse_chat_payloads_strips_crlf_from_data_url_base64() -> None:
+    payloads = parse_chat_payloads(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "data:image/png;base64,YW\r\nJj"
+                    }
+                }
+            ]
+        }
+    )
+
+    assert payloads[0].kind == "b64_json"
+    assert payloads[0].value == "YWJj"
+
+
 @pytest.mark.asyncio
 async def test_streaming_chat_response_raises_api_error_with_status(httpx_mock) -> None:
     httpx_mock.add_response(

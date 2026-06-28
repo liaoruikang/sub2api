@@ -60,7 +60,8 @@ def parse_image_payloads(payload: dict[str, Any]) -> list[ImagePayload]:
 def parse_text_for_images(text: str) -> list[ImagePayload]:
     results: list[ImagePayload] = []
     for match in DATA_URL_RE.finditer(text):
-        results.append(ImagePayload(kind="b64_json", value=match.group(1).replace("\n", "")))
+        b64_json = re.sub(r"\s+", "", match.group(1))
+        results.append(ImagePayload(kind="b64_json", value=b64_json))
     for match in IMAGE_URL_RE.finditer(text):
         results.append(ImagePayload(kind="url", value=match.group(0)))
     return results
@@ -76,7 +77,10 @@ def _content_texts(container: dict[str, Any]) -> list[str]:
     texts: list[str] = []
     for part in content:
         if isinstance(part, dict):
-            text = part.get("text") or part.get("image_url") or part.get("url")
+            image_url = part.get("image_url")
+            text = part.get("text") or image_url or part.get("url")
+            if isinstance(image_url, dict) and isinstance(image_url.get("url"), str):
+                text = image_url["url"]
             if isinstance(text, str):
                 texts.append(text)
     return texts
