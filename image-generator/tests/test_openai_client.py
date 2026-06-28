@@ -9,6 +9,7 @@ from image_generator.openai_client import (
     OpenAIImageClient,
     parse_chat_payloads,
     parse_image_payloads,
+    parse_text_for_images,
 )
 
 
@@ -183,6 +184,14 @@ def test_parse_chat_payloads_strips_spaces_and_tabs_from_data_url_base64() -> No
         }
     )
 
+    assert payloads[0].kind == "b64_json"
+    assert payloads[0].value == "YWJj"
+
+
+def test_parse_text_for_images_stops_data_url_before_trailing_prose() -> None:
+    payloads = parse_text_for_images("data:image/png;base64,YWJj done")
+
+    assert len(payloads) == 1
     assert payloads[0].kind == "b64_json"
     assert payloads[0].value == "YWJj"
 

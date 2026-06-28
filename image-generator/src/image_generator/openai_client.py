@@ -11,7 +11,9 @@ from image_generator.config import AppConfig
 from image_generator.models import EndpointType, GenerationParams, ImagePayload
 
 IMAGE_URL_RE = re.compile(r"https?://[^\s\"'<>]+?\.(?:png|jpg|jpeg|webp|gif)(?:\?[^\s\"'<>]*)?", re.I)
-DATA_URL_RE = re.compile(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=\s]+)", re.I)
+DATA_URL_RE = re.compile(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,", re.I)
+BASE64_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+ASCII_WHITESPACE = frozenset(" \t\r\n\f\v")
 
 
 class APIError(RuntimeError):
@@ -57,11 +59,31 @@ def parse_image_payloads(payload: dict[str, Any]) -> list[ImagePayload]:
     return results
 
 
+def _read_data_url_base64(text: str, start: int) -> str:
+    chars: list[str] = []
+    pending_whitespace = False
+    for char in text[start:]:
+        if char in BASE64_CHARS:
+            chars.append(char)
+            pending_whitespace = False
+            continue
+        if char in ASCII_WHITESPACE:
+            if chars and len(chars) % 4 != 0:
+                pending_whitespace = True
+                continue
+            break
+        break
+    if pending_whitespace:
+        return ""
+    return "".join(chars)
+
+
 def parse_text_for_images(text: str) -> list[ImagePayload]:
     results: list[ImagePayload] = []
     for match in DATA_URL_RE.finditer(text):
-        b64_json = re.sub(r"\s+", "", match.group(1))
-        results.append(ImagePayload(kind="b64_json", value=b64_json))
+        b64_json = _read_data_url_base64(text, match.end())
+        if b64_json:
+            results.append(ImagePayload(kind="b64_json", value=b64_json))
     for match in IMAGE_URL_RE.finditer(text):
         results.append(ImagePayload(kind="url", value=match.group(0)))
     return results
