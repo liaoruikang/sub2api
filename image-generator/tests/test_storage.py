@@ -164,3 +164,27 @@ async def test_partial_batch_failure_cleans_up_first_written_file(tmp_path: Path
         )
 
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.asyncio
+async def test_failed_write_removes_partial_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_write_bytes = Path.write_bytes
+
+    def write_partial_then_fail(path: Path, data: bytes) -> int:
+        original_write_bytes(path, data[:8])
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_bytes", write_partial_then_fail)
+    storage = ImageStorage(tmp_path)
+
+    with pytest.raises(OSError, match="disk full"):
+        await storage.save_payloads(
+            [ImagePayload(kind="b64_json", value=PNG_B64)],
+            params=GenerationParams(prompt=PROMPT),
+            task_id=TASK_ID,
+        )
+
+    assert list(tmp_path.iterdir()) == []

@@ -142,7 +142,11 @@ class ImageStorage:
             raise ValueError(UNSUPPORTED_IMAGE_ERROR)
         extension = detect_extension(data, content_type)
         path = self._make_path(params, task_id, index, extension)
-        path.write_bytes(data)
+        try:
+            path.write_bytes(data)
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
         return GeneratedImage(
             path=path,
             source_type=source_type,
