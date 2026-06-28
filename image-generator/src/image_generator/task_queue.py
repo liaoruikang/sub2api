@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Protocol
 
 from image_generator.models import GeneratedImage, GenerationParams, GenerationTask, ImagePayload, TaskStatus
@@ -45,7 +46,7 @@ class GenerationQueue:
         self._running: dict[str, asyncio.Task[None]] = {}
 
     def submit(self, params: GenerationParams) -> GenerationTask:
-        task = GenerationTask(params=params)
+        task = GenerationTask(params=replace(params))
         self.tasks[task.id] = task
         self._notify(task)
         self._running[task.id] = asyncio.create_task(self._execute(task))
@@ -57,23 +58,15 @@ class GenerationQueue:
             stripped = prompt.strip()
             if not stripped:
                 continue
-            params = GenerationParams(
-                endpoint_type=base_params.endpoint_type,
-                model=base_params.model,
-                prompt=stripped,
-                size=base_params.size,
-                n=base_params.n,
-                quality=base_params.quality,
-                style=base_params.style,
-                response_format=base_params.response_format,
-                stream=base_params.stream,
-            )
+            params = replace(base_params, prompt=stripped)
             tasks.append(self.submit(params))
         return tasks
 
     def cancel_task(self, task_id: str) -> None:
         task = self.tasks.get(task_id)
         if task is None:
+            return
+        if task.status in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
             return
         handle = self._running.get(task_id)
         if handle and not handle.done():
@@ -85,7 +78,7 @@ class GenerationQueue:
         task = self.tasks.get(task_id)
         if task is None:
             return None
-        return self.submit(task.params)
+        return self.submit(replace(task.params))
 
     def delete_task(self, task_id: str) -> bool:
         task = self.tasks.get(task_id)
@@ -130,5 +123,9 @@ class GenerationQueue:
             self._running.pop(task.id, None)
 
     def _notify(self, task: GenerationTask) -> None:
-        if self.on_task_update is not None:
+        if self.on_task_update is None:
+            return
+        try:
             self.on_task_update(task)
+        except Exception:
+            return

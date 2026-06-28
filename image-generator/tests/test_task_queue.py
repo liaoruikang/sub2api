@@ -28,6 +28,16 @@ class FakeClient:
             self.active -= 1
 
 
+class RecordingClient(FakeClient):
+    def __init__(self, delay: float = 0.01, fail: bool = False) -> None:
+        super().__init__(delay=delay, fail=fail)
+        self.prompts: list[str] = []
+
+    async def generate(self, params: GenerationParams, event_callback=None) -> list[ImagePayload]:
+        self.prompts.append(params.prompt)
+        return await super().generate(params, event_callback)
+
+
 class FakeStorage:
     async def save_payloads(
         self,
@@ -96,6 +106,31 @@ async def test_cancel_running_task_marks_cancelled() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cancel_completed_task_preserves_completed_status() -> None:
+    queue = GenerationQueue(FakeClient(), FakeStorage(), max_concurrency=1)
+    task = queue.submit(GenerationParams(prompt="fox"))
+    await queue.wait_idle()
+
+    queue.cancel_task(task.id)
+
+    assert task.status is TaskStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_submit_copies_params_before_caller_mutation() -> None:
+    client = RecordingClient(delay=0.02)
+    queue = GenerationQueue(client, FakeStorage(), max_concurrency=1)
+    params = GenerationParams(prompt="original")
+
+    task = queue.submit(params)
+    params.prompt = "mutated"
+    await queue.wait_idle()
+
+    assert task.params.prompt == "original"
+    assert client.prompts == ["original"]
+
+
+@pytest.mark.asyncio
 async def test_retry_creates_new_task_with_same_params() -> None:
     queue = GenerationQueue(FakeClient(), FakeStorage(), max_concurrency=1)
     original = queue.submit(GenerationParams(prompt="fox"))
@@ -105,6 +140,47 @@ async def test_retry_creates_new_task_with_same_params() -> None:
     assert retry.id != original.id
     assert retry.params.prompt == "fox"
     await queue.wait_idle()
+
+
+@pytest.mark.asyncio
+async def test_retry_copies_params_independently_from_original_task() -> None:
+    queue = GenerationQueue(FakeClient(), FakeStorage(), max_concurrency=1)
+    original = queue.submit(GenerationParams(prompt="fox"))
+    retry = queue.retry_task(original.id)
+    assert retry is not None
+
+    original.params.prompt = "mutated"
+    await queue.wait_idle()
+
+    assert retry.params.prompt == "fox"
+
+
+@pytest.mark.asyncio
+async def test_notify_failure_during_submit_does_not_stop_task() -> None:
+    def raise_on_update(task) -> None:
+        raise RuntimeError("callback failed")
+
+    queue = GenerationQueue(FakeClient(), FakeStorage(), max_concurrency=1, on_task_update=raise_on_update)
+
+    task = queue.submit(GenerationParams(prompt="fox"))
+    await queue.wait_idle()
+
+    assert task.status is TaskStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_notify_failure_on_completed_update_does_not_mark_task_failed() -> None:
+    def raise_on_completed(task) -> None:
+        if task.status is TaskStatus.COMPLETED:
+            raise RuntimeError("callback failed")
+
+    queue = GenerationQueue(FakeClient(), FakeStorage(), max_concurrency=1, on_task_update=raise_on_completed)
+
+    task = queue.submit(GenerationParams(prompt="fox"))
+    await queue.wait_idle()
+
+    assert task.status is TaskStatus.COMPLETED
+    assert task.error is None
 
 
 @pytest.mark.asyncio
