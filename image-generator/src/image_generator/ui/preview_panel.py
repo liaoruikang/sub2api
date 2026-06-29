@@ -212,7 +212,9 @@ class PreviewPanel(QWidget):
     def _update_action_state(self) -> None:
         has_result = self.current_result is not None
         has_pixmap = self._current_pixmap is not None and not self._current_pixmap.isNull()
-        has_path = has_result and bool(self.current_result.path and self.current_result.path.exists())
+        has_path = has_result and bool(
+            self.current_result.path and self.current_result.path.exists()
+        )
         has_base64 = has_result and bool(self.current_result.b64_json)
 
         self.save_as_button.setEnabled(has_result and (has_path or has_base64))

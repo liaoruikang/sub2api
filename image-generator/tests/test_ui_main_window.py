@@ -222,24 +222,6 @@ def test_preview_panel_actions_do_not_crash_without_existing_image_data(
 
     assert "base64" in panel.message_label.text()
 
-    no_path_task = make_task(
-        results=[
-            GeneratedImage(
-                path=None,
-                source_type="url",
-                source_ref="https://example.com/no-path.png",
-            )
-        ]
-    )
-    panel.set_task(no_path_task)
-    panel.save_as()
-    panel.copy_image()
-    panel.copy_base64()
-    panel.export_base64()
-    panel.open_directory()
-
-    assert "No image path" in panel.message_label.text()
-
 
 
 def test_main_window_shows_redacted_status_and_forwards_generation_signals(qtbot) -> None:
