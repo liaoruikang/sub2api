@@ -92,6 +92,38 @@ async def test_queue_limits_concurrency() -> None:
 
 
 @pytest.mark.asyncio
+async def test_submit_batch_uses_limited_worker_tasks() -> None:
+    client = FakeClient(delay=0.01)
+    queue = GenerationQueue(client, FakeStorage(), max_concurrency=3)
+
+    tasks = queue.submit_batch(
+        [f"fox {index}" for index in range(20)],
+        GenerationParams(prompt="base"),
+    )
+
+    assert len(tasks) == 20
+    assert len(queue._running) <= 3
+    await queue.wait_idle()
+
+    assert client.max_active == 3
+    assert all(task.status is TaskStatus.COMPLETED for task in tasks)
+
+
+@pytest.mark.asyncio
+async def test_delete_queued_batch_task_prevents_execution() -> None:
+    client = RecordingClient(delay=0.02)
+    queue = GenerationQueue(client, FakeStorage(), max_concurrency=1)
+    first, second = queue.submit_batch(["first", "second"], GenerationParams(prompt="base"))
+
+    assert queue.delete_task(second.id) is True
+    await queue.wait_idle()
+
+    assert first.status is TaskStatus.COMPLETED
+    assert second.id not in queue.tasks
+    assert client.prompts == ["first"]
+
+
+@pytest.mark.asyncio
 async def test_queue_marks_failures_without_stopping_other_tasks() -> None:
     class PartlyFailingClient(FakeClient):
         async def generate(self, params: GenerationParams, event_callback=None) -> list[ImagePayload]:

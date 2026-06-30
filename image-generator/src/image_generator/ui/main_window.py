@@ -26,6 +26,7 @@ from image_generator.ui.task_table import TaskTable
 
 class MainWindow(QMainWindow):
     generate_requested = Signal(object)
+    queue_requested = Signal(object)
     batch_requested = Signal(object)
     settings_saved = Signal(object)
 
@@ -61,14 +62,17 @@ class MainWindow(QMainWindow):
             self.preview_panel.set_task(None)
 
     def open_settings(self) -> None:
-        dialog = SettingsDialog(self.config, self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        updated = dialog.to_config().normalized()
-        messages = validate_config(updated)
-        if messages:
+        current = self.config
+        while True:
+            dialog = SettingsDialog(current, self)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            updated = dialog.to_config().normalized()
+            messages = validate_config(updated)
+            if not messages:
+                break
             QMessageBox.warning(dialog, "Invalid settings", "\n".join(messages))
-            return
+            current = updated
         self.config = updated
         self._apply_config_to_generation_panel()
         self._update_status_labels()
@@ -118,12 +122,15 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         self.generation_panel.generate_requested.connect(self._emit_generate_requested)
-        self.generation_panel.queue_requested.connect(self._emit_generate_requested)
+        self.generation_panel.queue_requested.connect(self._emit_queue_requested)
         self.generation_panel.batch_requested.connect(self._emit_batch_requested)
         self.task_table.selected_task_id.connect(self._show_task_preview)
 
     def _emit_generate_requested(self, params: GenerationParams) -> None:
         self.generate_requested.emit(params)
+
+    def _emit_queue_requested(self, params: GenerationParams) -> None:
+        self.queue_requested.emit(params)
 
     def _emit_batch_requested(self, params: GenerationParams) -> None:
         prompts = [line.strip() for line in params.prompt.splitlines() if line.strip()]

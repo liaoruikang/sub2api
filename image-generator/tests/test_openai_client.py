@@ -17,6 +17,16 @@ def make_client() -> OpenAIImageClient:
     return OpenAIImageClient(AppConfig(base_url="https://api.example.com/", api_key="sk-secret"))
 
 
+def test_client_accepts_base_url_with_or_without_v1_suffix() -> None:
+    root_client = OpenAIImageClient(AppConfig(base_url="https://api.example.com", api_key="sk"))
+    v1_client = OpenAIImageClient(AppConfig(base_url="https://api.example.com/v1", api_key="sk"))
+
+    assert root_client.images_url == "https://api.example.com/v1/images/generations"
+    assert v1_client.images_url == "https://api.example.com/v1/images/generations"
+    assert root_client.chat_url == "https://api.example.com/v1/chat/completions"
+    assert v1_client.chat_url == "https://api.example.com/v1/chat/completions"
+
+
 def test_build_images_payload_uses_common_image_fields() -> None:
     client = make_client()
     params = GenerationParams(prompt="a fox", model="gpt-image-1", size="512x512", n=2)

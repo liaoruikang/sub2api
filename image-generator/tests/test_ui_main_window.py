@@ -221,6 +221,50 @@ def test_preview_panel_scales_selected_image_immediately(qtbot, tmp_path: Path) 
     assert displayed.height() <= panel.image_label.height()
 
 
+def test_preview_panel_can_select_each_generated_result(qtbot, tmp_path: Path) -> None:
+    panel = PreviewPanel()
+    qtbot.addWidget(panel)
+    first_path = tmp_path / "first.png"
+    second_path = tmp_path / "second.png"
+    first_bytes = write_png(first_path)
+    second_bytes = write_large_png(second_path)
+    first_b64 = base64.b64encode(first_bytes).decode("ascii")
+    second_b64 = base64.b64encode(second_bytes).decode("ascii")
+
+    panel.set_task(
+        make_task(
+            results=[
+                GeneratedImage(
+                    path=first_path,
+                    source_type="b64_json",
+                    source_ref="first",
+                    b64_json=first_b64,
+                ),
+                GeneratedImage(
+                    path=second_path,
+                    source_type="b64_json",
+                    source_ref="second",
+                    b64_json=second_b64,
+                ),
+            ]
+        )
+    )
+
+    assert panel.result_combo.count() == 2
+    assert panel.result_combo.isEnabled()
+    assert panel.current_result is not None
+    assert panel.current_result.path == first_path
+
+    panel.result_combo.setCurrentIndex(1)
+
+    assert panel.current_result is not None
+    assert panel.current_result.path == second_path
+    assert str(second_path) in panel.path_label.text()
+    QApplication.clipboard().clear()
+    panel.copy_base64()
+    assert QApplication.clipboard().text() == second_b64
+
+
 def test_preview_panel_url_result_can_copy_and_export_base64(
     qtbot,
     monkeypatch,
@@ -321,7 +365,7 @@ def test_main_window_shows_redacted_status_and_forwards_generation_signals(qtbot
 
     with qtbot.waitSignal(window.generate_requested, timeout=1000) as generate_signal:
         qtbot.mouseClick(window.generation_panel.generate_button, Qt.MouseButton.LeftButton)
-    with qtbot.waitSignal(window.generate_requested, timeout=1000) as queue_signal:
+    with qtbot.waitSignal(window.queue_requested, timeout=1000) as queue_signal:
         qtbot.mouseClick(window.generation_panel.queue_button, Qt.MouseButton.LeftButton)
 
     generated = generate_signal.args[0]
@@ -412,20 +456,24 @@ def test_main_window_rejects_invalid_settings_without_saving(
     window = MainWindow(config=original_config)
     qtbot.addWidget(window)
     invalid_config = AppConfig(base_url="", api_key="", default_model="bad-model")
+    seen_configs: list[AppConfig] = []
 
-    class InvalidSettingsDialog:
+    class InvalidThenCancelledSettingsDialog:
         def __init__(self, config: AppConfig, parent=None) -> None:
             self.config = config
             self.parent = parent
+            seen_configs.append(config)
 
         def exec(self) -> QDialog.DialogCode:
-            return QDialog.DialogCode.Accepted
+            if len(seen_configs) == 1:
+                return QDialog.DialogCode.Accepted
+            return QDialog.DialogCode.Rejected
 
         def to_config(self) -> AppConfig:
             return invalid_config
 
     warnings: list[tuple[str, str]] = []
-    monkeypatch.setattr(main_window_module, "SettingsDialog", InvalidSettingsDialog)
+    monkeypatch.setattr(main_window_module, "SettingsDialog", InvalidThenCancelledSettingsDialog)
     monkeypatch.setattr(
         QMessageBox,
         "warning",
@@ -436,6 +484,7 @@ def test_main_window_rejects_invalid_settings_without_saving(
 
     assert window.config == original_config
     assert window.generation_panel.model_edit.text() == "image-model"
+    assert seen_configs == [original_config, invalid_config.normalized()]
     assert warnings == [("Invalid settings", "Base URL is required\nAPI key is required")]
 
 

@@ -24,8 +24,11 @@ class APIError(RuntimeError):
 EventCallback = Callable[[str], None]
 
 
-def _join_url(base_url: str, path: str) -> str:
-    return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+def _join_openai_url(base_url: str, endpoint: str) -> str:
+    normalized = base_url.rstrip("/")
+    if normalized.endswith("/v1"):
+        return f"{normalized}/{endpoint.lstrip('/')}"
+    return f"{normalized}/v1/{endpoint.lstrip('/')}"
 
 
 def _error_message(response: httpx.Response) -> str:
@@ -167,11 +170,11 @@ class OpenAIImageClient:
 
     @property
     def images_url(self) -> str:
-        return _join_url(self.config.base_url, "/v1/images/generations")
+        return _join_openai_url(self.config.base_url, "images/generations")
 
     @property
     def chat_url(self) -> str:
-        return _join_url(self.config.base_url, "/v1/chat/completions")
+        return _join_openai_url(self.config.base_url, "chat/completions")
 
     def build_images_payload(self, params: GenerationParams) -> dict[str, Any]:
         return {

@@ -46,16 +46,20 @@ class GenerationQueue:
     ) -> None:
         self.client = client
         self.storage = storage
-        self.semaphore = asyncio.Semaphore(max(1, int(max_concurrency)))
+        self.max_concurrency = max(1, int(max_concurrency))
+        self.semaphore = asyncio.Semaphore(self.max_concurrency)
         self.on_task_update = on_task_update
         self.tasks: dict[str, GenerationTask] = {}
         self._running: dict[str, asyncio.Task[None]] = {}
+        self._task_handles: dict[str, asyncio.Task[None]] = {}
+        self._pending: asyncio.Queue[GenerationTask] = asyncio.Queue()
 
     def submit(self, params: GenerationParams) -> GenerationTask:
         task = GenerationTask(params=replace(params))
-        self.tasks[task.id] = task
-        self._notify(task)
-        self._running[task.id] = asyncio.create_task(self._execute(task))
+        self._track_task(task)
+        handle = asyncio.create_task(self._execute(task))
+        self._running[task.id] = handle
+        self._task_handles[task.id] = handle
         return task
 
     def submit_batch(
@@ -68,9 +72,23 @@ class GenerationQueue:
             stripped = prompt.strip()
             if not stripped:
                 continue
-            params = replace(base_params, prompt=stripped)
-            tasks.append(self.submit(params))
+            task = GenerationTask(params=replace(base_params, prompt=stripped))
+            self._track_task(task)
+            self._pending.put_nowait(task)
+            tasks.append(task)
+        self._ensure_workers()
         return tasks
+
+    def _track_task(self, task: GenerationTask) -> None:
+        self.tasks[task.id] = task
+        self._notify(task)
+
+    def _ensure_workers(self) -> None:
+        active_workers = sum(1 for handle in self._running.values() if not handle.done())
+        worker_count = min(self._pending.qsize(), max(0, self.max_concurrency - active_workers))
+        for index in range(worker_count):
+            worker_id = f"batch-worker-{id(self)}-{index}-{len(self._running)}"
+            self._running[worker_id] = asyncio.create_task(self._run_pending(worker_id))
 
     def cancel_task(self, task_id: str) -> None:
         task = self.tasks.get(task_id)
@@ -78,7 +96,7 @@ class GenerationQueue:
             return
         if task.status in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
             return
-        handle = self._running.get(task_id)
+        handle = self._task_handles.get(task_id) or self._running.get(task_id)
         if handle and not handle.done():
             handle.cancel()
         task.set_status(TaskStatus.CANCELLED)
@@ -94,7 +112,7 @@ class GenerationQueue:
         task = self.tasks.get(task_id)
         if task is None:
             return False
-        handle = self._running.get(task_id)
+        handle = self._task_handles.get(task_id) or self._running.get(task_id)
         if handle and not handle.done():
             return False
         if task.status in {TaskStatus.CONNECTING, TaskStatus.GENERATING, TaskStatus.SAVING}:
@@ -109,6 +127,19 @@ class GenerationQueue:
             if not handles:
                 return
             await asyncio.gather(*handles, return_exceptions=True)
+
+    async def _run_pending(self, worker_id: str) -> None:
+        try:
+            while not self._pending.empty():
+                task = self._pending.get_nowait()
+                if task.id not in self.tasks or task.status is TaskStatus.CANCELLED:
+                    continue
+                current = asyncio.current_task()
+                if current is not None:
+                    self._task_handles[task.id] = current
+                await self._execute(task)
+        finally:
+            self._running.pop(worker_id, None)
 
     async def _execute(self, task: GenerationTask) -> None:
         try:
@@ -135,7 +166,9 @@ class GenerationQueue:
             task.set_error(str(exc))
             self._notify(task)
         finally:
+            self._task_handles.pop(task.id, None)
             self._running.pop(task.id, None)
+            self._ensure_workers()
 
     def _add_event(self, task: GenerationTask, event: str) -> None:
         task.add_event(event)

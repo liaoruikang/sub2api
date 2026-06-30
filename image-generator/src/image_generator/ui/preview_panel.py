@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -36,9 +37,13 @@ class PreviewPanel(QWidget):
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(self.image_label)
 
+        self.result_combo = QComboBox()
+        self.result_combo.currentIndexChanged.connect(self._select_result)
+
+        self.path_label = QLabel("No image selected")
+        self.path_label.setWordWrap(True)
         self.message_label = QLabel("No image selected")
         self.message_label.setWordWrap(True)
-        self.path_label = self.message_label
 
         self.save_as_button = QPushButton("Save as…")
         self.copy_image_button = QPushButton("Copy image")
@@ -62,8 +67,11 @@ class PreviewPanel(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addWidget(scroll_area, 1)
+        layout.addWidget(self.result_combo)
+        layout.addWidget(self.path_label)
         layout.addWidget(self.message_label)
         layout.addLayout(action_layout)
+        self._populate_results(None)
         self._update_action_state()
 
     def show_task(self, task: GenerationTask) -> None:
@@ -71,26 +79,8 @@ class PreviewPanel(QWidget):
 
     def set_task(self, task: GenerationTask | None) -> None:
         self.current_task = task
-        self.current_result = task.results[0] if task and task.results else None
-        self._current_pixmap = None
-
-        if self.current_result is None:
-            self.image_label.clear()
-            self.image_label.setText("No image available")
-            self.message_label.setText("No image results are available for this task.")
-            self._update_action_state()
-            return
-
-        pixmap = self._load_pixmap(self.current_result)
-        if pixmap is None or pixmap.isNull():
-            self.image_label.clear()
-            self.image_label.setText("Preview unavailable")
-            self.message_label.setText("Preview unavailable for the first result.")
-        else:
-            self._current_pixmap = pixmap
-            self._fit_pixmap()
-            self.message_label.setText(str(self.current_result.path))
-        self._update_action_state()
+        self._populate_results(task)
+        self._select_result(0 if task and task.results else -1)
 
     def save_as(self) -> None:
         result = self.current_result
@@ -180,6 +170,44 @@ class PreviewPanel(QWidget):
     def resizeEvent(self, event) -> None:  # noqa: N802, ANN001
         super().resizeEvent(event)
         self._fit_pixmap()
+
+    def _populate_results(self, task: GenerationTask | None) -> None:
+        self.result_combo.blockSignals(True)
+        self.result_combo.clear()
+        if task is not None:
+            for index, result in enumerate(task.results):
+                label = f"Result {index + 1}"
+                if result.path:
+                    label = f"{label}: {result.path.name}"
+                self.result_combo.addItem(label, index)
+        self.result_combo.setEnabled(self.result_combo.count() > 1)
+        self.result_combo.blockSignals(False)
+
+    def _select_result(self, index: int) -> None:
+        results = self.current_task.results if self.current_task is not None else []
+        self._current_pixmap = None
+        if index < 0 or index >= len(results):
+            self.current_result = None
+            self.image_label.clear()
+            self.image_label.setText("No image available")
+            self.path_label.setText("No image result for this task")
+            self.message_label.setText("No image results are available for this task.")
+            self._update_action_state()
+            return
+
+        self.current_result = results[index]
+        pixmap = self._load_pixmap(self.current_result)
+        if pixmap is None or pixmap.isNull():
+            self.image_label.clear()
+            self.image_label.setText("Preview unavailable")
+            self.path_label.setText(str(self.current_result.path))
+            self.message_label.setText(f"Preview unavailable for result {index + 1}.")
+        else:
+            self._current_pixmap = pixmap
+            self._fit_pixmap()
+            self.path_label.setText(str(self.current_result.path))
+            self.message_label.setText(f"Showing result {index + 1} of {len(results)}.")
+        self._update_action_state()
 
     def _load_pixmap(self, result: GeneratedImage) -> QPixmap | None:
         pixmap = QPixmap()

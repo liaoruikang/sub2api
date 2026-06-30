@@ -33,6 +33,7 @@ class ImageGeneratorApplication:
         self.window = MainWindow(self.config)
         self.window.settings_saved.connect(self._save_and_rebuild_services)
         self.window.generate_requested.connect(self.submit_task)
+        self.window.queue_requested.connect(self.submit_task)
         self.window.batch_requested.connect(self.submit_batch)
         self.bridge.task_updated.connect(self.window.upsert_task)
         self._rebuild_services()
