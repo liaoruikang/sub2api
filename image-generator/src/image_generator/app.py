@@ -38,7 +38,11 @@ class ImageGeneratorApplication:
         if self.queue is None:
             return
         if not params.prompt:
-            QMessageBox.information(self.window, "Missing prompt", "Enter a prompt before generating.")
+            QMessageBox.information(
+                self.window,
+                "Missing prompt",
+                "Enter a prompt before generating.",
+            )
             return
         task = self.queue.submit(params)
         if self.window is not None:
