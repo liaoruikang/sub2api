@@ -10,7 +10,10 @@ import httpx
 from image_generator.config import AppConfig
 from image_generator.models import EndpointType, GenerationParams, ImagePayload
 
-IMAGE_URL_RE = re.compile(r"https?://[^\s\"'<>]+?\.(?:png|jpg|jpeg|webp|gif)(?:\?[^\s\"'<>]*)?", re.I)
+IMAGE_URL_RE = re.compile(
+    r"https?://[^\s\"'<>]+?\.(?:png|jpg|jpeg|webp|gif)(?:\?[^\s\"'<>]*)?",
+    re.I,
+)
 DATA_URL_RE = re.compile(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,", re.I)
 BASE64_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
 ASCII_WHITESPACE = frozenset(" \t\r\n\f\v")
@@ -242,7 +245,11 @@ class OpenAIImageClient:
         chunks: list[str] = []
         if event_callback:
             event_callback("connecting to streaming chat completions endpoint")
-        async with client.stream("POST", self.chat_url, json=self.build_chat_payload(params)) as response:
+        async with client.stream(
+            "POST",
+            self.chat_url,
+            json=self.build_chat_payload(params),
+        ) as response:
             if response.status_code < 200 or response.status_code > 299:
                 await response.aread()
             self._raise_for_status(response)

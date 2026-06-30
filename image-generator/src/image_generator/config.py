@@ -94,7 +94,7 @@ class AppConfig:
     default_endpoint_type: EndpointType = EndpointType.IMAGES
     default_model: str = "gpt-image-1"
 
-    def normalized(self) -> "AppConfig":
+    def normalized(self) -> AppConfig:
         normalized_base_url = _string_value(self.base_url).strip().rstrip("/")
         return AppConfig(
             base_url=normalized_base_url,
@@ -119,7 +119,7 @@ class AppConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AppConfig":
+    def from_dict(cls, data: dict[str, Any]) -> AppConfig:
         return cls(
             base_url=_string_value(data.get("base_url")),
             api_key=_string_value(data.get("api_key")),

@@ -73,7 +73,9 @@ class SettingsDialog(QDialog):
         form.addRow("Default endpoint", self.endpoint_combo)
         form.addRow("Default model", self.model_edit)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 

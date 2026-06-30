@@ -5,7 +5,13 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Protocol
 
-from image_generator.models import GeneratedImage, GenerationParams, GenerationTask, ImagePayload, TaskStatus
+from image_generator.models import (
+    GeneratedImage,
+    GenerationParams,
+    GenerationTask,
+    ImagePayload,
+    TaskStatus,
+)
 
 
 class ImageClientProtocol(Protocol):
@@ -52,7 +58,11 @@ class GenerationQueue:
         self._running[task.id] = asyncio.create_task(self._execute(task))
         return task
 
-    def submit_batch(self, prompts: list[str], base_params: GenerationParams) -> list[GenerationTask]:
+    def submit_batch(
+        self,
+        prompts: list[str],
+        base_params: GenerationParams,
+    ) -> list[GenerationTask]:
         tasks: list[GenerationTask] = []
         for prompt in prompts:
             stripped = prompt.strip()

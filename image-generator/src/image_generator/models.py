@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
 
-class EndpointType(str, Enum):
+class EndpointType(StrEnum):
     IMAGES = "images"
     CHAT_COMPLETIONS = "chat_completions"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     QUEUED = "queued"
     CONNECTING = "connecting"
     GENERATING = "generating"
