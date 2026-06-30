@@ -88,7 +88,7 @@ class PreviewPanel(QWidget):
             self.message_label.setText("Preview unavailable for the first result.")
         else:
             self._current_pixmap = pixmap
-            self.image_label.setPixmap(pixmap)
+            self._fit_pixmap()
             self.message_label.setText(str(self.current_result.path))
         self._update_action_state()
 
@@ -146,16 +146,17 @@ class PreviewPanel(QWidget):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory)))
 
     def copy_base64(self) -> None:
-        result = self.current_result
-        if result is None or not result.b64_json:
+        b64_data = self._current_base64()
+        if not b64_data:
             self.message_label.setText("No base64 data available to copy.")
             return
-        QApplication.clipboard().setText(result.b64_json)
+        QApplication.clipboard().setText(b64_data)
         self.message_label.setText("Base64 data copied to clipboard.")
 
     def export_base64(self) -> None:
         result = self.current_result
-        if result is None or not result.b64_json:
+        b64_data = self._current_base64()
+        if result is None or not b64_data:
             self.message_label.setText("No base64 data available to export.")
             return
 
@@ -170,7 +171,7 @@ class PreviewPanel(QWidget):
             return
 
         try:
-            Path(target).write_text(result.b64_json, encoding="utf-8")
+            Path(target).write_text(b64_data, encoding="utf-8")
         except Exception as exc:
             self.message_label.setText(f"Could not export base64 data: {exc}")
             return
@@ -191,6 +192,19 @@ class PreviewPanel(QWidget):
                 return None
             if pixmap.loadFromData(data):
                 return pixmap
+        return None
+
+    def _current_base64(self) -> str | None:
+        result = self.current_result
+        if result is None:
+            return None
+        if result.b64_json:
+            return result.b64_json
+        if result.path and result.path.exists():
+            try:
+                return base64.b64encode(result.path.read_bytes()).decode("ascii")
+            except Exception:
+                return None
         return None
 
     def _fit_pixmap(self) -> None:
@@ -215,7 +229,7 @@ class PreviewPanel(QWidget):
         has_path = has_result and bool(
             self.current_result.path and self.current_result.path.exists()
         )
-        has_base64 = has_result and bool(self.current_result.b64_json)
+        has_base64 = bool(self._current_base64())
 
         self.save_as_button.setEnabled(has_result and (has_path or has_base64))
         self.copy_image_button.setEnabled(has_pixmap)

@@ -63,6 +63,23 @@ async def test_queue_completes_task_and_records_result() -> None:
 
 
 @pytest.mark.asyncio
+async def test_queue_reports_generating_status_and_stream_events() -> None:
+    updates: list[tuple[TaskStatus, list[str]]] = []
+
+    def record_update(task) -> None:
+        updates.append((task.status, list(task.events)))
+
+    queue = GenerationQueue(FakeClient(delay=0.01), FakeStorage(), 1, record_update)
+
+    task = queue.submit(GenerationParams(prompt="fox"))
+    await queue.wait_idle()
+
+    assert task.status is TaskStatus.COMPLETED
+    assert any(status is TaskStatus.GENERATING for status, _events in updates)
+    assert any(events == ["fake event"] for _status, events in updates)
+
+
+@pytest.mark.asyncio
 async def test_queue_limits_concurrency() -> None:
     client = FakeClient(delay=0.03)
     queue = GenerationQueue(client, FakeStorage(), max_concurrency=2)

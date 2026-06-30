@@ -13,6 +13,10 @@ from image_generator.ui.main_window import MainWindow
 from image_generator.ui.settings_dialog import SettingsDialog
 
 
+class ConfigurationCancelled(RuntimeError):
+    pass
+
+
 class QueueBridge(QObject):
     task_updated = Signal(object)
 
@@ -77,7 +81,7 @@ class ImageGeneratorApplication:
         while validate_config(current):
             dialog = SettingsDialog(current)
             if not dialog.exec():
-                return current
+                raise ConfigurationCancelled("Initial settings were cancelled")
             current = dialog.to_config()
             messages = validate_config(current)
             if messages:

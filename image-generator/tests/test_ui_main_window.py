@@ -4,7 +4,7 @@ import base64
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 
 from image_generator.config import AppConfig, redacted_api_key
@@ -45,6 +45,13 @@ def write_png(path: Path) -> bytes:
     data = base64.b64decode(PNG_B64)
     path.write_bytes(data)
     return data
+
+
+def write_large_png(path: Path) -> bytes:
+    pixmap = QPixmap(1200, 900)
+    pixmap.fill(Qt.GlobalColor.red)
+    assert pixmap.save(str(path), "PNG")
+    return path.read_bytes()
 
 
 def test_task_table_upserts_selects_and_removes_rows(qtbot, tmp_path: Path) -> None:
@@ -186,6 +193,71 @@ def test_preview_panel_handles_empty_state_and_first_result_actions(
     panel.open_directory()
     assert opened_urls
     assert Path(opened_urls[0].toLocalFile()) == source_path.parent
+
+
+def test_preview_panel_scales_selected_image_immediately(qtbot, tmp_path: Path) -> None:
+    panel = PreviewPanel()
+    qtbot.addWidget(panel)
+    panel.resize(320, 240)
+    image_path = tmp_path / "large.png"
+    write_large_png(image_path)
+
+    panel.set_task(
+        make_task(
+            results=[
+                GeneratedImage(
+                    path=image_path,
+                    source_type="url",
+                    source_ref="https://example.com/large.png",
+                )
+            ]
+        )
+    )
+
+    displayed = panel.image_label.pixmap()
+    assert displayed is not None
+    assert not displayed.isNull()
+    assert displayed.width() <= panel.image_label.width()
+    assert displayed.height() <= panel.image_label.height()
+
+
+def test_preview_panel_url_result_can_copy_and_export_base64(
+    qtbot,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    panel = PreviewPanel()
+    qtbot.addWidget(panel)
+    image_path = tmp_path / "downloaded.png"
+    image_bytes = write_png(image_path)
+    expected_b64 = base64.b64encode(image_bytes).decode("ascii")
+    panel.set_task(
+        make_task(
+            results=[
+                GeneratedImage(
+                    path=image_path,
+                    source_type="url",
+                    source_ref="https://example.com/downloaded.png",
+                )
+            ]
+        )
+    )
+
+    assert panel.copy_base64_button.isEnabled()
+    assert panel.export_base64_button.isEnabled()
+
+    QApplication.clipboard().clear()
+    panel.copy_base64()
+    assert QApplication.clipboard().text() == expected_b64
+
+    exported_path = tmp_path / "downloaded.b64.txt"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *args, **kwargs: (str(exported_path), ""),
+    )
+    panel.export_base64()
+    assert exported_path.read_text(encoding="utf-8") == expected_b64
 
 
 def test_preview_panel_actions_do_not_crash_without_existing_image_data(

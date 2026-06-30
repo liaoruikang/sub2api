@@ -117,7 +117,12 @@ class GenerationQueue:
                     return
                 task.set_status(TaskStatus.CONNECTING)
                 self._notify(task)
-                payloads = await self.client.generate(task.params, event_callback=task.add_event)
+                task.set_status(TaskStatus.GENERATING)
+                self._notify(task)
+                payloads = await self.client.generate(
+                    task.params,
+                    event_callback=lambda event: self._add_event(task, event),
+                )
                 task.set_status(TaskStatus.SAVING)
                 self._notify(task)
                 task.results = await self.storage.save_payloads(payloads, task.params, task.id)
@@ -131,6 +136,10 @@ class GenerationQueue:
             self._notify(task)
         finally:
             self._running.pop(task.id, None)
+
+    def _add_event(self, task: GenerationTask, event: str) -> None:
+        task.add_event(event)
+        self._notify(task)
 
     def _notify(self, task: GenerationTask) -> None:
         if self.on_task_update is None:

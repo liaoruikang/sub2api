@@ -132,6 +132,23 @@ def test_parse_chat_payloads_extracts_image_url_from_content() -> None:
     assert payloads[0].value == "https://cdn.example.com/out/image.png"
 
 
+def test_parse_chat_payloads_extracts_extensionless_signed_image_url() -> None:
+    payloads = parse_chat_payloads(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "Result: https://cdn.example.com/generated/abc123?format=png."
+                    }
+                }
+            ]
+        }
+    )
+
+    assert payloads[0].kind == "url"
+    assert payloads[0].value == "https://cdn.example.com/generated/abc123?format=png"
+
+
 def test_parse_chat_payloads_extracts_image_url_from_multimodal_dict() -> None:
     payloads = parse_chat_payloads(
         {
@@ -258,6 +275,36 @@ async def test_streaming_chat_response_records_events(httpx_mock) -> None:
     assert payloads[0].kind == "url"
     assert payloads[0].value == "https://cdn.example.com/a.png"
     assert "stream event received" in events
+
+
+@pytest.mark.asyncio
+async def test_streaming_chat_response_waits_for_complete_data_url(httpx_mock) -> None:
+    body = "\n".join(
+        [
+            'data: {"choices":[{"delta":{"content":"data:image/png;base64,YWJj"}}]}',
+            'data: {"choices":[{"delta":{"content":"ZA=="}}]}',
+            "data: [DONE]",
+            "",
+        ]
+    )
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.example.com/v1/chat/completions",
+        content=body.encode("utf-8"),
+        headers={"content-type": "text/event-stream"},
+    )
+    client = make_client()
+
+    payloads = await client.generate(
+        GenerationParams(
+            endpoint_type=EndpointType.CHAT_COMPLETIONS,
+            prompt="fox",
+            stream=True,
+        )
+    )
+
+    assert payloads[0].kind == "b64_json"
+    assert payloads[0].value == "YWJjZA=="
 
 
 @pytest.mark.asyncio

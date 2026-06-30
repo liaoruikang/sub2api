@@ -10,13 +10,11 @@ import httpx
 from image_generator.config import AppConfig
 from image_generator.models import EndpointType, GenerationParams, ImagePayload
 
-IMAGE_URL_RE = re.compile(
-    r"https?://[^\s\"'<>]+?\.(?:png|jpg|jpeg|webp|gif)(?:\?[^\s\"'<>]*)?",
-    re.I,
-)
+IMAGE_URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.I)
 DATA_URL_RE = re.compile(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,", re.I)
 BASE64_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
 ASCII_WHITESPACE = frozenset(" \t\r\n\f\v")
+TRAILING_URL_PUNCTUATION = ".,;:!?)]}"
 
 
 class APIError(RuntimeError):
@@ -89,12 +87,18 @@ def _read_data_url_base64(text: str, start: int) -> str:
 
 def parse_text_for_images(text: str) -> list[ImagePayload]:
     results: list[ImagePayload] = []
+    data_url_ranges: list[range] = []
     for match in DATA_URL_RE.finditer(text):
         b64_json = _read_data_url_base64(text, match.end())
         if b64_json:
             results.append(ImagePayload(kind="b64_json", value=b64_json))
+            data_url_ranges.append(range(match.start(), match.end() + len(b64_json)))
     for match in IMAGE_URL_RE.finditer(text):
-        results.append(ImagePayload(kind="url", value=match.group(0)))
+        if any(match.start() in data_url_range for data_url_range in data_url_ranges):
+            continue
+        url = match.group(0).rstrip(TRAILING_URL_PUNCTUATION)
+        if url:
+            results.append(ImagePayload(kind="url", value=url))
     return results
 
 
@@ -266,9 +270,6 @@ class OpenAIImageClient:
                 except json.JSONDecodeError:
                     chunks.append(data)
                     continue
-                parsed = parse_chat_payloads(payload)
-                if parsed:
-                    return parsed
                 chunks.extend(_delta_texts(payload))
         parsed_from_text = parse_text_for_images("".join(chunks))
         if parsed_from_text:

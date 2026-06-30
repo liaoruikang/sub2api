@@ -6,7 +6,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from image_generator.app import ImageGeneratorApplication
+from image_generator.app import ConfigurationCancelled, ImageGeneratorApplication
 
 
 def main() -> int:
@@ -18,8 +18,12 @@ def main() -> int:
     asyncio.set_event_loop(loop)
 
     image_app = ImageGeneratorApplication()
-    window = image_app.create_window()
+    try:
+        window = image_app.create_window()
+    except ConfigurationCancelled:
+        return 0
     window.show()
+    app.aboutToQuit.connect(loop.stop)
 
     with loop:
         loop.run_forever()
