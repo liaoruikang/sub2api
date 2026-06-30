@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QApplication, QDialog, QFileDialog
+from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 
 from image_generator.config import AppConfig, redacted_api_key
 from image_generator.models import GeneratedImage, GenerationParams, GenerationTask, TaskStatus
@@ -223,7 +223,6 @@ def test_preview_panel_actions_do_not_crash_without_existing_image_data(
     assert "base64" in panel.message_label.text()
 
 
-
 def test_main_window_shows_redacted_status_and_forwards_generation_signals(qtbot) -> None:
     config = AppConfig(
         base_url="https://api.example.com/v1",
@@ -327,3 +326,99 @@ def test_main_window_selection_updates_preview_and_settings_signal(
     assert "sk-updated-secret" not in window.api_key_label.text()
     assert redacted_api_key("sk-updated-secret") in window.api_key_label.text()
     assert window.generation_panel.model_edit.text() == "new-model"
+
+
+def test_main_window_rejects_invalid_settings_without_saving(
+    qtbot,
+    monkeypatch,
+) -> None:
+    original_config = AppConfig(
+        base_url="https://api.example.com",
+        api_key="sk-original-secret",
+        default_model="image-model",
+    ).normalized()
+    window = MainWindow(config=original_config)
+    qtbot.addWidget(window)
+    invalid_config = AppConfig(base_url="", api_key="", default_model="bad-model")
+
+    class InvalidSettingsDialog:
+        def __init__(self, config: AppConfig, parent=None) -> None:
+            self.config = config
+            self.parent = parent
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Accepted
+
+        def to_config(self) -> AppConfig:
+            return invalid_config
+
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(main_window_module, "SettingsDialog", InvalidSettingsDialog)
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        lambda _parent, title, message: warnings.append((title, message)),
+    )
+
+    qtbot.mouseClick(window.settings_button, Qt.MouseButton.LeftButton)
+
+    assert window.config == original_config
+    assert window.generation_panel.model_edit.text() == "image-model"
+    assert warnings == [("Invalid settings", "Base URL is required\nAPI key is required")]
+
+
+def test_main_window_does_not_replace_selected_preview_when_other_task_completes(
+    qtbot,
+    tmp_path: Path,
+) -> None:
+    window = MainWindow(config=AppConfig())
+    qtbot.addWidget(window)
+    first_path = tmp_path / "first.png"
+    second_path = tmp_path / "second.png"
+    write_png(first_path)
+    write_png(second_path)
+
+    selected_task = make_task("task-a", "selected")
+    completing_task = make_task("task-b", "background")
+    window.upsert_task(selected_task)
+    window.upsert_task(completing_task)
+
+    with qtbot.waitSignal(window.task_table.selected_task_id, timeout=1000):
+        window.task_table.selectRow(0)
+
+    assert window.preview_panel.current_task is selected_task
+
+    completed_background_task = make_task(
+        "task-b",
+        "background",
+        status=TaskStatus.COMPLETED,
+        results=[
+            GeneratedImage(
+                path=second_path,
+                source_type="b64_json",
+                source_ref="b64",
+                b64_json=PNG_B64,
+            )
+        ],
+    )
+    window.upsert_task(completed_background_task)
+
+    assert window.task_table.selected_task_id is not None
+    assert window.preview_panel.current_task is selected_task
+
+    completed_selected_task = make_task(
+        "task-a",
+        "selected",
+        status=TaskStatus.COMPLETED,
+        results=[
+            GeneratedImage(
+                path=first_path,
+                source_type="b64_json",
+                source_ref="b64",
+                b64_json=PNG_B64,
+            )
+        ],
+    )
+    window.upsert_task(completed_selected_task)
+
+    assert window.preview_panel.current_task is completed_selected_task

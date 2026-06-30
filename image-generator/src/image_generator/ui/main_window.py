@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QSplitter,
     QStatusBar,
@@ -15,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from image_generator.config import AppConfig, redacted_api_key
+from image_generator.config import AppConfig, redacted_api_key, validate_config
 from image_generator.models import GenerationParams, GenerationTask
 from image_generator.ui.generation_panel import GenerationPanel
 from image_generator.ui.preview_panel import PreviewPanel
@@ -48,9 +49,9 @@ class MainWindow(QMainWindow):
     def upsert_task(self, task: GenerationTask) -> None:
         self.tasks[task.id] = task
         self.task_table.upsert_task(task)
-        if task.results or (
-            self.preview_panel.current_task and self.preview_panel.current_task.id == task.id
-        ):
+        if self.preview_panel.current_task is None and task.results:
+            self.preview_panel.set_task(task)
+        elif self.preview_panel.current_task and self.preview_panel.current_task.id == task.id:
             self.preview_panel.set_task(task)
 
     def remove_task(self, task_id: str) -> None:
@@ -63,7 +64,12 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(self.config, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        self.config = dialog.to_config().normalized()
+        updated = dialog.to_config().normalized()
+        messages = validate_config(updated)
+        if messages:
+            QMessageBox.warning(dialog, "Invalid settings", "\n".join(messages))
+            return
+        self.config = updated
         self._apply_config_to_generation_panel()
         self._update_status_labels()
         self.settings_saved.emit(self.config)
