@@ -146,3 +146,8 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+
+# Python image generator local artifacts
+image-generator/.venv/
+image-generator/build/
+image-generator/*.spec
