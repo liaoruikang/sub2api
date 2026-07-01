@@ -104,7 +104,7 @@
                 <!-- Price -->
                 <div class="flex flex-wrap items-center gap-2">
                   <span v-if="selectedPlan.original_price" class="text-sm text-gray-400 line-through dark:text-gray-500">
-                    {{ formatSelectedPaymentAmount(selectedPlan.original_price) }}
+                    {{ formatSelectedSubscriptionPaymentAmount(selectedPlan.original_price) }}
                   </span>
                   <span :class="['text-3xl font-bold', planTextClass]">{{ formatSelectedPaymentAmount(effectivePlanPrice) }}</span>
                   <span class="text-sm text-gray-500 dark:text-gray-400">/ {{ planValiditySuffix }}</span>
@@ -164,7 +164,7 @@
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between">
                     <span class="text-gray-500 dark:text-gray-400">{{ t('payment.amountLabel') }}</span>
-                    <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(effectivePlanPrice) }}</span>
+                    <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(subPaymentAmount) }}</span>
                   </div>
                   <div class="flex justify-between">
                     <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
@@ -183,7 +183,7 @@
                 </span>
                 <span v-else-if="selectedPlanNewUserOnlyNotEligible">{{ t('payment.planCard.notEligible') }}</span>
                 <span v-else-if="selectedPlanIPPurchaseLimitReached">{{ t('payment.planCard.ipLimitReached') }}</span>
-                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(feeRate > 0 ? subTotalAmount : effectivePlanPrice) }}</span>
+                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
               </button>
               <button class="btn btn-secondary w-full" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
             </template>
@@ -562,7 +562,7 @@ const enabledMethods = computed(() => Object.keys(visibleMethods.value))
 const validAmount = computed(() => amount.value ?? 0)
 const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
-  return multiplier > 0 ? multiplier : 1
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1
 })
 const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
 
@@ -645,8 +645,35 @@ const localeCode = computed(() => {
   return undefined
 })
 
+function currencyFractionDigits(currency: string): number {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+    }).resolvedOptions().maximumFractionDigits ?? 2
+  } catch {
+    return 2
+  }
+}
+
+function roundPaymentAmount(value: number, currency: string): number {
+  if (!Number.isFinite(value)) return 0
+  const factor = 10 ** currencyFractionDigits(currency)
+  return Math.round(value * factor) / factor
+}
+
+function ceilPaymentAmount(value: number, currency: string): number {
+  if (!Number.isFinite(value)) return 0
+  const factor = 10 ** currencyFractionDigits(currency)
+  return Math.ceil(value * factor) / factor
+}
+
 function formatSelectedPaymentAmount(value: number): string {
   return formatPaymentAmount(value, selectedCurrency.value, localeCode.value)
+}
+
+function formatSelectedSubscriptionPaymentAmount(value: number): string {
+  return formatSelectedPaymentAmount(roundPaymentAmount(value, selectedCurrency.value))
 }
 
 const methodOptions = computed<PaymentMethodOption[]>(() =>
@@ -693,29 +720,40 @@ const canSubmit = computed(() =>
     && selectedLimit.value?.available !== false
 )
 
-// Subscription-specific: method options based on plan price
-const subMethodOptions = computed<PaymentMethodOption[]>(() => {
-  const planPrice = effectivePlanPrice.value
-  return enabledMethods.value.map((type) => {
-    const ml = visibleMethods.value[type]
-    return {
-      type,
-      fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(planPrice, type),
-    }
-  })
+const subPaymentAmount = computed(() => {
+  const price = effectivePlanPrice.value
+  return roundPaymentAmount(price, selectedCurrency.value)
 })
 
 const subFeeAmount = computed(() => {
-  const price = effectivePlanPrice.value
-  if (feeRate.value <= 0 || price <= 0) return 0
-  return Math.ceil(((price * feeRate.value) / 100) * 100) / 100
+  if (feeRate.value <= 0 || subPaymentAmount.value <= 0) return 0
+  return ceilPaymentAmount((subPaymentAmount.value * feeRate.value) / 100, selectedCurrency.value)
 })
 
 const subTotalAmount = computed(() => {
+  if (feeRate.value <= 0 || subPaymentAmount.value <= 0) return subPaymentAmount.value
+  return roundPaymentAmount(subPaymentAmount.value + subFeeAmount.value, selectedCurrency.value)
+})
+
+function subscriptionTotalAmountForCurrency(value: number, currency: string): number {
+  const paymentAmount = roundPaymentAmount(value, currency)
+  if (feeRate.value <= 0 || paymentAmount <= 0) return paymentAmount
+  const fee = ceilPaymentAmount((paymentAmount * feeRate.value) / 100, currency)
+  return roundPaymentAmount(paymentAmount + fee, currency)
+}
+
+// Subscription-specific: method options based on gateway pay amount
+const subMethodOptions = computed<PaymentMethodOption[]>(() => {
   const price = effectivePlanPrice.value
-  if (feeRate.value <= 0 || price <= 0) return price
-  return Math.round((price + subFeeAmount.value) * 100) / 100
+  return enabledMethods.value.map((type) => {
+    const ml = visibleMethods.value[type]
+    const currency = normalizePaymentCurrency(ml?.currency)
+    return {
+      type,
+      fee_rate: ml?.fee_rate ?? 0,
+      available: ml?.available !== false && amountFitsMethod(subscriptionTotalAmountForCurrency(price, currency), type),
+    }
+  })
 })
 
 const selectedPlanOffSaleExpired = computed(() => {
@@ -740,7 +778,7 @@ const canSubmitSubscription = computed(() =>
     && !selectedPlanPurchaseLimitReached.value
     && !selectedPlanNewUserOnlyNotEligible.value
     && !selectedPlanIPPurchaseLimitReached.value
-    && amountFitsMethod(effectivePlanPrice.value, selectedMethod.value)
+    && amountFitsMethod(subTotalAmount.value, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
 
