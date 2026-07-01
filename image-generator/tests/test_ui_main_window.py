@@ -30,7 +30,7 @@ def make_task(
     error: str | None = None,
     results: list[GeneratedImage] | None = None,
 ) -> GenerationTask:
-    task = GenerationTask(
+    return GenerationTask(
         id=task_id,
         params=GenerationParams(prompt=prompt, model=model),
         status=status,
@@ -38,7 +38,6 @@ def make_task(
         error=error,
         results=list(results or []),
     )
-    return task
 
 
 def write_png(path: Path) -> bytes:
@@ -96,17 +95,17 @@ def test_task_table_upserts_selects_and_removes_rows(qtbot, tmp_path: Path) -> N
     )
 
     assert [table.horizontalHeaderItem(column).text() for column in range(table.columnCount())] == [
-        "ID",
-        "Status",
-        "Prompt summary",
-        "Model",
-        "Result count",
-        "Latest event",
-        "Error",
+        "任务 ID",
+        "状态",
+        "提示词摘要",
+        "模型",
+        "结果数量",
+        "最新事件",
+        "错误",
     ]
     assert table.rowCount() == 2
     assert table.item(0, 0).text() == "task-1"
-    assert table.item(0, 1).text() == "completed"
+    assert table.item(0, 1).text() == "已完成"
     assert table.item(0, 2).text() == "Updated prompt"
     assert table.item(0, 3).text() == "model-c"
     assert table.item(0, 4).text() == "0"
@@ -141,7 +140,7 @@ def test_preview_panel_handles_empty_state_and_first_result_actions(
     panel.copy_base64()
     panel.open_directory()
 
-    assert "No image" in panel.message_label.text()
+    assert "没有" in panel.message_label.text()
 
     source_path = tmp_path / "source.png"
     image_bytes = write_png(source_path)
@@ -195,10 +194,10 @@ def test_preview_panel_handles_empty_state_and_first_result_actions(
     assert Path(opened_urls[0].toLocalFile()) == source_path.parent
 
 
-def test_preview_panel_scales_selected_image_immediately(qtbot, tmp_path: Path) -> None:
+def test_preview_panel_zoom_controls(qtbot, tmp_path: Path) -> None:
     panel = PreviewPanel()
     qtbot.addWidget(panel)
-    panel.resize(320, 240)
+    panel.resize(420, 320)
     image_path = tmp_path / "large.png"
     write_large_png(image_path)
 
@@ -214,11 +213,26 @@ def test_preview_panel_scales_selected_image_immediately(qtbot, tmp_path: Path) 
         )
     )
 
-    displayed = panel.image_label.pixmap()
-    assert displayed is not None
-    assert not displayed.isNull()
-    assert displayed.width() <= panel.image_label.width()
-    assert displayed.height() <= panel.image_label.height()
+    fitted = panel.image_label.pixmap()
+    assert fitted is not None
+    assert not fitted.isNull()
+    fitted_width = fitted.width()
+    assert panel.zoom_label.text() == "适应窗口"
+
+    panel.zoom_in()
+    zoomed = panel.image_label.pixmap()
+    assert zoomed is not None
+    assert zoomed.width() > fitted_width
+    assert panel.zoom_label.text() == "125%"
+
+    panel.actual_size()
+    assert panel.zoom_label.text() == "100%"
+
+    panel.fit_to_window()
+    refitted = panel.image_label.pixmap()
+    assert refitted is not None
+    assert refitted.width() <= zoomed.width()
+    assert panel.zoom_label.text() == "适应窗口"
 
 
 def test_preview_panel_can_select_each_generated_result(qtbot, tmp_path: Path) -> None:
@@ -252,6 +266,7 @@ def test_preview_panel_can_select_each_generated_result(qtbot, tmp_path: Path) -
 
     assert panel.result_combo.count() == 2
     assert panel.result_combo.isEnabled()
+    assert panel.result_combo.itemText(0).startswith("结果 1")
     assert panel.current_result is not None
     assert panel.current_result.path == first_path
 
@@ -336,7 +351,7 @@ def test_preview_panel_actions_do_not_crash_without_existing_image_data(
     panel.export_base64()
     panel.open_directory()
 
-    assert "base64" in panel.message_label.text()
+    assert "Base64" in panel.message_label.text()
 
 
 def test_main_window_shows_redacted_status_and_forwards_generation_signals(qtbot) -> None:
@@ -349,6 +364,7 @@ def test_main_window_shows_redacted_status_and_forwards_generation_signals(qtbot
     window = MainWindow(config=config)
     qtbot.addWidget(window)
 
+    assert window.windowTitle() == "图片生成器"
     status_text = " ".join(
         [
             window.endpoint_label.text(),
@@ -358,8 +374,8 @@ def test_main_window_shows_redacted_status_and_forwards_generation_signals(qtbot
     )
     assert config.api_key not in status_text
     assert redacted_api_key(config.api_key) in status_text
-    assert "https://api.example.com/v1" in status_text
-    assert "7" in status_text
+    assert "接口地址：https://api.example.com/v1" in status_text
+    assert "并发数：7" in status_text
 
     window.generation_panel.prompt_edit.setPlainText("Single prompt")
 
@@ -485,7 +501,7 @@ def test_main_window_rejects_invalid_settings_without_saving(
     assert window.config == original_config
     assert window.generation_panel.model_edit.text() == "image-model"
     assert seen_configs == [original_config, invalid_config.normalized()]
-    assert warnings == [("Invalid settings", "Base URL is required\nAPI key is required")]
+    assert warnings == [("设置无效", "接口地址不能为空\nAPI 密钥不能为空")]
 
 
 def test_main_window_does_not_replace_selected_preview_when_other_task_completes(

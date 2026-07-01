@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QStatusBar,
     QToolBar,
@@ -23,6 +24,15 @@ from image_generator.ui.preview_panel import PreviewPanel
 from image_generator.ui.settings_dialog import SettingsDialog
 from image_generator.ui.task_table import TaskTable
 
+CONFIG_MESSAGE_LABELS = {
+    "Base URL is required": "接口地址不能为空",
+    "API key is required": "API 密钥不能为空",
+    "Timeout must be at least 1 second": "超时时间至少为 1 秒",
+    "Max concurrency must be at least 1": "最大并发数至少为 1",
+    "Default model is required": "默认模型不能为空",
+    "Default save directory is required": "默认保存目录不能为空",
+}
+
 
 class MainWindow(QMainWindow):
     generate_requested = Signal(object)
@@ -32,7 +42,9 @@ class MainWindow(QMainWindow):
 
     def __init__(self, config: AppConfig | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("OpenAI Image Generator")
+        self.setWindowTitle("图片生成器")
+        self.setMinimumSize(1100, 720)
+        self.resize(1280, 800)
         self.config = (config or AppConfig()).normalized()
         self.tasks: dict[str, GenerationTask] = {}
 
@@ -71,7 +83,7 @@ class MainWindow(QMainWindow):
             messages = validate_config(updated)
             if not messages:
                 break
-            QMessageBox.warning(dialog, "Invalid settings", "\n".join(messages))
+            QMessageBox.warning(dialog, "设置无效", "\n".join(_localized_messages(messages)))
             current = updated
         self.config = updated
         self._apply_config_to_generation_panel()
@@ -84,41 +96,48 @@ class MainWindow(QMainWindow):
         right_splitter.addWidget(self.preview_panel)
         right_splitter.setStretchFactor(0, 2)
         right_splitter.setStretchFactor(1, 3)
+        right_splitter.setSizes([280, 520])
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.generation_panel)
         splitter.addWidget(right_splitter)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([380, 900])
 
         central = QWidget()
         layout = QHBoxLayout(central)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
         layout.addWidget(splitter)
         self.setCentralWidget(central)
 
     def _build_toolbar(self) -> None:
-        toolbar = QToolBar("Main")
+        toolbar = QToolBar("主工具栏")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
         self.endpoint_label = QLabel()
         self.api_key_label = QLabel()
         self.concurrency_label = QLabel()
-        self.settings_button = QPushButton("Settings")
+        self.settings_button = QPushButton("设置")
         self.settings_button.clicked.connect(self.open_settings)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
         toolbar.addWidget(self.endpoint_label)
         toolbar.addSeparator()
         toolbar.addWidget(self.api_key_label)
         toolbar.addSeparator()
         toolbar.addWidget(self.concurrency_label)
-        toolbar.addSeparator()
+        toolbar.addWidget(spacer)
         toolbar.addWidget(self.settings_button)
 
     def _build_status_bar(self) -> None:
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready")
+        self.status_bar.showMessage("就绪")
 
     def _connect_signals(self) -> None:
         self.generation_panel.generate_requested.connect(self._emit_generate_requested)
@@ -148,7 +167,11 @@ class MainWindow(QMainWindow):
             self.generation_panel.endpoint_combo.setCurrentIndex(endpoint_index)
 
     def _update_status_labels(self) -> None:
-        endpoint = self.config.base_url or "Not configured"
-        self.endpoint_label.setText(f"Endpoint: {endpoint}")
-        self.api_key_label.setText(f"API key: {redacted_api_key(self.config.api_key)}")
-        self.concurrency_label.setText(f"Concurrency: {self.config.max_concurrency}")
+        endpoint = self.config.base_url or "未配置"
+        self.endpoint_label.setText(f"接口地址：{endpoint}")
+        self.api_key_label.setText(f"API 密钥：{redacted_api_key(self.config.api_key)}")
+        self.concurrency_label.setText(f"并发数：{self.config.max_concurrency}")
+
+
+def _localized_messages(messages: list[str]) -> list[str]:
+    return [CONFIG_MESSAGE_LABELS.get(message, message) for message in messages]

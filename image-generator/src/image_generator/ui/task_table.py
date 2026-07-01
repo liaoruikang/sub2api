@@ -11,18 +11,28 @@ from PySide6.QtWidgets import (
 
 from image_generator.models import GenerationTask, TaskStatus
 
+STATUS_LABELS = {
+    TaskStatus.QUEUED: "排队中",
+    TaskStatus.CONNECTING: "连接中",
+    TaskStatus.GENERATING: "生成中",
+    TaskStatus.SAVING: "保存中",
+    TaskStatus.COMPLETED: "已完成",
+    TaskStatus.FAILED: "失败",
+    TaskStatus.CANCELLED: "已取消",
+}
+
 
 class TaskTable(QTableWidget):
     selected_task_id = Signal(str)
 
     HEADERS = [
-        "ID",
-        "Status",
-        "Prompt summary",
-        "Model",
-        "Result count",
-        "Latest event",
-        "Error",
+        "任务 ID",
+        "状态",
+        "提示词摘要",
+        "模型",
+        "结果数量",
+        "最新事件",
+        "错误",
     ]
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -101,7 +111,7 @@ class TaskTable(QTableWidget):
     @staticmethod
     def _status_text(status: TaskStatus | str) -> str:
         if isinstance(status, TaskStatus):
-            return status.value
+            return STATUS_LABELS.get(status, status.value)
         return str(status)
 
     @staticmethod

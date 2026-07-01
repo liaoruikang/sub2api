@@ -5,12 +5,18 @@ from PySide6.QtWidgets import QComboBox, QFileDialog, QLineEdit
 
 from image_generator.config import AppConfig
 from image_generator.models import EndpointType, GenerationParams
-from image_generator.ui.generation_panel import GenerationPanel
+from image_generator.ui.generation_panel import GenerationPanel, SIZE_PRESETS
 from image_generator.ui.settings_dialog import SettingsDialog
 
 
 def set_combo_data(combo: QComboBox, data: object) -> None:
     index = combo.findData(data)
+    assert index >= 0
+    combo.setCurrentIndex(index)
+
+
+def set_combo_api_value(combo: QComboBox, value: str) -> None:
+    index = combo.findData(value)
     assert index >= 0
     combo.setCurrentIndex(index)
 
@@ -28,6 +34,7 @@ def test_settings_dialog_round_trips_normalized_config(qtbot, tmp_path: Path) ->
     dialog = SettingsDialog(config)
     qtbot.addWidget(dialog)
 
+    assert dialog.windowTitle() == "设置"
     assert dialog.api_key_edit.echoMode() is QLineEdit.EchoMode.Password
     assert dialog.to_config().default_endpoint_type is EndpointType.CHAT_COMPLETIONS
 
@@ -65,6 +72,7 @@ def test_settings_dialog_browse_button_updates_save_directory(qtbot, monkeypatch
 
     qtbot.mouseClick(dialog.browse_button, Qt.MouseButton.LeftButton)
 
+    assert dialog.browse_button.text() == "浏览…"
     assert dialog.save_dir_edit.text() == str(selected_dir)
 
 
@@ -77,9 +85,9 @@ def test_generation_panel_builds_generation_params(qtbot) -> None:
     set_combo_data(panel.endpoint_combo, EndpointType.CHAT_COMPLETIONS)
     panel.size_combo.setCurrentText("1792x1024")
     panel.count_spin.setValue(3)
-    panel.quality_combo.setCurrentText("hd")
-    panel.style_combo.setCurrentText("vivid")
-    panel.response_format_combo.setCurrentText("url")
+    set_combo_api_value(panel.quality_combo, "hd")
+    set_combo_api_value(panel.style_combo, "vivid")
+    set_combo_api_value(panel.response_format_combo, "url")
     panel.stream_check.setChecked(True)
 
     params = panel.to_params()
@@ -95,6 +103,23 @@ def test_generation_panel_builds_generation_params(qtbot) -> None:
         response_format="url",
         stream=True,
     )
+
+
+def test_generation_panel_has_chinese_labels_and_more_size_presets(qtbot) -> None:
+    panel = GenerationPanel(default_model="image-model")
+    qtbot.addWidget(panel)
+
+    assert panel.prompt_edit.placeholderText().startswith("请输入图片描述")
+    assert panel.generate_button.text() == "立即生成"
+    assert panel.queue_button.text() == "加入队列"
+    assert panel.batch_button.text() == "批量生成"
+    assert panel.endpoint_combo.itemText(0) == "图片接口"
+    assert panel.size_combo.isEditable()
+    for preset in SIZE_PRESETS:
+        assert panel.size_combo.findText(preset) >= 0
+
+    panel.size_combo.setCurrentText("2048x2048")
+    assert panel.to_params().size == "2048x2048"
 
 
 def test_generation_panel_buttons_emit_current_params(qtbot) -> None:
