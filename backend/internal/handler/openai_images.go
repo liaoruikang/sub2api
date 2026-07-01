@@ -167,8 +167,15 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if len(failedAccountIDs) == 0 {
-				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
-				h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available compatible accounts", streamStarted)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestModel, requestModel, service.PlatformOpenAI)
+				if !cls.ModelNotFound {
+					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+				}
+				message := cls.Message
+				if !cls.ModelNotFound {
+					message = "No available compatible accounts"
+				}
+				h.handleStreamingAwareError(c, cls.Status, cls.ErrType, message, streamStarted)
 				return
 			}
 			if lastFailoverErr != nil {
@@ -179,8 +186,15 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			return
 		}
 		if selection == nil || selection.Account == nil {
-			markOpsRoutingCapacityLimited(c)
-			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available compatible accounts", streamStarted)
+			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestModel, requestModel, service.PlatformOpenAI)
+			if !cls.ModelNotFound {
+				markOpsRoutingCapacityLimited(c)
+			}
+			message := cls.Message
+			if !cls.ModelNotFound {
+				message = "No available compatible accounts"
+			}
+			h.handleStreamingAwareError(c, cls.Status, cls.ErrType, message, streamStarted)
 			return
 		}
 
@@ -234,8 +248,13 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			} else {
 				var imageUpstreamErr *service.OpenAIImagesUpstreamError
 				if errors.As(err, &imageUpstreamErr) {
-					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil)
-					reqLog.Warn("openai.images.upstream_user_error",
+					retryableServerError := service.IsOpenAIImagesRetryableUpstreamError(imageUpstreamErr)
+					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, !retryableServerError, nil)
+					logEvent := "openai.images.upstream_user_error"
+					if retryableServerError {
+						logEvent = "openai.images.upstream_server_error_after_flush"
+					}
+					reqLog.Warn(logEvent,
 						zap.Int64("account_id", account.ID),
 						zap.Int("status_code", imageUpstreamErr.StatusCode),
 						zap.String("error_type", imageUpstreamErr.ErrorType),
@@ -247,6 +266,14 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+					if c.Writer.Size() != writerSizeBeforeForward {
+						reqLog.Warn("openai.images.upstream_failover_skipped_after_flush",
+							zap.Int64("account_id", account.ID),
+							zap.Int("upstream_status", failoverErr.StatusCode),
+						)
+						h.handleFailoverExhausted(c, failoverErr, true)
+						return
+					}
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := account.GetPoolModeRetryCount()
 						if sameAccountRetryCount[account.ID] < retryLimit {
@@ -322,6 +349,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		}
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 
 		upstreamModel := ""
 		if result != nil {
@@ -339,13 +367,15 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			IPAddress:          clientIP,
 			RequestPayloadHash: requestPayloadHash,
 			APIKeyService:      h.apiKeyService,
-			ChannelUsageFields: channelMapping.ToUsageFields(parsed.Model, upstreamModel),
+			QuotaPlatform:      quotaPlatform,
+			ChannelUsageFields: channelMapping.ToUsageFields(requestModel, upstreamModel),
 		}
 		if summary := h.gatewayService.BuildOpenAIImageCostSummary(c.Request.Context(), usageInput); summary != nil {
 			setUserImagePlaygroundSummary(c, summary)
 		}
 		h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, usageInput); err != nil {
+
 				logger.L().With(
 					zap.String("component", "handler.openai_gateway.images"),
 					zap.Int64("user_id", subject.UserID),

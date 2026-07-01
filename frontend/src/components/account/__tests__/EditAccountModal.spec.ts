@@ -167,6 +167,31 @@ function buildVertexAccount() {
   } as any
 }
 
+function buildAntigravityAccount(projectId = 'configured-project') {
+  return {
+    id: 3,
+    name: 'Antigravity OAuth',
+    notes: '',
+    platform: 'antigravity',
+    type: 'oauth',
+    credentials: {
+      antigravity_project_id: projectId,
+      model_mapping: {
+        'gemini-2.5-flash': 'gemini-2.5-flash'
+      }
+    },
+    extra: {},
+    proxy_id: null,
+    concurrency: 1,
+    priority: 1,
+    rate_multiplier: 1,
+    status: 'active',
+    group_ids: [],
+    expires_at: null,
+    auto_pause_on_expired: false
+  } as any
+}
+
 function mountModal(account = buildAccount()) {
   return mount(EditAccountModal, {
     props: {
@@ -602,6 +627,26 @@ describe('EditAccountModal', () => {
     })
   })
 
+  it('loads and submits Antigravity configured project fallback', async () => {
+    const account = buildAntigravityAccount('configured-project')
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const input = wrapper.get<HTMLInputElement>('[data-testid="antigravity-project-id-input"]')
+    expect(input.element.value).toBe('configured-project')
+
+    await input.setValue('  updated-project  ')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.antigravity_project_id).toBe(
+      'updated-project'
+    )
+  })
+
   it('clears highest scheduling suppression metadata when manually resumed', async () => {
     const account = buildAccount()
     account.extra = {
@@ -631,5 +676,24 @@ describe('EditAccountModal', () => {
     expect(extra).not.toHaveProperty('highest_scheduling_suppressed_until')
     expect(extra).not.toHaveProperty('highest_scheduling_suppressed_at')
     expect(extra).not.toHaveProperty('highest_scheduling_suppressed_reason')
+  })
+
+  it('clears Antigravity configured project fallback when input is empty', async () => {
+    const account = buildAntigravityAccount('configured-project')
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const input = wrapper.get<HTMLInputElement>('[data-testid="antigravity-project-id-input"]')
+
+    await input.setValue('')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty(
+      'antigravity_project_id'
+    )
   })
 })

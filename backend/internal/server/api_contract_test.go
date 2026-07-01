@@ -840,9 +840,18 @@ func TestAPIContracts(t *testing.T) {
 						"table_page_size_options": [10, 20, 50, 100],
 					"min_claude_code_version": "",
 					"max_claude_code_version": "",
+					"min_codex_version": "",
+					"max_codex_version": "",
+					"codex_cli_only_blacklist": "",
+					"codex_cli_only_whitelist": "",
+					"codex_cli_only_allow_app_server_clients": false,
+					"codex_cli_only_engine_fingerprint_signals": "[{\"type\":\"header_prefix\",\"match\":[\"x-codex-\"],\"required\":true},{\"type\":\"header_exact\",\"match\":[\"session-id\",\"session_id\"],\"required\":false},{\"type\":\"header_exact\",\"match\":[\"thread-id\",\"thread_id\"],\"required\":false},{\"type\":\"body_path\",\"match\":[\"client_metadata.x-codex-window-id\",\"client_metadata.x-codex-installation-id\"],\"required\":false}]",
 					"allow_ungrouped_key_scheduling": false,
 					"backend_mode_enabled": false,
 					"enable_cch_signing": false,
+					"enable_claude_oauth_system_prompt_injection": true,
+					"claude_oauth_system_prompt": "",
+					"claude_oauth_system_prompt_blocks": "",
 					"enable_anthropic_cache_ttl_1h_injection": false,
 					"rewrite_message_cache_control": false,
 					"antigravity_user_agent_version": "",
@@ -855,7 +864,6 @@ func TestAPIContracts(t *testing.T) {
 					"payment_visible_method_wxpay_enabled": false,
 					"openai_advanced_scheduler_enabled": true,
 					"openai_codex_user_agent":           "",
-					"openai_allow_claude_code_codex_plugin": false,
 					"openai_fast_policy_settings": {
 						"rules": []
 					},
@@ -892,6 +900,8 @@ func TestAPIContracts(t *testing.T) {
 					"channel_monitor_default_interval_seconds": 60,
 					"available_channels_enabled": false,
 					"risk_control_enabled": false,
+					"cyber_session_block_enabled": false,
+					"cyber_session_block_ttl_seconds": 3600,
 					"affiliate_enabled": false,
 					"wechat_connect_enabled": false,
 					"wechat_connect_app_id": "",
@@ -1083,9 +1093,18 @@ func TestAPIContracts(t *testing.T) {
 					"enable_fingerprint_unification": true,
 					"enable_metadata_passthrough": false,
 					"enable_cch_signing": false,
+					"enable_claude_oauth_system_prompt_injection": true,
+					"claude_oauth_system_prompt": "",
+					"claude_oauth_system_prompt_blocks": "",
 					"enable_anthropic_cache_ttl_1h_injection": false,
 					"rewrite_message_cache_control": false,
 					"antigravity_user_agent_version": "",
+					"min_codex_version": "",
+					"max_codex_version": "",
+					"codex_cli_only_blacklist": "",
+					"codex_cli_only_whitelist": "",
+					"codex_cli_only_allow_app_server_clients": false,
+					"codex_cli_only_engine_fingerprint_signals": "[{\"type\":\"header_prefix\",\"match\":[\"x-codex-\"],\"required\":true},{\"type\":\"header_exact\",\"match\":[\"session-id\",\"session_id\"],\"required\":false},{\"type\":\"header_exact\",\"match\":[\"thread-id\",\"thread_id\"],\"required\":false},{\"type\":\"body_path\",\"match\":[\"client_metadata.x-codex-window-id\",\"client_metadata.x-codex-installation-id\"],\"required\":false}]",
 					"web_search_emulation_enabled": false,
 					"payment_visible_method_alipay_source": "",
 					"payment_visible_method_wxpay_source": "",
@@ -1093,7 +1112,6 @@ func TestAPIContracts(t *testing.T) {
 					"payment_visible_method_wxpay_enabled": false,
 					"openai_advanced_scheduler_enabled": false,
 					"openai_codex_user_agent":           "",
-					"openai_allow_claude_code_codex_plugin": false,
 					"openai_fast_policy_settings": {
 						"rules": []
 					},
@@ -1128,6 +1146,8 @@ func TestAPIContracts(t *testing.T) {
 					"channel_monitor_default_interval_seconds": 60,
 					"available_channels_enabled": false,
 					"risk_control_enabled": false,
+					"cyber_session_block_enabled": false,
+					"cyber_session_block_ttl_seconds": 3600,
 					"affiliate_enabled": false,
 					"wechat_connect_enabled": true,
 					"wechat_connect_app_id": "wx-open-config",
@@ -1680,6 +1700,10 @@ func (s *stubAccountRepo) ListByGroup(ctx context.Context, groupID int64) ([]ser
 }
 
 func (s *stubAccountRepo) ListActive(ctx context.Context) ([]service.Account, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) ListOAuthRefreshCandidates(ctx context.Context) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -2490,7 +2514,7 @@ func (r *stubUsageLogRepo) ListWithFilters(ctx context.Context, params paginatio
 			continue
 		}
 		// Apply Model filter
-		if filters.Model != "" && log.Model != filters.Model {
+		if filters.Model != "" && stubUsageLogFilterModel(log, filters.ModelFilterSource) != filters.Model {
 			continue
 		}
 		// Apply Stream filter
@@ -2516,6 +2540,13 @@ func (r *stubUsageLogRepo) ListWithFilters(ctx context.Context, params paginatio
 	return out, paginationResult(total, params), nil
 }
 
+func stubUsageLogFilterModel(log service.UsageLog, source string) string {
+	if source == usagestats.ModelSourceRequested && log.RequestedModel != "" {
+		return log.RequestedModel
+	}
+	return log.Model
+}
+
 func (r *stubUsageLogRepo) GetGlobalStats(ctx context.Context, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
 	return nil, errors.New("not implemented")
 }
@@ -2525,7 +2556,55 @@ func (r *stubUsageLogRepo) GetAccountUsageStats(ctx context.Context, accountID i
 }
 
 func (r *stubUsageLogRepo) GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error) {
-	return nil, errors.New("not implemented")
+	logs, _, err := r.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 100000}, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalRequests int64
+	var totalInputTokens int64
+	var totalOutputTokens int64
+	var totalCacheTokens int64
+	var totalCacheCreationTokens int64
+	var totalCacheReadTokens int64
+	var totalCost float64
+	var totalActualCost float64
+	var totalDuration int64
+	var durationCount int64
+
+	for _, log := range logs {
+		totalRequests++
+		totalInputTokens += int64(log.InputTokens)
+		totalOutputTokens += int64(log.OutputTokens)
+		totalCacheTokens += int64(log.CacheCreationTokens + log.CacheReadTokens)
+		totalCacheCreationTokens += int64(log.CacheCreationTokens)
+		totalCacheReadTokens += int64(log.CacheReadTokens)
+		totalCost += log.TotalCost
+		totalActualCost += log.ActualCost
+		if log.DurationMs != nil {
+			totalDuration += int64(*log.DurationMs)
+			durationCount++
+		}
+	}
+
+	var avgDuration float64
+	if durationCount > 0 {
+		avgDuration = float64(totalDuration) / float64(durationCount)
+	}
+
+	return &usagestats.UsageStats{
+		TotalRequests:            totalRequests,
+		TotalInputTokens:         totalInputTokens,
+		TotalOutputTokens:        totalOutputTokens,
+		TotalCacheTokens:         totalCacheTokens,
+		TotalCacheCreationTokens: totalCacheCreationTokens,
+		TotalCacheReadTokens:     totalCacheReadTokens,
+		TotalTokens:              totalInputTokens + totalOutputTokens + totalCacheTokens,
+		TotalCost:                totalCost,
+		TotalActualCost:          totalActualCost,
+		AverageDurationMs:        avgDuration,
+		Endpoints:                []usagestats.EndpointStat{},
+	}, nil
 }
 func (r *stubUsageLogRepo) GetAllGroupUsageSummary(ctx context.Context, todayStart time.Time) ([]usagestats.GroupUsageSummary, error) {
 	return nil, errors.New("not implemented")

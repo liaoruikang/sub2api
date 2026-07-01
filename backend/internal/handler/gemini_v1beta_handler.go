@@ -227,6 +227,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	}()
 
 	// 1) group-scoped user concurrency slot, then global user concurrency slot.
+
 	streamStarted := false
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
@@ -248,10 +249,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		reqLog.Warn("gemini.user_slot_acquire_failed", zap.Error(err))
 		googleError(c, http.StatusTooManyRequests, err.Error())
 		return
-	}
-	if waitCounted {
-		geminiConcurrency.DecrementWaitCount(c.Request.Context(), authSubject.UserID)
-		waitCounted = false
 	}
 	// 确保请求取消时也会释放槽位，避免长连接被动中断造成泄漏
 	userReleaseFunc = wrapReleaseOnDone(c.Request.Context(), userReleaseFunc)
@@ -387,8 +384,15 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
-				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
-				googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts: "+err.Error())
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, modelName, modelName, service.PlatformGemini)
+				if !cls.ModelNotFound {
+					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+				}
+				message := cls.Message
+				if !cls.ModelNotFound {
+					message = "No available Gemini accounts: " + err.Error()
+				}
+				googleError(c, cls.Status, message)
 				return
 			}
 			action := fs.HandleSelectionExhausted(c.Request.Context())
