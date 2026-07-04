@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -21,6 +22,14 @@ STATUS_LABELS = {
     TaskStatus.CANCELLED: "已取消",
 }
 
+STATUS_COLORS = {
+    TaskStatus.GENERATING: "#9b7a3c",
+    TaskStatus.SAVING: "#9b7a3c",
+    TaskStatus.COMPLETED: "#39765a",
+    TaskStatus.FAILED: "#b05246",
+    TaskStatus.CANCELLED: "#70685d",
+}
+
 
 class TaskTable(QTableWidget):
     selected_task_id = Signal(str)
@@ -37,8 +46,12 @@ class TaskTable(QTableWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(0, len(self.HEADERS), parent)
+        self.setObjectName("workspaceCard")
         self.row_by_task_id: dict[str, int] = {}
 
+        self.setAlternatingRowColors(True)
+        self.setShowGrid(False)
+        self.verticalHeader().setDefaultSectionSize(42)
         self.setHorizontalHeaderLabels(self.HEADERS)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -67,7 +80,12 @@ class TaskTable(QTableWidget):
             task.error or "",
         ]
         for column, value in enumerate(values):
-            self.setItem(row, column, self._item(value))
+            item = self._item(value)
+            if column == 1 and isinstance(task.status, TaskStatus):
+                color = STATUS_COLORS.get(task.status)
+                if color:
+                    item.setForeground(QColor(color))
+            self.setItem(row, column, item)
 
     def remove_task(self, task_id: str) -> None:
         row = self.row_by_task_id.get(task_id)

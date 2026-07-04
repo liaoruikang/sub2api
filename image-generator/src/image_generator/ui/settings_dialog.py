@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -26,6 +27,11 @@ class SettingsDialog(QDialog):
         self.setMinimumWidth(560)
 
         normalized = config.normalized()
+
+        title = QLabel("连接设置")
+        title.setObjectName("titleLabel")
+        subtitle = QLabel("配置 OpenAI 兼容接口与默认保存方式")
+        subtitle.setObjectName("subtitleLabel")
 
         self.base_url_edit = QLineEdit(normalized.base_url)
         self.base_url_edit.setPlaceholderText("例如：https://api.example.com 或 https://api.example.com/v1")
@@ -46,6 +52,7 @@ class SettingsDialog(QDialog):
 
         self.save_dir_edit = QLineEdit(str(normalized.default_save_dir))
         self.browse_button = QPushButton("浏览…")
+        self.browse_button.setObjectName("secondaryButton")
         self.browse_button.clicked.connect(self._browse_save_dir)
 
         save_dir_layout = QHBoxLayout()
@@ -80,8 +87,11 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+        layout.addSpacing(6)
         layout.addLayout(form)
         layout.addWidget(buttons)
 

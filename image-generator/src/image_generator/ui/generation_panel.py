@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -36,10 +37,17 @@ class GenerationPanel(QWidget):
 
     def __init__(self, default_model: str = "gpt-image-1", parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("sidebarCard")
+
+        title = QLabel("创作")
+        title.setObjectName("titleLabel")
+        subtitle = QLabel("描述画面，选择模型与输出参数")
+        subtitle.setObjectName("subtitleLabel")
 
         self.prompt_edit = QTextEdit()
+        self.prompt_edit.setObjectName("promptEditor")
         self.prompt_edit.setPlaceholderText("请输入图片描述，例如：一只水彩风格的狐狸")
-        self.prompt_edit.setMinimumHeight(140)
+        self.prompt_edit.setMinimumHeight(150)
 
         self.model_edit = QLineEdit(default_model.strip() or "gpt-image-1")
 
@@ -74,13 +82,15 @@ class GenerationPanel(QWidget):
         self.stream_check = QCheckBox("流式响应")
 
         prompt_group = QGroupBox("提示词")
+        prompt_group.setObjectName("card")
         prompt_layout = QVBoxLayout(prompt_group)
-        prompt_layout.setContentsMargins(12, 12, 12, 12)
+        prompt_layout.setContentsMargins(14, 16, 14, 14)
         prompt_layout.addWidget(self.prompt_edit)
 
         form = QFormLayout()
-        form.setContentsMargins(12, 12, 12, 12)
-        form.setSpacing(10)
+        form.setContentsMargins(14, 16, 14, 14)
+        form.setSpacing(12)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         form.addRow("模型", self.model_edit)
         form.addRow("接口类型", self.endpoint_combo)
         form.addRow("图片尺寸", self.size_combo)
@@ -90,27 +100,35 @@ class GenerationPanel(QWidget):
         form.addRow("响应格式", self.response_format_combo)
         form.addRow("流式", self.stream_check)
         params_group = QGroupBox("生成参数")
+        params_group.setObjectName("card")
         params_group.setLayout(form)
 
         self.generate_button = QPushButton("立即生成")
         self.queue_button = QPushButton("加入队列")
         self.batch_button = QPushButton("批量生成")
+        self.generate_button.setObjectName("primaryButton")
+        self.queue_button.setObjectName("secondaryButton")
+        self.batch_button.setObjectName("ghostButton")
         self.generate_button.clicked.connect(self._emit_generate_requested)
         self.queue_button.clicked.connect(self._emit_queue_requested)
         self.batch_button.clicked.connect(self._emit_batch_requested)
 
         button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(12, 12, 12, 12)
+        button_layout.setContentsMargins(14, 14, 14, 14)
         button_layout.setSpacing(10)
-        button_layout.addWidget(self.generate_button)
-        button_layout.addWidget(self.queue_button)
-        button_layout.addWidget(self.batch_button)
+        button_layout.addWidget(self.generate_button, 2)
+        button_layout.addWidget(self.queue_button, 1)
+        button_layout.addWidget(self.batch_button, 1)
         actions_group = QGroupBox("操作")
+        actions_group.setObjectName("card")
         actions_group.setLayout(button_layout)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+        layout.addSpacing(6)
         layout.addWidget(prompt_group)
         layout.addWidget(params_group)
         layout.addWidget(actions_group)

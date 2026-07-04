@@ -92,6 +92,7 @@ class MainWindow(QMainWindow):
 
     def _build_layout(self) -> None:
         right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.setObjectName("workspaceSplitter")
         right_splitter.addWidget(self.task_table)
         right_splitter.addWidget(self.preview_panel)
         right_splitter.setStretchFactor(0, 2)
@@ -99,6 +100,7 @@ class MainWindow(QMainWindow):
         right_splitter.setSizes([280, 520])
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("workspaceSplitter")
         splitter.addWidget(self.generation_panel)
         splitter.addWidget(right_splitter)
         splitter.setStretchFactor(0, 0)
@@ -107,25 +109,34 @@ class MainWindow(QMainWindow):
 
         central = QWidget()
         layout = QHBoxLayout(central)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(22, 18, 22, 18)
+        layout.setSpacing(14)
         layout.addWidget(splitter)
         self.setCentralWidget(central)
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("主工具栏")
+        toolbar.setObjectName("mainToolbar")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
+        title_label = QLabel("图片生成器")
+        title_label.setObjectName("titleLabel")
         self.endpoint_label = QLabel()
+        self.endpoint_label.setObjectName("configStatusLabel")
         self.api_key_label = QLabel()
+        self.api_key_label.setObjectName("configStatusLabel")
         self.concurrency_label = QLabel()
+        self.concurrency_label.setObjectName("configStatusLabel")
         self.settings_button = QPushButton("设置")
+        self.settings_button.setObjectName("settingsButton")
         self.settings_button.clicked.connect(self.open_settings)
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
+        toolbar.addWidget(title_label)
+        toolbar.addSeparator()
         toolbar.addWidget(self.endpoint_label)
         toolbar.addSeparator()
         toolbar.addWidget(self.api_key_label)

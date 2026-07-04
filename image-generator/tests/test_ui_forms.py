@@ -1,12 +1,13 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QFileDialog, QLineEdit
+from PySide6.QtWidgets import QApplication, QComboBox, QFileDialog, QLineEdit
 
 from image_generator.config import AppConfig
 from image_generator.models import EndpointType, GenerationParams
 from image_generator.ui.generation_panel import GenerationPanel, SIZE_PRESETS
 from image_generator.ui.settings_dialog import SettingsDialog
+from image_generator.ui.theme import apply_app_theme
 
 
 def set_combo_data(combo: QComboBox, data: object) -> None:
@@ -19,6 +20,15 @@ def set_combo_api_value(combo: QComboBox, value: str) -> None:
     index = combo.findData(value)
     assert index >= 0
     combo.setCurrentIndex(index)
+
+
+def test_apply_app_theme_sets_global_stylesheet(qtbot) -> None:
+    app = QApplication.instance()
+    assert app is not None
+
+    apply_app_theme(app)
+
+    assert "QMainWindow" in app.styleSheet()
 
 
 def test_settings_dialog_round_trips_normalized_config(qtbot, tmp_path: Path) -> None:
@@ -111,8 +121,11 @@ def test_generation_panel_has_chinese_labels_and_more_size_presets(qtbot) -> Non
 
     assert panel.prompt_edit.placeholderText().startswith("请输入图片描述")
     assert panel.generate_button.text() == "立即生成"
+    assert panel.generate_button.objectName() == "primaryButton"
     assert panel.queue_button.text() == "加入队列"
+    assert panel.queue_button.objectName() == "secondaryButton"
     assert panel.batch_button.text() == "批量生成"
+    assert panel.batch_button.objectName() == "ghostButton"
     assert panel.endpoint_combo.itemText(0) == "图片接口"
     assert panel.size_combo.isEditable()
     for preset in SIZE_PRESETS:

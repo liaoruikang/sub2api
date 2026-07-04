@@ -30,12 +30,14 @@ class PreviewPanel(QWidget):
         self._zoom_factor = 1.0
         self._fit_to_window = True
 
-        self.image_label = QLabel("未选择图片")
+        self.image_label = QLabel("未选择图片\n生成完成后将在此预览结果")
+        self.image_label.setObjectName("previewImage")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setMinimumSize(360, 260)
         self.image_label.setScaledContents(False)
 
         self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("previewCanvas")
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.scroll_area.setWidget(self.image_label)
@@ -53,7 +55,9 @@ class PreviewPanel(QWidget):
         self.actual_size_button.clicked.connect(self.actual_size)
         self.fit_button.clicked.connect(self.fit_to_window)
 
-        zoom_layout = QHBoxLayout()
+        zoom_bar = QWidget()
+        zoom_bar.setObjectName("previewToolbar")
+        zoom_layout = QHBoxLayout(zoom_bar)
         zoom_layout.setContentsMargins(0, 0, 0, 0)
         zoom_layout.setSpacing(8)
         zoom_layout.addWidget(QLabel("预览结果"))
@@ -65,8 +69,10 @@ class PreviewPanel(QWidget):
         zoom_layout.addWidget(self.zoom_label)
 
         self.path_label = QLabel("未选择图片")
+        self.path_label.setObjectName("metadataLabel")
         self.path_label.setWordWrap(True)
         self.message_label = QLabel("未选择图片")
+        self.message_label.setObjectName("messageLabel")
         self.message_label.setWordWrap(True)
 
         self.save_as_button = QPushButton("另存为…")
@@ -74,6 +80,18 @@ class PreviewPanel(QWidget):
         self.open_directory_button = QPushButton("打开目录")
         self.copy_base64_button = QPushButton("复制 Base64")
         self.export_base64_button = QPushButton("导出 Base64…")
+        for button in (
+            self.save_as_button,
+            self.copy_image_button,
+            self.open_directory_button,
+            self.copy_base64_button,
+            self.export_base64_button,
+            self.zoom_out_button,
+            self.zoom_in_button,
+            self.actual_size_button,
+            self.fit_button,
+        ):
+            button.setObjectName("ghostButton")
 
         self.save_as_button.clicked.connect(self.save_as)
         self.copy_image_button.clicked.connect(self.copy_image)
@@ -93,7 +111,7 @@ class PreviewPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
-        layout.addLayout(zoom_layout)
+        layout.addWidget(zoom_bar)
         layout.addWidget(self.scroll_area, 1)
         layout.addWidget(self.path_label)
         layout.addWidget(self.message_label)

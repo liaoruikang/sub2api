@@ -365,6 +365,9 @@ def test_main_window_shows_redacted_status_and_forwards_generation_signals(qtbot
     qtbot.addWidget(window)
 
     assert window.windowTitle() == "图片生成器"
+    assert window.settings_button.objectName() == "settingsButton"
+    assert window.generation_panel.objectName() == "sidebarCard"
+    assert window.preview_panel.scroll_area.objectName() == "previewCanvas"
     status_text = " ".join(
         [
             window.endpoint_label.text(),

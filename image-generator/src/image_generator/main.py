@@ -7,6 +7,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from image_generator.app import ConfigurationCancelled, ImageGeneratorApplication
+from image_generator.ui.theme import apply_app_theme
 
 
 def main() -> int:
@@ -14,6 +15,7 @@ def main() -> int:
 
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
     app = QApplication(sys.argv)
+    apply_app_theme(app)
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
