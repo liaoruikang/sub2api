@@ -57,6 +57,12 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		ID                           int64      `json:"id"`
 		GroupID                      int64      `json:"group_id"`
 		GroupPlatform                string     `json:"group_platform"`
+		GroupName                    string     `json:"group_name"`
+		RateMultiplier               float64    `json:"rate_multiplier"`
+		PeakRateEnabled              bool       `json:"peak_rate_enabled"`
+		PeakStart                    string     `json:"peak_start"`
+		PeakEnd                      string     `json:"peak_end"`
+		PeakRateMultiplier           float64    `json:"peak_rate_multiplier"`
 		Name                         string     `json:"name"`
 		Description                  string     `json:"description"`
 		Price                        float64    `json:"price"`
@@ -76,11 +82,15 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		FirstPurchaseDiscountPrice   *float64   `json:"first_purchase_discount_price,omitempty"`
 		SortOrder                    int        `json:"sort_order"`
 	}
-	platformMap := h.configService.GetGroupPlatformMap(c.Request.Context(), plans)
+	groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), plans)
 	result := make([]planWithPlatform, 0, len(plans))
 	for _, p := range plans {
+		gi := groupInfo[p.GroupID]
 		result = append(result, planWithPlatform{
-			ID: int64(p.ID), GroupID: p.GroupID, GroupPlatform: platformMap[p.GroupID],
+			ID: int64(p.ID), GroupID: p.GroupID,
+			GroupPlatform: gi.Platform, GroupName: gi.Name,
+			RateMultiplier: gi.RateMultiplier, PeakRateEnabled: gi.PeakRateEnabled,
+			PeakStart: gi.PeakStart, PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
 			ProductName: p.ProductName, ForSale: p.ForSale, ListedAt: p.ListedAt, OffSaleAt: p.OffSaleAt,
@@ -168,7 +178,10 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		planList = append(planList, checkoutPlan{
 			ID: int64(p.ID), GroupID: p.GroupID,
 			GroupPlatform: gi.Platform, GroupName: gi.Name,
-			RateMultiplier: gi.RateMultiplier, DailyLimitUSD: gi.DailyLimitUSD,
+			RateMultiplier:  gi.RateMultiplier,
+			PeakRateEnabled: gi.PeakRateEnabled, PeakStart: gi.PeakStart,
+			PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
+			DailyLimitUSD:  gi.DailyLimitUSD,
 			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
 			ModelScopes: gi.ModelScopes,
 			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
@@ -196,6 +209,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		Plans:                     planList,
 		BalanceDisabled:           cfg.BalanceDisabled,
 		BalanceRechargeMultiplier: cfg.BalanceRechargeMultiplier,
+		SubscriptionUSDToCNYRate:  cfg.SubscriptionUSDToCNYRate,
 		RechargeFeeRate:           cfg.RechargeFeeRate,
 		HelpText:                  cfg.HelpText,
 		HelpImageURL:              cfg.HelpImageURL,
@@ -211,6 +225,7 @@ type checkoutInfoResponse struct {
 	Plans                     []checkoutPlan                  `json:"plans"`
 	BalanceDisabled           bool                            `json:"balance_disabled"`
 	BalanceRechargeMultiplier float64                         `json:"balance_recharge_multiplier"`
+	SubscriptionUSDToCNYRate  float64                         `json:"subscription_usd_to_cny_rate"`
 	RechargeFeeRate           float64                         `json:"recharge_fee_rate"`
 	HelpText                  string                          `json:"help_text"`
 	HelpImageURL              string                          `json:"help_image_url"`
@@ -224,6 +239,10 @@ type checkoutPlan struct {
 	GroupPlatform                  string     `json:"group_platform"`
 	GroupName                      string     `json:"group_name"`
 	RateMultiplier                 float64    `json:"rate_multiplier"`
+	PeakRateEnabled                bool       `json:"peak_rate_enabled"`
+	PeakStart                      string     `json:"peak_start"`
+	PeakEnd                        string     `json:"peak_end"`
+	PeakRateMultiplier             float64    `json:"peak_rate_multiplier"`
 	DailyLimitUSD                  *float64   `json:"daily_limit_usd"`
 	WeeklyLimitUSD                 *float64   `json:"weekly_limit_usd"`
 	MonthlyLimitUSD                *float64   `json:"monthly_limit_usd"`

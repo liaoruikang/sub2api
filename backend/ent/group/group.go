@@ -40,6 +40,14 @@ const (
 	FieldLimitedTimeRpmLimit = "limited_time_rpm_limit"
 	// FieldLimitedTimeUserConcurrencyLimit holds the string denoting the limited_time_user_concurrency_limit field in the database.
 	FieldLimitedTimeUserConcurrencyLimit = "limited_time_user_concurrency_limit"
+	// FieldPeakRateEnabled holds the string denoting the peak_rate_enabled field in the database.
+	FieldPeakRateEnabled = "peak_rate_enabled"
+	// FieldPeakStart holds the string denoting the peak_start field in the database.
+	FieldPeakStart = "peak_start"
+	// FieldPeakEnd holds the string denoting the peak_end field in the database.
+	FieldPeakEnd = "peak_end"
+	// FieldPeakRateMultiplier holds the string denoting the peak_rate_multiplier field in the database.
+	FieldPeakRateMultiplier = "peak_rate_multiplier"
 	// FieldIsExclusive holds the string denoting the is_exclusive field in the database.
 	FieldIsExclusive = "is_exclusive"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -187,6 +195,10 @@ var Columns = []string{
 	FieldLimitedTimeMultiplierValue,
 	FieldLimitedTimeRpmLimit,
 	FieldLimitedTimeUserConcurrencyLimit,
+	FieldPeakRateEnabled,
+	FieldPeakStart,
+	FieldPeakEnd,
+	FieldPeakRateMultiplier,
 	FieldIsExclusive,
 	FieldStatus,
 	FieldPlatform,
@@ -270,6 +282,18 @@ var (
 	DefaultLimitedTimeRpmLimit int
 	// DefaultLimitedTimeUserConcurrencyLimit holds the default value on creation for the "limited_time_user_concurrency_limit" field.
 	DefaultLimitedTimeUserConcurrencyLimit int
+	// DefaultPeakRateEnabled holds the default value on creation for the "peak_rate_enabled" field.
+	DefaultPeakRateEnabled bool
+	// DefaultPeakStart holds the default value on creation for the "peak_start" field.
+	DefaultPeakStart string
+	// PeakStartValidator is a validator for the "peak_start" field. It is called by the builders before save.
+	PeakStartValidator func(string) error
+	// DefaultPeakEnd holds the default value on creation for the "peak_end" field.
+	DefaultPeakEnd string
+	// PeakEndValidator is a validator for the "peak_end" field. It is called by the builders before save.
+	PeakEndValidator func(string) error
+	// DefaultPeakRateMultiplier holds the default value on creation for the "peak_rate_multiplier" field.
+	DefaultPeakRateMultiplier float64
 	// DefaultIsExclusive holds the default value on creation for the "is_exclusive" field.
 	DefaultIsExclusive bool
 	// DefaultStatus holds the default value on creation for the "status" field.
@@ -388,6 +412,26 @@ func ByLimitedTimeRpmLimit(opts ...sql.OrderTermOption) OrderOption {
 // ByLimitedTimeUserConcurrencyLimit orders the results by the limited_time_user_concurrency_limit field.
 func ByLimitedTimeUserConcurrencyLimit(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLimitedTimeUserConcurrencyLimit, opts...).ToFunc()
+}
+
+// ByPeakRateEnabled orders the results by the peak_rate_enabled field.
+func ByPeakRateEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPeakRateEnabled, opts...).ToFunc()
+}
+
+// ByPeakStart orders the results by the peak_start field.
+func ByPeakStart(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPeakStart, opts...).ToFunc()
+}
+
+// ByPeakEnd orders the results by the peak_end field.
+func ByPeakEnd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPeakEnd, opts...).ToFunc()
+}
+
+// ByPeakRateMultiplier orders the results by the peak_rate_multiplier field.
+func ByPeakRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPeakRateMultiplier, opts...).ToFunc()
 }
 
 // ByIsExclusive orders the results by the is_exclusive field.
