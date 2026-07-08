@@ -182,6 +182,7 @@
           @clear="clearSelection"
           @select-page="selectPage"
           @toggle-schedulable="handleBulkToggleSchedulable"
+          @toggle-highest-scheduling="handleBulkToggleHighestScheduling"
         />
         <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <DataTable
@@ -265,19 +266,26 @@
             </div>
           </template>
           <template #cell-schedulable="{ row }">
-            <div class="inline-flex items-center gap-1.5">
-              <button @click="handleToggleSchedulable(row)" :disabled="togglingSchedulable === row.id" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800" :class="[row.schedulable ? 'bg-primary-500 hover:bg-primary-600' : 'bg-gray-200 hover:bg-gray-300 dark:bg-dark-600 dark:hover:bg-dark-500']" :title="row.schedulable ? t('admin.accounts.schedulableEnabled') : t('admin.accounts.schedulableDisabled')">
+            <div class="inline-flex flex-wrap items-center gap-1.5">
+              <button @click="handleToggleSchedulable(row)" :disabled="isSchedulingToggleBusy(row.id)" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800" :class="[row.schedulable ? 'bg-primary-500 hover:bg-primary-600' : 'bg-gray-200 hover:bg-gray-300 dark:bg-dark-600 dark:hover:bg-dark-500']" :title="row.schedulable ? t('admin.accounts.schedulableEnabled') : t('admin.accounts.schedulableDisabled')">
                 <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" :class="[row.schedulable ? 'translate-x-4' : 'translate-x-0']" />
               </button>
-              <span
-                v-if="readHighestSchedulingState(row.extra).enabled"
-                data-testid="highest-scheduling-badge"
-                :title="t('admin.accounts.highestSchedulingMode')"
-                class="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold leading-none text-amber-700 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200"
+              <button
+                type="button"
+                data-testid="highest-scheduling-toggle"
+                @click="handleToggleHighestScheduling(row)"
+                :disabled="isSchedulingToggleBusy(row.id)"
+                :title="readHighestSchedulingState(row.extra).enabled ? t('admin.accounts.disableHighestSchedulingAction') : t('admin.accounts.enableHighestSchedulingAction')"
+                :class="[
+                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800',
+                  readHighestSchedulingState(row.extra).enabled
+                    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25'
+                    : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600'
+                ]"
               >
                 <Icon name="sparkles" size="xs" />
                 <span>{{ t('admin.accounts.highestSchedulingMode') }}</span>
-              </span>
+              </button>
             </div>
           </template>
           <template #cell-today_stats="{ row }">
@@ -468,7 +476,7 @@ import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
 import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
 import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
-import { readHighestSchedulingState } from '@/components/account/highestScheduling'
+import { applyHighestSchedulingExtra, readHighestSchedulingState } from '@/components/account/highestScheduling'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRulesModal.vue'
@@ -552,6 +560,9 @@ const showSchedulePanel = ref(false)
 const scheduleAcc = ref<Account | null>(null)
 const scheduleModelOptions = ref<SelectOption[]>([])
 const togglingSchedulable = ref<number | null>(null)
+const togglingHighestScheduling = ref<number | null>(null)
+const isSchedulingToggleBusy = (accountId: number) =>
+  togglingSchedulable.value === accountId || togglingHighestScheduling.value === accountId
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
 
@@ -1348,6 +1359,20 @@ const updateSchedulableInList = (accountIds: number[], schedulable: boolean) => 
   const idSet = new Set(accountIds)
   accounts.value = accounts.value.map((account) => (idSet.has(account.id) ? { ...account, schedulable } : account))
 }
+const updateHighestSchedulingInList = (accountIds: number[], enabled: boolean) => {
+  if (accountIds.length === 0) return
+  const idSet = new Set(accountIds)
+  accounts.value = accounts.value.map((account) => {
+    if (!idSet.has(account.id)) return account
+    return {
+      ...account,
+      extra: applyHighestSchedulingExtra(account.extra, {
+        enabled,
+        recoveryMinutes: enabled ? readHighestSchedulingState(account.extra).recoveryMinutes : 0
+      })
+    }
+  })
+}
 const normalizeBulkSchedulableResult = (
   result: {
     success?: number
@@ -1442,6 +1467,53 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     }
   } catch (error) {
     console.error('Failed to bulk toggle schedulable:', error)
+    appStore.showError(t('common.error'))
+  }
+}
+const handleBulkToggleHighestScheduling = async (enabled: boolean) => {
+  const accountIds = [...selIds.value]
+  try {
+    const result = await adminAPI.accounts.bulkUpdate(accountIds, {
+      extra: enabled
+        ? applyHighestSchedulingExtra({}, {
+            enabled: true,
+            recoveryMinutes: 0
+          })
+        : {
+            highest_scheduling_mode: false,
+            highest_scheduling_recovery_minutes: 0
+          }
+    })
+    const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkSchedulableResult(result, accountIds)
+    if (!hasIds && !hasCounts) {
+      appStore.showError(t('admin.accounts.bulkHighestSchedulingResultUnknown'))
+      setSelectedIds(accountIds)
+      load().catch((error) => {
+        console.error('Failed to refresh accounts:', error)
+      })
+      return
+    }
+    if (successIds.length > 0) {
+      updateHighestSchedulingInList(successIds, enabled)
+    }
+    if (successCount > 0 && failedCount === 0) {
+      const message = enabled
+        ? t('admin.accounts.bulkHighestSchedulingEnabled', { count: successCount })
+        : t('admin.accounts.bulkHighestSchedulingDisabled', { count: successCount })
+      appStore.showSuccess(message)
+    }
+    if (failedCount > 0) {
+      const message = hasCounts || hasIds
+        ? t('admin.accounts.bulkHighestSchedulingPartial', { success: successCount, failed: failedCount })
+        : t('admin.accounts.bulkHighestSchedulingResultUnknown')
+      appStore.showError(message)
+      setSelectedIds(failedIds.length > 0 ? failedIds : accountIds)
+    } else {
+      if (hasIds) clearSelection()
+      else setSelectedIds(accountIds)
+    }
+  } catch (error) {
+    console.error('Failed to bulk toggle highest scheduling:', error)
     appStore.showError(t('common.error'))
   }
 }
@@ -1757,6 +1829,7 @@ const confirmCreateSparkShadow = async () => {
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
 const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; reload() } catch (error) { console.error('Failed to delete account:', error) } }
 const handleToggleSchedulable = async (a: Account) => {
+  if (isSchedulingToggleBusy(a.id)) return
   const nextSchedulable = !a.schedulable
   togglingSchedulable.value = a.id
   try {
@@ -1768,6 +1841,32 @@ const handleToggleSchedulable = async (a: Account) => {
     appStore.showError(t('admin.accounts.failedToToggleSchedulable'))
   } finally {
     togglingSchedulable.value = null
+  }
+}
+const handleToggleHighestScheduling = async (a: Account) => {
+  if (isSchedulingToggleBusy(a.id)) return
+  const highestSchedulingState = readHighestSchedulingState(a.extra)
+  const nextEnabled = !highestSchedulingState.enabled
+  togglingHighestScheduling.value = a.id
+  try {
+    const updated = await adminAPI.accounts.update(a.id, {
+      extra: applyHighestSchedulingExtra(a.extra, {
+        enabled: nextEnabled,
+        recoveryMinutes: nextEnabled ? highestSchedulingState.recoveryMinutes : 0
+      })
+    })
+    patchAccountInList(updated)
+    enterAutoRefreshSilentWindow()
+    appStore.showSuccess(
+      nextEnabled
+        ? t('admin.accounts.highestSchedulingEnabled')
+        : t('admin.accounts.highestSchedulingDisabled')
+    )
+  } catch (error) {
+    console.error('Failed to toggle highest scheduling:', error)
+    appStore.showError(t('admin.accounts.failedToToggleHighestScheduling'))
+  } finally {
+    togglingHighestScheduling.value = null
   }
 }
 const handleShowTempUnsched = (a: Account) => { tempUnschedAcc.value = a; showTempUnsched.value = true }

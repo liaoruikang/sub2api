@@ -609,6 +609,63 @@
         </div>
       </div>
 
+      <!-- Highest scheduling -->
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <div class="flex-1 pr-4">
+            <label
+              id="bulk-edit-highest-scheduling-label"
+              class="input-label mb-0"
+              for="bulk-edit-highest-scheduling-enabled"
+            >
+              {{ t('admin.accounts.highestSchedulingMode') }}
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.highestSchedulingModeHint') }}
+            </p>
+          </div>
+          <input
+            v-model="enableHighestScheduling"
+            id="bulk-edit-highest-scheduling-enabled"
+            type="checkbox"
+            aria-controls="bulk-edit-highest-scheduling-body"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div
+          id="bulk-edit-highest-scheduling-body"
+          :class="!enableHighestScheduling && 'pointer-events-none opacity-50'"
+          class="space-y-4"
+        >
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              highestSchedulingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+            @click="highestSchedulingEnabled = !highestSchedulingEnabled"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                highestSchedulingEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+          <div v-if="highestSchedulingEnabled">
+            <label class="input-label">{{ t('admin.accounts.highestSchedulingRecoveryMinutes') }}</label>
+            <input
+              v-model.number="highestSchedulingRecoveryMinutes"
+              type="number"
+              min="0"
+              max="10080"
+              class="input"
+            />
+            <p class="input-hint">{{ t('admin.accounts.highestSchedulingRecoveryMinutesHint') }}</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Proxy -->
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -1272,6 +1329,7 @@ import {
   buildModelMappingObject as buildModelMappingPayload,
   getPresetMappingsByPlatform
 } from '@/composables/useModelWhitelist'
+import { applyHighestSchedulingExtra } from '@/components/account/highestScheduling'
 import {
   buildHeaderOverridesObject,
   getHeaderOverrideTemplate,
@@ -1398,6 +1456,7 @@ const enableCustomErrorCodes = ref(false)
 const enableInterceptWarmup = ref(false)
 const enableHeaderOverride = ref(false)
 const enableProxy = ref(false)
+const enableHighestScheduling = ref(false)
 const enableConcurrency = ref(false)
 const enableLoadFactor = ref(false)
 const enablePriority = ref(false)
@@ -1459,6 +1518,8 @@ const fillHeaderOverrideTemplate = () => {
   headerOverrideRows.value = rows
 }
 const proxyId = ref<number | null>(null)
+const highestSchedulingEnabled = ref(false)
+const highestSchedulingRecoveryMinutes = ref<number | null>(0)
 const concurrency = ref(1)
 const loadFactor = ref<number | null>(null)
 const priority = ref(1)
@@ -1626,6 +1687,20 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   if (enableProxy.value) {
     // 后端期望 proxy_id: 0 表示清除代理，而不是 null
     updates.proxy_id = proxyId.value === null ? 0 : proxyId.value
+  }
+
+  if (enableHighestScheduling.value) {
+    const extra = ensureExtra()
+    if (highestSchedulingEnabled.value) {
+      updates.extra = applyHighestSchedulingExtra(extra, {
+        enabled: true,
+        recoveryMinutes: highestSchedulingRecoveryMinutes.value
+      })
+    } else {
+      extra.highest_scheduling_mode = false
+      extra.highest_scheduling_recovery_minutes = 0
+      updates.extra = extra
+    }
   }
 
   if (enableConcurrency.value) {
@@ -1839,6 +1914,7 @@ const handleSubmit = async () => {
     enableInterceptWarmup.value ||
     enableHeaderOverride.value ||
     enableProxy.value ||
+    enableHighestScheduling.value ||
     enableConcurrency.value ||
     enableLoadFactor.value ||
     enablePriority.value ||
@@ -1956,6 +2032,7 @@ watch(
       enableInterceptWarmup.value = false
       enableHeaderOverride.value = false
       enableProxy.value = false
+      enableHighestScheduling.value = false
       enableConcurrency.value = false
       enableLoadFactor.value = false
       enablePriority.value = false
@@ -1983,6 +2060,8 @@ watch(
       headerOverrideEnabled.value = false
       headerOverrideRows.value = []
       proxyId.value = null
+      highestSchedulingEnabled.value = false
+      highestSchedulingRecoveryMinutes.value = 0
       concurrency.value = 1
       loadFactor.value = null
       priority.value = 1

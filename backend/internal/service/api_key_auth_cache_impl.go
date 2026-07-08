@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 19 // v19: include group peak rate and group user concurrency snapshot fields
+const apiKeyAuthSnapshotVersion = 21 // v21: include batch image, scheduling, limited-time, peak-rate, and concurrency group snapshot fields
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -238,7 +238,6 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		},
 	}
 
-	// 填充 (user, group) RPM override —— snapshot 构建时查一次 DB，后续请求零 DB 往返。
 	if apiKey.GroupID != nil && *apiKey.GroupID > 0 && s.userGroupRateRepo != nil {
 		override, err := s.userGroupRateRepo.GetRPMOverrideByUserAndGroup(ctx, apiKey.UserID, *apiKey.GroupID)
 		if err == nil && override != nil {
@@ -248,7 +247,6 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		if err == nil && limitedTimeOverride != nil {
 			snapshot.User.UserGroupLimitedTimeRPMOverride = limitedTimeOverride
 		}
-		// 查询失败或无 override 时留 nil，checkRPM 会回退到 DB 查询
 	}
 	if apiKey.Group != nil {
 		snapshot.Group = &APIKeyAuthGroupSnapshot{
@@ -267,11 +265,14 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			WeeklyLimitUSD:                       apiKey.Group.WeeklyLimitUSD,
 			MonthlyLimitUSD:                      apiKey.Group.MonthlyLimitUSD,
 			AllowImageGeneration:                 apiKey.Group.AllowImageGeneration,
+			AllowBatchImageGeneration:            apiKey.Group.AllowBatchImageGeneration,
 			ImageRateIndependent:                 apiKey.Group.ImageRateIndependent,
 			ImageRateMultiplier:                  apiKey.Group.ImageRateMultiplier,
 			ImagePrice1K:                         apiKey.Group.ImagePrice1K,
 			ImagePrice2K:                         apiKey.Group.ImagePrice2K,
 			ImagePrice4K:                         apiKey.Group.ImagePrice4K,
+			BatchImageDiscountMultiplier:         apiKey.Group.BatchImageDiscountMultiplier,
+			BatchImageHoldMultiplier:             apiKey.Group.BatchImageHoldMultiplier,
 			ClaudeCodeOnly:                       apiKey.Group.ClaudeCodeOnly,
 			FallbackGroupID:                      apiKey.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:      apiKey.Group.FallbackGroupIDOnInvalidRequest,
@@ -280,6 +281,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			MCPXMLInject:                         apiKey.Group.MCPXMLInject,
 			SupportedModelScopes:                 apiKey.Group.SupportedModelScopes,
 			AllowMessagesDispatch:                apiKey.Group.AllowMessagesDispatch,
+			RequireOAuthOnly:                     apiKey.Group.RequireOAuthOnly,
+			RequirePrivacySet:                    apiKey.Group.RequirePrivacySet,
 			DefaultMappedModel:                   apiKey.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:          apiKey.Group.MessagesDispatchModelConfig,
 			ModelsListConfig:                     apiKey.Group.ModelsListConfig,
@@ -352,11 +355,14 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			WeeklyLimitUSD:                       snapshot.Group.WeeklyLimitUSD,
 			MonthlyLimitUSD:                      snapshot.Group.MonthlyLimitUSD,
 			AllowImageGeneration:                 snapshot.Group.AllowImageGeneration,
+			AllowBatchImageGeneration:            snapshot.Group.AllowBatchImageGeneration,
 			ImageRateIndependent:                 snapshot.Group.ImageRateIndependent,
 			ImageRateMultiplier:                  snapshot.Group.ImageRateMultiplier,
 			ImagePrice1K:                         snapshot.Group.ImagePrice1K,
 			ImagePrice2K:                         snapshot.Group.ImagePrice2K,
 			ImagePrice4K:                         snapshot.Group.ImagePrice4K,
+			BatchImageDiscountMultiplier:         snapshot.Group.BatchImageDiscountMultiplier,
+			BatchImageHoldMultiplier:             snapshot.Group.BatchImageHoldMultiplier,
 			ClaudeCodeOnly:                       snapshot.Group.ClaudeCodeOnly,
 			FallbackGroupID:                      snapshot.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:      snapshot.Group.FallbackGroupIDOnInvalidRequest,
@@ -365,6 +371,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			MCPXMLInject:                         snapshot.Group.MCPXMLInject,
 			SupportedModelScopes:                 snapshot.Group.SupportedModelScopes,
 			AllowMessagesDispatch:                snapshot.Group.AllowMessagesDispatch,
+			RequireOAuthOnly:                     snapshot.Group.RequireOAuthOnly,
+			RequirePrivacySet:                    snapshot.Group.RequirePrivacySet,
 			DefaultMappedModel:                   snapshot.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:          snapshot.Group.MessagesDispatchModelConfig,
 			ModelsListConfig:                     snapshot.Group.ModelsListConfig,
