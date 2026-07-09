@@ -218,6 +218,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/videos',
+    name: 'GrokVideoConsole',
+    component: () => import('@/views/user/GrokVideoConsoleView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Video Jobs',
+      titleKey: 'grokVideoConsole.title',
+      descriptionKey: 'grokVideoConsole.description'
+    }
+  },
+  {
     path: '/batch-image',
     name: 'BatchImageGuide',
     alias: '/docs/batch-image',

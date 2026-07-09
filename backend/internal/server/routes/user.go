@@ -46,6 +46,16 @@ func RegisterUserRoutes(
 				images.POST("/generations", bodyLimit, h.UserImage.Generate)
 			}
 
+			videos := user.Group("/videos")
+			{
+				jobs := videos.Group("/jobs")
+				{
+					jobs.GET("", h.GrokVideoJob.List)
+					jobs.GET("/:request_id", h.GrokVideoJob.Get)
+					jobs.POST("/refresh", h.GrokVideoJob.Refresh)
+				}
+			}
+
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")
 			{

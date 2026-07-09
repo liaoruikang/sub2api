@@ -404,6 +404,7 @@ export default {
     announcements: '公告',
     apiKeys: 'API 密钥',
     batchImage: '批量生图',
+    videoJobs: '视频任务',
     usage: '使用记录',
     redeem: '兑换',
     affiliate: '邀请返利',
@@ -1159,6 +1160,64 @@ export default {
       unitPerMillion: '/ 1M token',
       unitPerRequest: '/ 次'
     }
+  },
+
+  grokVideoConsole: {
+    title: '视频任务',
+    description: '查看视频生成任务的提交记录、状态进度与结果。',
+    filters: {
+      modelPlaceholder: '按模型筛选',
+      allStatuses: '全部状态',
+      allApiKeys: '全部 API Key',
+      allJobs: '全部任务',
+      activeOnly: '仅进行中',
+      reset: '重置',
+    },
+    columns: {
+      requestId: '任务 ID',
+      model: '模型',
+      apiKey: 'API Key',
+      status: '状态',
+      progress: '进度',
+      submittedAt: '提交时间',
+      updatedAt: '更新时间',
+      actions: '操作',
+    },
+    status: {
+      pending: '排队中',
+      running: '生成中',
+      completed: '已完成',
+      failed: '失败',
+      cancelled: '已取消',
+    },
+    progress: {
+      defaultText: '等待上游返回最新进度',
+    },
+    actions: {
+      details: '详情',
+      refresh: '刷新',
+    },
+    empty: {
+      title: '暂无视频任务',
+      description: '提交视频任务后，这里会持续显示状态和结果。',
+    },
+    details: {
+      title: '任务详情',
+      requestId: '任务 ID',
+      status: '当前状态',
+      model: '模型',
+      apiKey: 'API Key',
+      submittedAt: '提交时间',
+      lastUpdatedAt: '更新时间',
+      progress: '进度',
+      prompt: '提示词',
+      results: '结果链接',
+      coverImage: '封面图',
+      error: '错误信息',
+    },
+    loadJobsFailed: '加载视频任务失败。',
+    loadApiKeysFailed: '加载 API Key 列表失败。',
+    refreshFailed: '刷新视频任务状态失败。',
   },
 
   imagePlayground: {

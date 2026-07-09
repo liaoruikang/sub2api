@@ -119,11 +119,14 @@ func ProvideHandlers(
 	paymentWebhookHandler *PaymentWebhookHandler,
 	availableChannelHandler *AvailableChannelHandler,
 	batchImageHandler *BatchImageHandler,
+	grokVideoJobHandler *GrokVideoJobHandler,
+	grokVideoJobService *service.GrokVideoJobService,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
 	userImageHandler.SetGateway(openaiGatewayHandler)
 	userImageHandler.SetGeminiGateway(gatewayHandler)
+	openaiGatewayHandler.SetGrokVideoJobService(grokVideoJobService)
 	return &Handlers{
 		Auth:             authHandler,
 		User:             userHandler,
@@ -143,6 +146,7 @@ func ProvideHandlers(
 		PaymentWebhook:   paymentWebhookHandler,
 		AvailableChannel: availableChannelHandler,
 		BatchImage:       batchImageHandler,
+		GrokVideoJob:     grokVideoJobHandler,
 	}
 }
 
@@ -166,6 +170,7 @@ var ProviderSet = wire.NewSet(
 	NewPaymentWebhookHandler,
 	NewAvailableChannelHandler,
 	NewBatchImageHandler,
+	NewGrokVideoJobHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

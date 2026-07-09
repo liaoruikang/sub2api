@@ -325,6 +325,21 @@ const BatchImageIcon = {
     )
 }
 
+const VideoIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M15.75 10.5V6.75a2.25 2.25 0 00-2.25-2.25h-7.5A2.25 2.25 0 003.75 6.75v10.5a2.25 2.25 0 002.25 2.25h7.5a2.25 2.25 0 002.25-2.25V13.5m0-3 4.5-3v9l-4.5-3'
+        })
+      ]
+    )
+}
+
 const ChartIcon = {
   render: () =>
     h(
@@ -715,6 +730,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/images', label: t('nav.imagePlayground'), icon: ImageIcon, hideInSimpleMode: true },
+    { path: '/videos', label: t('nav.videoJobs'), icon: VideoIcon, hideInSimpleMode: true },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },

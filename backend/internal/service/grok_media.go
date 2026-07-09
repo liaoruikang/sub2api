@@ -252,6 +252,71 @@ func (s *OpenAIGatewayService) BindGrokMediaVideoRequestAccount(ctx context.Cont
 	return s.BindStickySession(ctx, groupID, GrokMediaVideoRequestSessionHash(requestID), accountID)
 }
 
+func (s *OpenAIGatewayService) RefreshGrokVideoStatusByAccountID(ctx context.Context, accountID int64, requestID string) (*GrokMediaVideoStatusSnapshot, error) {
+	if s == nil || s.accountRepo == nil {
+		return nil, ErrAccountNotFound
+	}
+	account, err := s.accountRepo.GetByID(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	return s.fetchGrokVideoStatus(ctx, account, requestID)
+}
+
+func (s *OpenAIGatewayService) fetchGrokVideoStatus(ctx context.Context, account *Account, requestID string) (*GrokMediaVideoStatusSnapshot, error) {
+	if account == nil {
+		return nil, ErrAccountNotFound
+	}
+	if account.Platform != PlatformGrok {
+		return nil, fmt.Errorf("account platform %s is not supported for grok video status", account.Platform)
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return nil, fmt.Errorf("request_id is required")
+	}
+	token, _, err := s.GetAccessToken(ctx, account)
+	if err != nil {
+		return nil, err
+	}
+	targetURL, err := GrokMediaEndpointVideoStatus.upstreamURL(account.GetGrokBaseURL(), requestID)
+	if err != nil {
+		return nil, err
+	}
+	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
+	defer releaseUpstreamCtx()
+	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodGet, targetURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	upstreamReq.Header.Set("Authorization", "Bearer "+token)
+	upstreamReq.Header.Set("Accept", "application/json")
+	upstreamReq.Header.Set("User-Agent", "sub2api-grok/1.0")
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
+	if err != nil {
+		return nil, s.handleOpenAIUpstreamTransportError(ctx, nil, account, err, false)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	s.updateGrokUsageSnapshot(ctx, account.ID, xai.ParseQuotaHeaders(resp.Header, resp.StatusCode))
+	if resp.StatusCode >= 400 {
+		body := s.readUpstreamErrorBody(resp)
+		s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body)
+		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+		if upstreamMsg == "" {
+			upstreamMsg = fmt.Sprintf("xAI upstream returned status %d", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("grok video status upstream error: %s", upstreamMsg)
+	}
+	respBody, err := ReadUpstreamResponseBody(resp.Body, s.cfg, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeGrokMediaVideoStatusSnapshot(requestID, respBody), nil
+}
+
 func (e GrokMediaEndpoint) upstreamURL(baseURL, requestID string) (string, error) {
 	switch e {
 	case GrokMediaEndpointImagesGenerations:
@@ -350,6 +415,10 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	}
 	writeGrokMediaResponse(c, resp, respBody, s.responseHeaderFilter)
 	usage := grokMediaUsageFromResponse(endpoint, requestInfo, respBody)
+	var grokVideoStatus *GrokMediaVideoStatusSnapshot
+	if endpoint == GrokMediaEndpointVideoStatus {
+		grokVideoStatus = normalizeGrokMediaVideoStatusSnapshot(requestID, respBody)
+	}
 	return &OpenAIForwardResult{
 		RequestID:        requestIDHeader,
 		ResponseID:       usage.ResponseID,
@@ -363,6 +432,7 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 		ImageSize:        usage.ImageSize,
 		ImageInputSize:   usage.ImageInputSize,
 		ImageOutputSizes: usage.ImageOutputSizes,
+		GrokVideoStatus:  grokVideoStatus,
 	}, nil
 }
 
@@ -509,6 +579,160 @@ func extractGrokMediaVideoRequestID(body []byte) string {
 		}
 	}
 	return ""
+}
+
+func normalizeGrokMediaVideoStatusSnapshot(requestID string, body []byte) *GrokMediaVideoStatusSnapshot {
+	snapshot := &GrokMediaVideoStatusSnapshot{RequestID: strings.TrimSpace(requestID)}
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		snapshot.Status = GrokVideoJobStatusPending
+		return snapshot
+	}
+	if snapshot.RequestID == "" {
+		snapshot.RequestID = extractGrokMediaVideoRequestID(body)
+	}
+	snapshot.ResultURLs = dedupeNonEmptyStrings(collectGrokMediaVideoResultURLs(body))
+	snapshot.ResultURL = firstNonEmpty(
+		strings.TrimSpace(gjson.GetBytes(body, "result_url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "data.result_url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "video.result_url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "data.url").String()),
+	)
+	if snapshot.ResultURL == "" && len(snapshot.ResultURLs) > 0 {
+		snapshot.ResultURL = snapshot.ResultURLs[0]
+	}
+	snapshot.CoverImageURL = firstNonEmpty(
+		strings.TrimSpace(gjson.GetBytes(body, "cover_image_url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "data.cover_image_url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "video.cover_image_url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "thumbnail_url").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "poster_url").String()),
+	)
+	rawStatus := firstNonEmpty(
+		strings.TrimSpace(gjson.GetBytes(body, "status").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "data.status").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "video.status").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "task.status").String()),
+	)
+	snapshot.LastErrorCode = firstNonEmpty(
+		strings.TrimSpace(gjson.GetBytes(body, "error.code").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "data.error.code").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "last_error_code").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "errors.0.code").String()),
+	)
+	snapshot.LastErrorMessage = firstNonEmpty(
+		strings.TrimSpace(gjson.GetBytes(body, "error.message").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "data.error.message").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "last_error_message").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "errors.0.message").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "message").String()),
+	)
+	snapshot.ProgressText = firstNonEmpty(
+		strings.TrimSpace(gjson.GetBytes(body, "progress_text").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "data.progress_text").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "video.progress_text").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "progress_message").String()),
+	)
+	snapshot.ProgressPercent = extractGrokMediaVideoProgress(body)
+	snapshot.Status = NormalizeGrokVideoJobStatus(rawStatus)
+	if snapshot.Status == "" {
+		switch {
+		case len(snapshot.ResultURLs) > 0 || snapshot.ResultURL != "":
+			snapshot.Status = GrokVideoJobStatusCompleted
+		case snapshot.LastErrorCode != "" || snapshot.LastErrorMessage != "":
+			snapshot.Status = GrokVideoJobStatusFailed
+		default:
+			snapshot.Status = GrokVideoJobStatusPending
+		}
+	}
+	if snapshot.Status == GrokVideoJobStatusCompleted && snapshot.ProgressPercent < 100 {
+		snapshot.ProgressPercent = 100
+	}
+	return snapshot
+}
+
+func collectGrokMediaVideoResultURLs(body []byte) []string {
+	paths := []string{
+		"result_urls",
+		"data.result_urls",
+		"video.result_urls",
+		"results",
+		"data.results",
+		"videos",
+		"data.videos",
+	}
+	urls := make([]string, 0)
+	for _, path := range paths {
+		urls = appendGrokMediaVideoResultURLs(urls, gjson.GetBytes(body, path))
+	}
+	for _, path := range []string{"result_url", "data.result_url", "video.result_url", "url", "data.url", "video.url"} {
+		if url := strings.TrimSpace(gjson.GetBytes(body, path).String()); url != "" {
+			urls = append(urls, url)
+		}
+	}
+	return urls
+}
+
+func appendGrokMediaVideoResultURLs(urls []string, value gjson.Result) []string {
+	if !value.Exists() {
+		return urls
+	}
+	appendURL := func(url string) {
+		url = strings.TrimSpace(url)
+		if url != "" {
+			urls = append(urls, url)
+		}
+	}
+	switch {
+	case value.IsArray():
+		for _, item := range value.Array() {
+			if item.Type == gjson.String {
+				appendURL(item.String())
+				continue
+			}
+			appendURL(item.Get("url").String())
+			appendURL(item.Get("result_url").String())
+			appendURL(item.Get("download_url").String())
+			appendURL(item.Get("video.url").String())
+		}
+	case value.Type == gjson.String:
+		appendURL(value.String())
+	default:
+		appendURL(value.Get("url").String())
+		appendURL(value.Get("result_url").String())
+		appendURL(value.Get("download_url").String())
+		appendURL(value.Get("video.url").String())
+	}
+	return urls
+}
+
+func extractGrokMediaVideoProgress(body []byte) int {
+	for _, path := range []string{"progress", "progress_percent", "data.progress", "data.progress_percent", "video.progress", "video.progress_percent"} {
+		value := gjson.GetBytes(body, path)
+		if !value.Exists() {
+			continue
+		}
+		switch value.Type {
+		case gjson.Number:
+			if progress := int(value.Int()); progress >= 0 {
+				if progress > 100 {
+					return 100
+				}
+				return progress
+			}
+		case gjson.String:
+			if parsed, err := strconv.Atoi(strings.TrimSpace(value.String())); err == nil {
+				if parsed < 0 {
+					return 0
+				}
+				if parsed > 100 {
+					return 100
+				}
+				return parsed
+			}
+		}
+	}
+	return 0
 }
 
 func (s *OpenAIGatewayService) handleGrokMediaErrorResponse(

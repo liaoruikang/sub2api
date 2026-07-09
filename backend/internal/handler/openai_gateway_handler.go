@@ -35,6 +35,7 @@ type OpenAIGatewayHandler struct {
 	errorPassthroughService  *service.ErrorPassthroughService
 	contentModerationService *service.ContentModerationService
 	opsService               *service.OpsService
+	grokVideoJobService      *service.GrokVideoJobService
 	concurrencyHelper        *ConcurrencyHelper
 	imageLimiter             *imageConcurrencyLimiter
 	maxAccountSwitches       int
@@ -147,6 +148,10 @@ func NewOpenAIGatewayHandler(
 		maxAccountSwitches:       maxAccountSwitches,
 		cfg:                      cfg,
 	}
+}
+
+func (h *OpenAIGatewayHandler) SetGrokVideoJobService(jobService *service.GrokVideoJobService) {
+	h.grokVideoJobService = jobService
 }
 
 // Responses handles OpenAI Responses API endpoint

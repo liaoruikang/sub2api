@@ -255,6 +255,7 @@ type OpenAIForwardResult struct {
 	ImageOutputSizes   []string
 	ImageSizeSource    string
 	ImageSizeBreakdown map[string]int
+	GrokVideoStatus    *GrokMediaVideoStatusSnapshot
 
 	wsReplayInput       []json.RawMessage
 	wsReplayInputExists bool

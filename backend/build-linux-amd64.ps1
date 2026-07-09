@@ -9,10 +9,15 @@ $previousCGO_ENABLED = $env:CGO_ENABLED
 
 try {
     $version = (Get-Content .\cmd\server\VERSION -Raw).Trim()
+    $outputPath = Join-Path $scriptDir 'sub2api'
 
     $env:GOOS = 'linux'
     $env:GOARCH = 'amd64'
     $env:CGO_ENABLED = '0'
+
+    if (Test-Path -LiteralPath $outputPath) {
+        Remove-Item -LiteralPath $outputPath -Force
+    }
 
     go build -tags embed -o sub2api ./cmd/server
 

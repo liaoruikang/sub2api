@@ -404,6 +404,7 @@ export default {
     announcements: 'Announcements',
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
+    videoJobs: 'Video Jobs',
     usage: 'Usage',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
@@ -1155,6 +1156,64 @@ export default {
       unitPerMillion: '/ 1M tokens',
       unitPerRequest: '/ request'
     }
+  },
+
+  grokVideoConsole: {
+    title: 'Video Jobs',
+    description: 'Track submitted video generation jobs, live progress, and final results.',
+    filters: {
+      modelPlaceholder: 'Filter by model',
+      allStatuses: 'All statuses',
+      allApiKeys: 'All API Keys',
+      allJobs: 'All jobs',
+      activeOnly: 'Active only',
+      reset: 'Reset',
+    },
+    columns: {
+      requestId: 'Request ID',
+      model: 'Model',
+      apiKey: 'API Key',
+      status: 'Status',
+      progress: 'Progress',
+      submittedAt: 'Submitted',
+      updatedAt: 'Updated',
+      actions: 'Actions',
+    },
+    status: {
+      pending: 'Pending',
+      running: 'Running',
+      completed: 'Completed',
+      failed: 'Failed',
+      cancelled: 'Cancelled',
+    },
+    progress: {
+      defaultText: 'Waiting for the latest upstream progress update',
+    },
+    actions: {
+      details: 'Details',
+      refresh: 'Refresh',
+    },
+    empty: {
+      title: 'No video jobs yet',
+      description: 'Submitted video jobs will appear here with status and results.',
+    },
+    details: {
+      title: 'Job Details',
+      requestId: 'Request ID',
+      status: 'Current Status',
+      model: 'Model',
+      apiKey: 'API Key',
+      submittedAt: 'Submitted At',
+      lastUpdatedAt: 'Updated At',
+      progress: 'Progress',
+      prompt: 'Prompt',
+      results: 'Result Links',
+      coverImage: 'Cover Image',
+      error: 'Error',
+    },
+    loadJobsFailed: 'Failed to load video jobs.',
+    loadApiKeysFailed: 'Failed to load API keys.',
+    refreshFailed: 'Failed to refresh video job status.',
   },
 
   imagePlayground: {

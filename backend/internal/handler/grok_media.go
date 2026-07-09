@@ -299,6 +299,28 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 
 		h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil)
 		if endpoint == service.GrokMediaEndpointVideosGenerations && strings.TrimSpace(result.ResponseID) != "" {
+				if h.grokVideoJobService != nil {
+					apiKeyID := apiKey.ID
+					accountID := account.ID
+					if _, err := h.grokVideoJobService.CreateJobIfAbsent(requestCtx, service.CreateGrokVideoJobParams{
+						RequestID:     result.ResponseID,
+						UserID:        subject.UserID,
+						APIKeyID:      &apiKeyID,
+						GroupID:       apiKey.GroupID,
+						AccountID:     &accountID,
+						Model:         requestModel,
+						PromptPreview: requestInfo.Prompt,
+						Status:        service.GrokVideoJobStatusPending,
+						SubmittedAt:   time.Now(),
+					}); err != nil {
+						reqLog.Warn("grok_media.create_video_job_failed",
+							zap.Int64("account_id", account.ID),
+							zap.String("request_id", result.ResponseID),
+							zap.Error(err),
+						)
+					}
+				}
+
 			if err := h.gatewayService.BindGrokMediaVideoRequestAccount(requestCtx, apiKey.GroupID, result.ResponseID, account.ID); err != nil {
 				reqLog.Warn("grok_media.bind_video_request_account_failed",
 					zap.Int64("account_id", account.ID),
@@ -307,7 +329,16 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				)
 			}
 		}
-		if shouldRecordGrokMediaUsage(endpoint, requestModel) {
+		if endpoint == service.GrokMediaEndpointVideoStatus && strings.TrimSpace(requestID) != "" && result.GrokVideoStatus != nil && h.grokVideoJobService != nil {
+				if _, err := h.grokVideoJobService.SyncStatus(requestCtx, requestID, result.GrokVideoStatus); err != nil && !errors.Is(err, service.ErrGrokVideoJobNotFound) {
+					reqLog.Warn("grok_media.sync_video_job_status_failed",
+						zap.Int64("account_id", account.ID),
+						zap.String("request_id", requestID),
+						zap.Error(err),
+					)
+				}
+			}
+			if shouldRecordGrokMediaUsage(endpoint, requestModel) {
 			recordGrokMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, result, requestModel, body, requestID)
 		}
 		reqLog.Debug("grok_media.request_completed",
