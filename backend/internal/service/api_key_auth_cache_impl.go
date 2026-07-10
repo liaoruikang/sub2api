@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 21 // v21: include batch image, scheduling, limited-time, peak-rate, and concurrency group snapshot fields
+const apiKeyAuthSnapshotVersion = 21 // v21: include batch image, scheduling, limited-time, peak-rate, concurrency, and video pricing group snapshot fields
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -273,6 +273,11 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			ImagePrice4K:                         apiKey.Group.ImagePrice4K,
 			BatchImageDiscountMultiplier:         apiKey.Group.BatchImageDiscountMultiplier,
 			BatchImageHoldMultiplier:             apiKey.Group.BatchImageHoldMultiplier,
+			VideoRateIndependent:                 apiKey.Group.VideoRateIndependent,
+			VideoRateMultiplier:                  apiKey.Group.VideoRateMultiplier,
+			VideoPrice480P:                       apiKey.Group.VideoPrice480P,
+			VideoPrice720P:                       apiKey.Group.VideoPrice720P,
+			VideoPrice1080P:                      apiKey.Group.VideoPrice1080P,
 			ClaudeCodeOnly:                       apiKey.Group.ClaudeCodeOnly,
 			FallbackGroupID:                      apiKey.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:      apiKey.Group.FallbackGroupIDOnInvalidRequest,
@@ -363,6 +368,11 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			ImagePrice4K:                         snapshot.Group.ImagePrice4K,
 			BatchImageDiscountMultiplier:         snapshot.Group.BatchImageDiscountMultiplier,
 			BatchImageHoldMultiplier:             snapshot.Group.BatchImageHoldMultiplier,
+			VideoRateIndependent:                 snapshot.Group.VideoRateIndependent,
+			VideoRateMultiplier:                  snapshot.Group.VideoRateMultiplier,
+			VideoPrice480P:                       snapshot.Group.VideoPrice480P,
+			VideoPrice720P:                       snapshot.Group.VideoPrice720P,
+			VideoPrice1080P:                      snapshot.Group.VideoPrice1080P,
 			ClaudeCodeOnly:                       snapshot.Group.ClaudeCodeOnly,
 			FallbackGroupID:                      snapshot.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:      snapshot.Group.FallbackGroupIDOnInvalidRequest,
