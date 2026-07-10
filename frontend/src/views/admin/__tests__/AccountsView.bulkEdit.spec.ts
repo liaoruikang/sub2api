@@ -8,13 +8,17 @@ const {
   listWithEtag,
   getBatchTodayStats,
   getAllProxies,
-  getAllGroups
+  getAllGroups,
+  updateAccount,
+  bulkUpdateAccounts
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn()
+  getAllGroups: vi.fn(),
+  updateAccount: vi.fn(),
+  bulkUpdateAccounts: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -26,7 +30,9 @@ vi.mock('@/api/admin', () => ({
       delete: vi.fn(),
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
-      toggleSchedulable: vi.fn()
+      toggleSchedulable: vi.fn(),
+      update: updateAccount,
+      bulkUpdate: bulkUpdateAccounts
     },
     proxies: {
       getAll: getAllProxies
@@ -67,6 +73,7 @@ const DataTableStub = {
     <div data-test="data-table">
       <span v-for="column in columns" :key="column.key" data-test="column-key">{{ column.key }}</span>
       <div v-for="row in data" :key="row.id">
+        <slot name="cell-select" :row="row" />
         <slot name="cell-created_at" :value="row.created_at" :row="row" />
         <slot name="cell-schedulable" :row="row" />
       </div>
@@ -76,8 +83,24 @@ const DataTableStub = {
 
 const AccountBulkActionsBarStub = {
   props: ['selectedIds'],
-  emits: ['edit-filtered'],
-  template: '<button data-test="edit-filtered" @click="$emit(\'edit-filtered\')">edit filtered</button>'
+  emits: ['edit-filtered', 'toggle-highest-scheduling'],
+  template: `
+    <div>
+      <button data-test="edit-filtered" @click="$emit('edit-filtered')">edit filtered</button>
+      <button
+        data-test="bulk-enable-highest-scheduling"
+        @click="$emit('toggle-highest-scheduling', true)"
+      >
+        enable highest
+      </button>
+      <button
+        data-test="bulk-disable-highest-scheduling"
+        @click="$emit('toggle-highest-scheduling', false)"
+      >
+        disable highest
+      </button>
+    </div>
+  `
 }
 
 const BulkEditAccountModalStub = {
@@ -94,6 +117,8 @@ describe('admin AccountsView bulk edit scope', () => {
     getBatchTodayStats.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
+    updateAccount.mockReset()
+    bulkUpdateAccounts.mockReset()
 
     listAccounts.mockResolvedValue({
       items: [],
@@ -110,6 +135,23 @@ describe('admin AccountsView bulk edit scope', () => {
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
+    updateAccount.mockImplementation(async (id: number, updates: Record<string, unknown>) => ({
+      id,
+      name: 'updated-account',
+      platform: 'openai',
+      type: 'apikey',
+      status: 'active',
+      schedulable: true,
+      extra: updates.extra,
+      created_at: '2026-03-07T10:00:00Z',
+      updated_at: '2026-03-07T10:00:01Z'
+    }))
+    bulkUpdateAccounts.mockResolvedValue({
+      success: 1,
+      failed: 0,
+      success_ids: [1],
+      failed_ids: []
+    })
   })
 
   it('opens bulk edit in filtered-results mode from the bulk actions dropdown', async () => {
@@ -226,7 +268,7 @@ describe('admin AccountsView bulk edit scope', () => {
     })
   })
 
-  it('shows a highest scheduling marker only for accounts with highest scheduling enabled', async () => {
+  it('renders highest scheduling toggles with enabled and disabled actions', async () => {
     listAccounts.mockResolvedValue({
       items: [
         {
@@ -299,8 +341,159 @@ describe('admin AccountsView bulk edit scope', () => {
 
     await flushPromises()
 
-    const markers = wrapper.findAll('[data-testid="highest-scheduling-badge"]')
-    expect(markers).toHaveLength(1)
-    expect(markers[0]?.attributes('title')).toBe('admin.accounts.highestSchedulingMode')
+    const toggles = wrapper.findAll('[data-testid="highest-scheduling-toggle"]')
+    expect(toggles).toHaveLength(2)
+    expect(toggles[0]?.attributes('title')).toBe('admin.accounts.disableHighestSchedulingAction')
+    expect(toggles[1]?.attributes('title')).toBe('admin.accounts.enableHighestSchedulingAction')
+  })
+
+  it('single highest scheduling toggle sends only mode and patches only local mode', async () => {
+    listAccounts.mockResolvedValue({
+      items: [
+        {
+          id: 1,
+          name: 'highest-account',
+          platform: 'openai',
+          type: 'apikey',
+          status: 'active',
+          schedulable: true,
+          extra: {
+            unrelated: 'kept',
+            highest_scheduling_mode: false,
+            highest_scheduling_recovery_minutes: 30
+          },
+          created_at: '2026-03-07T10:00:00Z',
+          updated_at: '2026-03-07T10:00:00Z'
+        }
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
+          AccountTableFilters: { template: '<div></div>' },
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-testid="highest-scheduling-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(updateAccount).toHaveBeenCalledWith(1, {
+      extra: {
+        unrelated: 'kept',
+        highest_scheduling_mode: true
+      }
+    })
+    expect(bulkUpdateAccounts).not.toHaveBeenCalled()
+    const row = wrapper.getComponent(DataTableStub).props('data')[0]
+    expect(row.extra).toEqual({
+      unrelated: 'kept',
+      highest_scheduling_mode: true
+    })
+  })
+
+  it('bulk highest scheduling toggle sends explicit false mode only', async () => {
+    listAccounts.mockResolvedValue({
+      items: [
+        {
+          id: 1,
+          name: 'highest-account',
+          platform: 'openai',
+          type: 'apikey',
+          status: 'active',
+          schedulable: true,
+          extra: { unrelated: 'kept', highest_scheduling_mode: true },
+          created_at: '2026-03-07T10:00:00Z',
+          updated_at: '2026-03-07T10:00:00Z'
+        }
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
+          AccountTableFilters: { template: '<div></div>' },
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.get('input[type="checkbox"]').setValue(true)
+    await wrapper.get('[data-test="bulk-disable-highest-scheduling"]').trigger('click')
+    await flushPromises()
+
+    expect(bulkUpdateAccounts).toHaveBeenCalledWith([1], {
+      extra: { highest_scheduling_mode: false }
+    })
+    const row = wrapper.getComponent(DataTableStub).props('data')[0]
+    expect(row.extra).toEqual({ unrelated: 'kept', highest_scheduling_mode: false })
   })
 })

@@ -896,7 +896,6 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 	req OpenAIAccountScheduleRequest,
 	plan openAIAccountLoadPlan,
 ) []openAIAccountCandidateScore {
-	now := time.Now()
 	buildSelectionOrder := func(pool []openAIAccountCandidateScore) []openAIAccountCandidateScore {
 		if len(pool) == 0 || plan.topK <= 0 {
 			return nil
@@ -929,7 +928,7 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 		highest := make([]openAIAccountCandidateScore, 0, len(pool))
 		normal := make([]openAIAccountCandidateScore, 0, len(pool))
 		for _, candidate := range pool {
-			if accountHighestSchedulingEffective(candidate.account, now) {
+			if accountHighestSchedulingEffective(candidate.account) {
 				highest = append(highest, candidate)
 			} else {
 				normal = append(normal, candidate)
@@ -969,14 +968,12 @@ func sortOpenAICompactRetryCandidates(pool []openAIAccountCandidateScore) []open
 		return nil
 	}
 	ordered := append([]openAIAccountCandidateScore(nil), pool...)
-	now := time.Now()
 	sort.SliceStable(ordered, func(i, j int) bool {
 		a, b := ordered[i], ordered[j]
 		return isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(
 			accountWithLoad{account: a.account, loadInfo: a.loadInfo},
 			accountWithLoad{account: b.account, loadInfo: b.loadInfo},
 			false,
-			now,
 		)
 	})
 	return ordered

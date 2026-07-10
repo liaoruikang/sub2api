@@ -563,11 +563,6 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"auto_pause_7d_disabled",
 		"model_rate_limits",
 		service.AccountExtraHighestSchedulingMode,
-		service.AccountExtraHighestSchedulingRecoveryMinutes,
-		service.AccountExtraHighestSchedulingSuppressed,
-		service.AccountExtraHighestSchedulingSuppressedUntil,
-		service.AccountExtraHighestSchedulingSuppressedAt,
-		service.AccountExtraHighestSchedulingSuppressedReason,
 	}
 	filtered := make(map[string]any)
 	for _, key := range keys {

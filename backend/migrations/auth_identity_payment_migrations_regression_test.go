@@ -240,3 +240,32 @@ func TestMigration173AllowsCyberBlockedUsageRequestType(t *testing.T) {
 	require.Contains(t, sql, "ADD CONSTRAINT usage_logs_request_type_check")
 	require.Contains(t, sql, "CHECK (request_type IN (0, 1, 2, 3, 4)) NOT VALID")
 }
+
+func TestMigration173RemovesDeprecatedHighestSchedulingExtra(t *testing.T) {
+	entries, err := FS.ReadDir(".")
+	require.NoError(t, err)
+
+	cyberIndex := -1
+	highestIndex := -1
+	for i, entry := range entries {
+		switch entry.Name() {
+		case "173_allow_cyber_blocked_usage_request_type.sql":
+			cyberIndex = i
+		case "173_remove_deprecated_highest_scheduling_extra.sql":
+			highestIndex = i
+		}
+	}
+	require.NotEqual(t, -1, cyberIndex)
+	require.NotEqual(t, -1, highestIndex)
+	require.Less(t, cyberIndex, highestIndex)
+
+	content, err := FS.ReadFile("173_remove_deprecated_highest_scheduling_extra.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	require.Contains(t, sql, "UPDATE accounts")
+	require.Contains(t, sql, "COALESCE(extra, '{}'::jsonb)")
+	require.Contains(t, sql, "'highest_scheduling_recovery_minutes'")
+	require.Contains(t, sql, "'highest_scheduling_suppressed_reason'")
+	require.NotContains(t, sql, "highest_scheduling_mode")
+}

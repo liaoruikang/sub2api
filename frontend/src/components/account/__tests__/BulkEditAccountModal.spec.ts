@@ -333,6 +333,36 @@ describe('BulkEditAccountModal', () => {
     expect(wrapper.text()).toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
   })
 
+  it('批量最高调度保留字段应用复选框且只提交 mode=true', async () => {
+    const wrapper = mountModal()
+
+    expect(wrapper.text()).not.toContain('admin.accounts.highestSchedulingRecoveryMinutes')
+    await wrapper.get('#bulk-edit-highest-scheduling-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-highest-scheduling-toggle').trigger('click')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        highest_scheduling_mode: true
+      }
+    })
+  })
+
+  it('批量关闭最高调度时显式提交 mode=false', async () => {
+    const wrapper = mountModal()
+
+    await wrapper.get('#bulk-edit-highest-scheduling-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        highest_scheduling_mode: false
+      }
+    })
+  })
+
   it('filtered-results 模式下应提交 filters 而不是 account_ids', async () => {
     const wrapper = mountModal({
       accountIds: [],

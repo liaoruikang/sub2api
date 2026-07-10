@@ -2966,19 +2966,6 @@
             />
           </button>
         </div>
-        <div v-if="highestSchedulingEnabled" class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.highestSchedulingRecoveryMinutes') }}</label>
-          <input
-            v-model.number="highestSchedulingRecoveryMinutes"
-            type="number"
-            min="0"
-            :max="HIGHEST_SCHEDULING_RECOVERY_MINUTES_MAX"
-            step="1"
-            class="input"
-            data-testid="highest-scheduling-recovery-minutes"
-          />
-          <p class="input-hint">{{ t('admin.accounts.highestSchedulingRecoveryMinutesHint') }}</p>
-        </div>
       </div>
 
       <div>
@@ -3480,10 +3467,7 @@ import {
   validateHeaderOverrideRows,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
-import {
-  HIGHEST_SCHEDULING_RECOVERY_MINUTES_MAX,
-  applyHighestSchedulingExtra
-} from '@/components/account/highestScheduling'
+import { applyHighestSchedulingExtra } from '@/components/account/highestScheduling'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
@@ -3693,7 +3677,6 @@ const fillHeaderOverrideTemplate = () => {
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
 const highestSchedulingEnabled = ref(false)
-const highestSchedulingRecoveryMinutes = ref<number | null>(0)
 const openaiPassthroughEnabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
@@ -4549,7 +4532,6 @@ const resetForm = () => {
   interceptWarmupRequests.value = false
   autoPauseOnExpired.value = true
   highestSchedulingEnabled.value = false
-  highestSchedulingRecoveryMinutes.value = 0
   openaiPassthroughEnabled.value = false
   openAICompactMode.value = 'auto'
   openAIResponsesMode.value = 'auto'
@@ -4695,8 +4677,7 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
 
 const buildHighestSchedulingExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
   const extra = applyHighestSchedulingExtra(base, {
-    enabled: highestSchedulingEnabled.value,
-    recoveryMinutes: highestSchedulingRecoveryMinutes.value
+    enabled: highestSchedulingEnabled.value
   })
   return Object.keys(extra).length > 0 ? extra : undefined
 }

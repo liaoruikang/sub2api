@@ -476,7 +476,11 @@ import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
 import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
 import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
-import { applyHighestSchedulingExtra, readHighestSchedulingState } from '@/components/account/highestScheduling'
+import {
+  applyHighestSchedulingExtra,
+  buildHighestSchedulingExtraPatch,
+  readHighestSchedulingState
+} from '@/components/account/highestScheduling'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRulesModal.vue'
@@ -1398,10 +1402,10 @@ const updateHighestSchedulingInList = (accountIds: number[], enabled: boolean) =
     if (!idSet.has(account.id)) return account
     return {
       ...account,
-      extra: applyHighestSchedulingExtra(account.extra, {
-        enabled,
-        recoveryMinutes: enabled ? readHighestSchedulingState(account.extra).recoveryMinutes : 0
-      })
+      extra: {
+        ...(account.extra || {}),
+        ...buildHighestSchedulingExtraPatch(enabled)
+      }
     }
   })
 }
@@ -1506,15 +1510,7 @@ const handleBulkToggleHighestScheduling = async (enabled: boolean) => {
   const accountIds = [...selIds.value]
   try {
     const result = await adminAPI.accounts.bulkUpdate(accountIds, {
-      extra: enabled
-        ? applyHighestSchedulingExtra({}, {
-            enabled: true,
-            recoveryMinutes: 0
-          })
-        : {
-            highest_scheduling_mode: false,
-            highest_scheduling_recovery_minutes: 0
-          }
+      extra: buildHighestSchedulingExtraPatch(enabled)
     })
     const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkSchedulableResult(result, accountIds)
     if (!hasIds && !hasCounts) {
@@ -1877,15 +1873,11 @@ const handleToggleSchedulable = async (a: Account) => {
 }
 const handleToggleHighestScheduling = async (a: Account) => {
   if (isSchedulingToggleBusy(a.id)) return
-  const highestSchedulingState = readHighestSchedulingState(a.extra)
-  const nextEnabled = !highestSchedulingState.enabled
+  const nextEnabled = !readHighestSchedulingState(a.extra).enabled
   togglingHighestScheduling.value = a.id
   try {
     const updated = await adminAPI.accounts.update(a.id, {
-      extra: applyHighestSchedulingExtra(a.extra, {
-        enabled: nextEnabled,
-        recoveryMinutes: nextEnabled ? highestSchedulingState.recoveryMinutes : 0
-      })
+      extra: applyHighestSchedulingExtra(a.extra, { enabled: nextEnabled })
     })
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()

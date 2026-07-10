@@ -86,6 +86,12 @@ func (c *stubConcurrencyCacheForTest) ReleaseUserSlot(_ context.Context, _ int64
 func (c *stubConcurrencyCacheForTest) GetUserConcurrency(_ context.Context, _ int64) (int, error) {
 	return c.concurrency, c.concurrencyErr
 }
+func (c *stubConcurrencyCacheForTest) AcquireGroupUserSlot(_ context.Context, _, _ int64, _ int, _ string) (bool, error) {
+	return c.acquireResult, c.acquireErr
+}
+func (c *stubConcurrencyCacheForTest) ReleaseGroupUserSlot(_ context.Context, _, _ int64, _ string) error {
+	return c.releaseErr
+}
 func (c *stubConcurrencyCacheForTest) TrackAPIKeySlot(_ context.Context, apiKeyID int64, requestID string) error {
 	c.trackedAPIKeyIDs = append(c.trackedAPIKeyIDs, apiKeyID)
 	c.trackedAPIKeyRequestIDs = append(c.trackedAPIKeyRequestIDs, requestID)

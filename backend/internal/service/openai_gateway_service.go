@@ -21,12 +21,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/cespare/xxhash/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 )
 
@@ -247,9 +246,9 @@ type OpenAIForwardResult struct {
 	ImageOutputSizes   []string
 	ImageSizeSource    string
 	ImageSizeBreakdown map[string]int
-	GrokVideoStatus      *GrokMediaVideoStatusSnapshot
-	VideoCount           int
-	VideoResolution      string
+	GrokVideoStatus    *GrokMediaVideoStatusSnapshot
+	VideoCount         int
+	VideoResolution    string
 	// VideoDurationSeconds 是提交时请求的生成时长（xAI 按输出秒数计费），已归一化到 1-15 秒。
 	VideoDurationSeconds int
 
@@ -1705,7 +1704,7 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 // least one candidate was filtered out solely because it lacks compact support
 // (only meaningful when requireCompact=true).
 func (s *OpenAIGatewayService) shouldPreferHighestSchedulingOverOpenAISticky(ctx context.Context, groupID *int64, sticky *Account, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability) bool {
-	if sticky == nil || accountHighestSchedulingEffective(sticky, time.Now()) {
+	if sticky == nil || accountHighestSchedulingEffective(sticky) {
 		return false
 	}
 	platform := normalizeOpenAICompatiblePlatform(sticky.Platform)
@@ -1735,7 +1734,7 @@ func (s *OpenAIGatewayService) shouldPreferHighestSchedulingOverOpenAISticky(ctx
 		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, fresh, requestedModel, requireCompact) {
 			continue
 		}
-		if accountHighestSchedulingEffective(fresh, time.Now()) {
+		if accountHighestSchedulingEffective(fresh) {
 			return true
 		}
 	}
@@ -1810,7 +1809,7 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 // isBetterAccount checks if candidate is better than current.
 // Rules: higher priority (lower value) wins; same priority: never used > least recently used.
 func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool {
-	return isBetterAccountByHighestSchedulingPriorityAndLastUsed(candidate, current, false, time.Now())
+	return isBetterAccountByHighestSchedulingPriorityAndLastUsed(candidate, current, false)
 }
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
@@ -2001,9 +2000,8 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			return nil, false, nil
 		}
 
-		now := time.Now()
 		sort.SliceStable(available, func(i, j int) bool {
-			return isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(available[i], available[j], false, now)
+			return isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(available[i], available[j], false)
 		})
 		shuffleWithinSortGroups(available)
 

@@ -233,7 +233,7 @@ func TestGatewayServiceRecordUsage_LimitedTimeMultiplierCapsUserSpecificGroupRat
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, rateRepo.calls)
+	require.Equal(t, 1, rateRepo.rateCalls)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, limitedRate, usageRepo.lastLog.RateMultiplier)
 	require.InDelta(t, usageRepo.lastLog.ActualCost, userRepo.lastAmount, 1e-12)
@@ -279,7 +279,7 @@ func TestGatewayServiceRecordUsage_LimitedTimeMultiplierDoesNotRaiseLowerUserSpe
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, rateRepo.calls)
+	require.Equal(t, 1, rateRepo.rateCalls)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, userRate, usageRepo.lastLog.RateMultiplier)
 	require.InDelta(t, usageRepo.lastLog.ActualCost, userRepo.lastAmount, 1e-12)

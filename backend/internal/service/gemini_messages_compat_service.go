@@ -380,7 +380,7 @@ func (s *GeminiMessagesCompatService) buildPreCheckUsageResultMap(ctx context.Co
 // isBetterGeminiAccount checks if candidate is better than current.
 // Rules: higher priority (lower value) wins; same priority: never used (OAuth > non-OAuth) > least recently used.
 func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *Account) bool {
-	return isBetterAccountByHighestSchedulingPriorityAndLastUsed(candidate, current, true, time.Now())
+	return isBetterAccountByHighestSchedulingPriorityAndLastUsed(candidate, current, true)
 }
 
 // isModelSupportedByAccount 根据账户平台检查模型支持

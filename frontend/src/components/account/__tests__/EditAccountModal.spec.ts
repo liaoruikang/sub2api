@@ -825,9 +825,16 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).not.toHaveBeenCalled()
   })
 
-  it('submits highest scheduling config while preserving unrelated extra', async () => {
+  it('submits mode-only highest scheduling config while preserving unrelated extra', async () => {
     const account = buildAccount()
-    account.extra = { unrelated: 'kept' }
+    account.extra = {
+      unrelated: 'kept',
+      highest_scheduling_recovery_minutes: 45,
+      highest_scheduling_suppressed: true,
+      highest_scheduling_suppressed_until: '2026-06-09T12:15:00Z',
+      highest_scheduling_suppressed_at: '2026-06-09T12:00:00Z',
+      highest_scheduling_suppressed_reason: 'boom'
+    }
     updateAccountMock.mockReset()
     checkMixedChannelRiskMock.mockReset()
     checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
@@ -835,16 +842,25 @@ describe('EditAccountModal', () => {
 
     const wrapper = mountModal(account)
 
+    expect(wrapper.find('[data-testid="highest-scheduling-recovery-minutes"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="highest-scheduling-suppression"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="highest-scheduling-manual-resume"]').exists()).toBe(false)
     await wrapper.get('[data-testid="highest-scheduling-mode-toggle"]').trigger('click')
-    await wrapper.get('[data-testid="highest-scheduling-recovery-minutes"]').setValue('45')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({
-      unrelated: 'kept',
-      highest_scheduling_mode: true,
-      highest_scheduling_recovery_minutes: 45
-    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toEqual(
+      expect.objectContaining({
+        unrelated: 'kept',
+        highest_scheduling_mode: true
+      })
+    )
+    const extra = updateAccountMock.mock.calls[0]?.[1]?.extra
+    expect(extra).not.toHaveProperty('highest_scheduling_recovery_minutes')
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed')
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed_until')
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed_at')
+    expect(extra).not.toHaveProperty('highest_scheduling_suppressed_reason')
   })
 
   it('loads and submits Antigravity configured project fallback', async () => {
@@ -867,9 +883,10 @@ describe('EditAccountModal', () => {
     )
   })
 
-  it('clears highest scheduling suppression metadata when manually resumed', async () => {
+  it('cleans legacy highest scheduling keys when saving without changing enabled mode', async () => {
     const account = buildAccount()
     account.extra = {
+      unrelated: 'kept',
       highest_scheduling_mode: true,
       highest_scheduling_recovery_minutes: 15,
       highest_scheduling_suppressed: true,
@@ -884,14 +901,12 @@ describe('EditAccountModal', () => {
 
     const wrapper = mountModal(account)
 
-    expect(wrapper.find('[data-testid="highest-scheduling-suppression"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="highest-scheduling-manual-resume"]').trigger('click')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     const extra = updateAccountMock.mock.calls[0]?.[1]?.extra
-    expect(extra?.highest_scheduling_mode).toBe(true)
-    expect(extra?.highest_scheduling_recovery_minutes).toBe(15)
+    expect(extra).toEqual(expect.objectContaining({ unrelated: 'kept', highest_scheduling_mode: true }))
+    expect(extra).not.toHaveProperty('highest_scheduling_recovery_minutes')
     expect(extra).not.toHaveProperty('highest_scheduling_suppressed')
     expect(extra).not.toHaveProperty('highest_scheduling_suppressed_until')
     expect(extra).not.toHaveProperty('highest_scheduling_suppressed_at')

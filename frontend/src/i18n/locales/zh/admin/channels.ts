@@ -62,6 +62,8 @@ export default {
       updateError: '更新渠道失败',
       deleteError: '删除渠道失败',
       nameRequired: '请输入渠道名称',
+      noGroupsSelected: '平台「{platform}」尚未选择分组',
+      emptyModelsInPricing: '平台「{platform}」存在未填写模型的定价项',
       duplicateModels: '模型「{0}」在多个定价条目中重复',
       modelConflict: "模型模式 '{model1}' 和 '{model2}' 冲突：匹配范围重叠。模型名称按大小写不敏感匹配，已有条目已覆盖其所有大小写变体，无需重复添加。",
       mappingConflict: "模型映射源 '{model1}' 和 '{model2}' 冲突：匹配范围重叠。源模式按大小写不敏感匹配，已有条目已覆盖其所有大小写变体。",

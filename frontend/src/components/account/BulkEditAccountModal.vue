@@ -638,6 +638,7 @@
           class="space-y-4"
         >
           <button
+            id="bulk-edit-highest-scheduling-toggle"
             type="button"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
@@ -652,17 +653,6 @@
               ]"
             />
           </button>
-          <div v-if="highestSchedulingEnabled">
-            <label class="input-label">{{ t('admin.accounts.highestSchedulingRecoveryMinutes') }}</label>
-            <input
-              v-model.number="highestSchedulingRecoveryMinutes"
-              type="number"
-              min="0"
-              max="10080"
-              class="input"
-            />
-            <p class="input-hint">{{ t('admin.accounts.highestSchedulingRecoveryMinutesHint') }}</p>
-          </div>
         </div>
       </div>
 
@@ -1329,7 +1319,7 @@ import {
   buildModelMappingObject as buildModelMappingPayload,
   getPresetMappingsByPlatform
 } from '@/composables/useModelWhitelist'
-import { applyHighestSchedulingExtra } from '@/components/account/highestScheduling'
+import { buildHighestSchedulingExtraPatch } from '@/components/account/highestScheduling'
 import {
   buildHeaderOverridesObject,
   getHeaderOverrideTemplate,
@@ -1519,7 +1509,6 @@ const fillHeaderOverrideTemplate = () => {
 }
 const proxyId = ref<number | null>(null)
 const highestSchedulingEnabled = ref(false)
-const highestSchedulingRecoveryMinutes = ref<number | null>(0)
 const concurrency = ref(1)
 const loadFactor = ref<number | null>(null)
 const priority = ref(1)
@@ -1690,17 +1679,7 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   }
 
   if (enableHighestScheduling.value) {
-    const extra = ensureExtra()
-    if (highestSchedulingEnabled.value) {
-      updates.extra = applyHighestSchedulingExtra(extra, {
-        enabled: true,
-        recoveryMinutes: highestSchedulingRecoveryMinutes.value
-      })
-    } else {
-      extra.highest_scheduling_mode = false
-      extra.highest_scheduling_recovery_minutes = 0
-      updates.extra = extra
-    }
+    Object.assign(ensureExtra(), buildHighestSchedulingExtraPatch(highestSchedulingEnabled.value))
   }
 
   if (enableConcurrency.value) {
@@ -2061,7 +2040,6 @@ watch(
       headerOverrideRows.value = []
       proxyId.value = null
       highestSchedulingEnabled.value = false
-      highestSchedulingRecoveryMinutes.value = 0
       concurrency.value = 1
       loadFactor.value = null
       priority.value = 1

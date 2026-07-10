@@ -82,6 +82,10 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 	if account == nil {
 		return service.ErrAccountNilInput
 	}
+	account.Extra = sanitizeAccountExtraForPersistence(account.Extra)
+	if account.Status == service.StatusError {
+		account.Schedulable = false
+	}
 
 	builder := r.client.Account.Create().
 		SetName(account.Name).
@@ -331,13 +335,10 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 	if account == nil {
 		return nil
 	}
+	account.Extra = sanitizeAccountExtraForPersistence(account.Extra)
 	schedulable := account.Schedulable
 	if account.Status == service.StatusError {
 		schedulable = false
-		updates, deleteKeys, ok := buildHighestSchedulingSuppressionExtraUpdates(account, account.ErrorMessage, time.Now())
-		if ok {
-			account.Extra = mergeHighestSchedulingSuppressionExtra(account.Extra, updates, deleteKeys)
-		}
 	}
 
 	builder := r.client.Account.UpdateOneID(account.ID).
@@ -846,9 +847,6 @@ func (r *accountRepository) BatchUpdateLastUsed(ctx context.Context, updates map
 }
 
 func (r *accountRepository) SetError(ctx context.Context, id int64, errorMsg string) error {
-	account, _ := r.GetByID(ctx, id)
-	suppressionUpdates, deleteKeys, shouldSuppress := buildHighestSchedulingSuppressionExtraUpdates(account, errorMsg, time.Now())
-
 	_, err := r.client.Account.Update().
 		Where(dbaccount.IDEQ(id)).
 		SetStatus(service.StatusError).
@@ -857,11 +855,6 @@ func (r *accountRepository) SetError(ctx context.Context, id int64, errorMsg str
 		Save(ctx)
 	if err != nil {
 		return err
-	}
-	if shouldSuppress {
-		if err := r.applyHighestSchedulingSuppressionExtraUpdates(ctx, id, suppressionUpdates, deleteKeys); err != nil {
-			return err
-		}
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue set error failed: account=%d err=%v", id, err)
@@ -1559,6 +1552,7 @@ func (r *accountRepository) AutoPauseExpiredAccounts(ctx context.Context, now ti
 }
 
 func (r *accountRepository) UpdateExtra(ctx context.Context, id int64, updates map[string]any) error {
+	updates = sanitizeAccountExtraForPersistence(updates)
 	if len(updates) == 0 {
 		return nil
 	}
@@ -1630,6 +1624,7 @@ func isSchedulerNeutralExtraKey(key string) bool {
 }
 
 func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates service.AccountBulkUpdate) (int64, error) {
+	sanitizeAccountBulkUpdateForPersistence(&updates)
 	if len(ids) == 0 {
 		return 0, nil
 	}
@@ -1681,6 +1676,10 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		setClauses = append(setClauses, "status = $"+itoa(idx))
 		args = append(args, *updates.Status)
 		idx++
+		if *updates.Status == service.StatusError {
+			setClauses = append(setClauses, "schedulable = FALSE")
+			updates.Schedulable = nil
+		}
 	}
 	if updates.Schedulable != nil {
 		setClauses = append(setClauses, "schedulable = $"+itoa(idx))
@@ -1725,11 +1724,6 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		return 0, err
 	}
 	if rows > 0 {
-		if updates.Status != nil && *updates.Status == service.StatusError {
-			if err := r.applyHighestSchedulingSuppressionForErrorStatus(ctx, ids, "account marked error"); err != nil {
-				return 0, err
-			}
-		}
 		payload := map[string]any{"account_ids": ids}
 		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountBulkChanged, nil, nil, payload); err != nil {
 			logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue bulk update failed: err=%v", err)
@@ -1739,6 +1733,9 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 			shouldSync = true
 		}
 		if updates.Schedulable != nil && !*updates.Schedulable {
+			shouldSync = true
+		}
+		if _, updatesHighestScheduling := updates.Extra[service.AccountExtraHighestSchedulingMode]; updatesHighestScheduling {
 			shouldSync = true
 		}
 		if shouldSync {
@@ -2101,6 +2098,17 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
 	}
+}
+
+func sanitizeAccountExtraForPersistence(extra map[string]any) map[string]any {
+	return service.SanitizeAccountHighestSchedulingExtra(extra)
+}
+
+func sanitizeAccountBulkUpdateForPersistence(updates *service.AccountBulkUpdate) {
+	if updates == nil {
+		return
+	}
+	updates.Extra = sanitizeAccountExtraForPersistence(updates.Extra)
 }
 
 func normalizeJSONMap(in map[string]any) map[string]any {

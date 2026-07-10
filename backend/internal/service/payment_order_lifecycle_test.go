@@ -146,7 +146,7 @@ func (r *paymentOrderLifecycleRedeemRepo) List(context.Context, pagination.Pagin
 	panic("unexpected call")
 }
 
-func (r *paymentOrderLifecycleRedeemRepo) ListWithFilters(context.Context, pagination.PaginationParams, string, string, string, int64) ([]RedeemCode, *pagination.PaginationResult, error) {
+func (r *paymentOrderLifecycleRedeemRepo) ListWithFilters(context.Context, pagination.PaginationParams, string, string, string) ([]RedeemCode, *pagination.PaginationResult, error) {
 	panic("unexpected call")
 }
 
@@ -220,7 +220,6 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 	}
 	redeemService := NewRedeemService(
 		redeemRepo,
-		nil,
 		userRepo,
 		nil,
 		nil,
@@ -322,7 +321,6 @@ func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {
 	}
 	redeemService := NewRedeemService(
 		redeemRepo,
-		nil,
 		userRepo,
 		nil,
 		nil,
@@ -414,7 +412,6 @@ func TestVerifyOrderByOutTradeNoRejectsPaidQueryWithZeroAmount(t *testing.T) {
 	}
 	redeemService := NewRedeemService(
 		redeemRepo,
-		nil,
 		userRepo,
 		nil,
 		nil,
@@ -628,7 +625,6 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
 	}
 	redeemService := NewRedeemService(
 		redeemRepo,
-		nil,
 		userRepo,
 		nil,
 		nil,
@@ -731,7 +727,6 @@ func TestVerifyOrderByOutTradeNoUsesOutTradeNoWhenPaymentTradeNoAlreadyExistsFor
 	}
 	redeemService := NewRedeemService(
 		redeemRepo,
-		nil,
 		userRepo,
 		nil,
 		nil,

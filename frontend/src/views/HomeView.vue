@@ -218,7 +218,6 @@
 import { computed, defineComponent, h, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
-import Icon from '@/components/icons/Icon.vue'
 import { useAppStore, useAuthStore } from '@/stores'
 import { sanitizeUrl } from '@/utils/url'
 

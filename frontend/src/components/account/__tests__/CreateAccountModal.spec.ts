@@ -145,13 +145,15 @@ describe('CreateAccountModal', () => {
     await wrapper.get('[data-tour="account-form-name"]').setValue('Highest Account')
     await wrapper.get('input[type="password"]').setValue('sk-ant-test')
     await wrapper.get('[data-testid="highest-scheduling-mode-toggle"]').trigger('click')
-    await wrapper.get('[data-testid="highest-scheduling-recovery-minutes"]').setValue('30')
+    expect(wrapper.find('[data-testid="highest-scheduling-recovery-minutes"]').exists()).toBe(false)
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.extra).toMatchObject({
-      highest_scheduling_mode: true,
-      highest_scheduling_recovery_minutes: 30
+      highest_scheduling_mode: true
     })
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra).not.toHaveProperty(
+      'highest_scheduling_recovery_minutes'
+    )
   })
 })

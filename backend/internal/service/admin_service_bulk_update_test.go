@@ -14,25 +14,29 @@ import (
 
 type accountRepoStubForBulkUpdate struct {
 	accountRepoStub
-	bulkUpdateErr    error
-	bulkUpdateIDs    []int64
-	bindGroupErrByID map[int64]error
-	bindGroupsCalls  []int64
-	getByIDsAccounts []*Account
-	getByIDsErr      error
-	getByIDsCalled   bool
-	getByIDsIDs      []int64
-	getByIDAccounts  map[int64]*Account
-	getByIDErrByID   map[int64]error
-	getByIDCalled    []int64
-	listByGroupData  map[int64][]Account
-	listByGroupErr   map[int64]error
-	listData         []Account
-	listResult       *pagination.PaginationResult
-	listErr          error
-	listCalled       bool
-	lastListParams   pagination.PaginationParams
-	lastListFilters  struct {
+	bulkUpdateErr      error
+	bulkUpdateIDs      []int64
+	bulkUpdatePayload  AccountBulkUpdate
+	bindGroupErrByID   map[int64]error
+	bindGroupsCalls    []int64
+	getByIDsAccounts   []*Account
+	getByIDsErr        error
+	getByIDsCalled     bool
+	getByIDsIDs        []int64
+	getByIDAccounts    map[int64]*Account
+	getByIDErrByID     map[int64]error
+	getByIDCalled      []int64
+	createdAccount     *Account
+	updatedAccount     *Account
+	updateExtraPayload map[string]any
+	listByGroupData    map[int64][]Account
+	listByGroupErr     map[int64]error
+	listData           []Account
+	listResult         *pagination.PaginationResult
+	listErr            error
+	listCalled         bool
+	lastListParams     pagination.PaginationParams
+	lastListFilters    struct {
 		platform    string
 		accountType string
 		status      string
@@ -42,8 +46,25 @@ type accountRepoStubForBulkUpdate struct {
 	}
 }
 
-func (s *accountRepoStubForBulkUpdate) BulkUpdate(_ context.Context, ids []int64, _ AccountBulkUpdate) (int64, error) {
+func (s *accountRepoStubForBulkUpdate) Create(_ context.Context, account *Account) error {
+	s.createdAccount = account
+	account.ID = 101
+	return nil
+}
+
+func (s *accountRepoStubForBulkUpdate) Update(_ context.Context, account *Account) error {
+	s.updatedAccount = account
+	return nil
+}
+
+func (s *accountRepoStubForBulkUpdate) UpdateExtra(_ context.Context, _ int64, updates map[string]any) error {
+	s.updateExtraPayload = updates
+	return nil
+}
+
+func (s *accountRepoStubForBulkUpdate) BulkUpdate(_ context.Context, ids []int64, updates AccountBulkUpdate) (int64, error) {
 	s.bulkUpdateIDs = append([]int64{}, ids...)
+	s.bulkUpdatePayload = updates
 	if s.bulkUpdateErr != nil {
 		return 0, s.bulkUpdateErr
 	}
@@ -108,6 +129,79 @@ func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params
 		return s.listData, s.listResult, nil
 	}
 	return s.listData, &pagination.PaginationResult{Total: int64(len(s.listData))}, nil
+}
+
+func modeOnlyServiceTestExtra() map[string]any {
+	return map[string]any{
+		AccountExtraHighestSchedulingMode:      false,
+		"highest_scheduling_recovery_minutes":  15,
+		"highest_scheduling_suppressed":        true,
+		"highest_scheduling_suppressed_until":  "2026-06-09T12:15:00Z",
+		"highest_scheduling_suppressed_at":     "2026-06-09T12:00:00Z",
+		"highest_scheduling_suppressed_reason": "boom",
+		"unrelated":                            1,
+	}
+}
+
+func requireModeOnlyServiceTestExtra(t *testing.T, extra map[string]any) {
+	t.Helper()
+	require.Equal(t, false, extra[AccountExtraHighestSchedulingMode])
+	require.Equal(t, 1, extra["unrelated"])
+	for _, key := range deprecatedHighestSchedulingExtraKeys {
+		require.NotContains(t, extra, key)
+	}
+}
+
+func TestAdminService_CreateAccount_SanitizesHighestSchedulingExtra(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	_, err := svc.CreateAccount(context.Background(), &CreateAccountInput{
+		Name:                 "mode-only-create",
+		Platform:             PlatformOpenAI,
+		Type:                 AccountTypeAPIKey,
+		Extra:                modeOnlyServiceTestExtra(),
+		SkipDefaultGroupBind: true,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, repo.createdAccount)
+	requireModeOnlyServiceTestExtra(t, repo.createdAccount.Extra)
+}
+
+func TestAdminService_UpdateAccount_SanitizesHighestSchedulingExtra(t *testing.T) {
+	account := &Account{ID: 7, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive}
+	repo := &accountRepoStubForBulkUpdate{getByIDAccounts: map[int64]*Account{7: account}}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	_, err := svc.UpdateAccount(context.Background(), 7, &UpdateAccountInput{Extra: modeOnlyServiceTestExtra()})
+
+	require.NoError(t, err)
+	require.NotNil(t, repo.updatedAccount)
+	requireModeOnlyServiceTestExtra(t, repo.updatedAccount.Extra)
+}
+
+func TestAdminService_UpdateAccountExtra_SanitizesHighestSchedulingExtra(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	err := svc.UpdateAccountExtra(context.Background(), 7, modeOnlyServiceTestExtra())
+
+	require.NoError(t, err)
+	requireModeOnlyServiceTestExtra(t, repo.updateExtraPayload)
+}
+
+func TestAdminService_BulkUpdateAccounts_SanitizesHighestSchedulingExtra(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{}
+	svc := &adminServiceImpl{accountRepo: repo}
+	input := &BulkUpdateAccountsInput{
+		AccountIDs: []int64{1},
+		Extra:      modeOnlyServiceTestExtra(),
+	}
+
+	_, err := svc.BulkUpdateAccounts(context.Background(), input)
+	require.NoError(t, err)
+	requireModeOnlyServiceTestExtra(t, repo.bulkUpdatePayload.Extra)
 }
 
 // TestAdminService_BulkUpdateAccounts_AllSuccessIDs 验证批量更新成功时返回 success_ids/failed_ids。

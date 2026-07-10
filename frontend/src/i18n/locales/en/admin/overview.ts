@@ -457,6 +457,7 @@ export default {
       leaveEmptyToKeep: 'Leave empty to keep current password',
       generatePassword: 'Generate random password',
       copyPassword: 'Copy password',
+      passwordCopied: 'Password copied',
       creating: 'Creating...',
       updating: 'Updating...',
       form: {
@@ -761,6 +762,8 @@ export default {
         rateMultiplier: 'Rate Multiplier',
         rpmOverride: 'RPM Override',
         rpmOverrideHint: 'Per-user RPM cap in this group; empty = group default; 0 = unlimited',
+        limitedTimeRpmOverride: 'Limited-time RPM Override',
+        limitedTimeRpmOverrideHint: 'Per-user RPM cap during the limited-time window; empty = group limited-time default; 0 = unlimited',
         rateDefault: 'default',
         rpmDefault: 'default',
         exclusive: 'Exclusive',
@@ -811,6 +814,9 @@ export default {
         rpmLimit: 'Requests Per Minute (RPM)',
         rpmLimitPlaceholder: '0 = unlimited',
         rpmLimitHint: 'Max requests per minute for each user in this group; 0 = unlimited. Once set, it takes over per-user rate limiting in this group (overrides the user-level rpm_limit fallback).',
+        userConcurrencyLimit: 'User Concurrency Limit',
+        userConcurrencyLimitPlaceholder: '0 = use user concurrency',
+        userConcurrencyLimitHint: 'Maximum concurrent requests per user in this group. Use 0 for no additional group limit.',
         exclusiveLabel: 'Exclusive Group',
         exclusiveHint: 'Exclusive group, can be manually assigned to users',
         platformLabel: 'Platform Restriction',
@@ -868,6 +874,13 @@ export default {
       noRpmOverrides: 'No users have an RPM override yet',
       rpmSaved: 'RPM overrides saved',
       groupRpmDefault: 'Group default RPM',
+      limitedTimeRpmOverrides: 'Limited-time RPM Overrides',
+      limitedTimeRpmOverridesTitle: 'Group Limited-time RPM Overrides',
+      addUserLimitedTimeRpm: 'Add User Limited-time RPM',
+      noLimitedTimeRpmOverrides: 'No users have a limited-time RPM override yet',
+      limitedTimeRpmSaved: 'Limited-time RPM overrides saved',
+      limitedTimeGroupRpmDefault: 'Group limited-time default RPM',
+      limitedTimeRpmHint: 'Applies only during the limited-time multiplier window. 0 means unlimited; unset users use the group limited-time RPM.',
       searchUserPlaceholder: 'Search user email...',
       noRateMultipliers: 'No user rate multipliers configured',
       rateUpdated: 'Rate multiplier updated',
@@ -938,6 +951,51 @@ export default {
           'Videos are billed per second: per-second price × duration (1-15s, default 8s). By default the current effective group multiplier applies; independent mode uses the video multiplier instead.',
         finalPricePreview: 'Final per-second price preview',
         notConfigured: 'Not configured'
+      },
+      limitedTimeMultiplier: {
+        title: 'Enable Limited-time Multiplier',
+        hint: 'Apply a temporary multiplier on a daily, weekly, or monthly schedule, with optional RPM and user-concurrency overrides.',
+        startTime: 'Start Time',
+        startTimeHint: 'Starts at the selected time on the chosen schedule and remains active for the configured duration.',
+        value: 'Limited-time Multiplier',
+        duration: 'Duration',
+        limitedTimeRpmLimit: 'Limited-time RPM Limit',
+        limitedTimeRpmLimitPlaceholder: '0 = unlimited',
+        limitedTimeRpmLimitHint: 'Default per-user RPM during the active window. 0 means unlimited.',
+        limitedTimeUserConcurrencyLimit: 'Limited-time User Concurrency',
+        limitedTimeUserConcurrencyLimitPlaceholder: '0 = use regular limit',
+        limitedTimeUserConcurrencyLimitHint: 'Per-user concurrency during the active window. Use 0 to keep the regular group limit.',
+        frequency: {
+          daily: 'Daily',
+          weekly: 'Weekly',
+          monthly: 'Monthly'
+        },
+        weekdays: {
+          monday: 'Monday',
+          tuesday: 'Tuesday',
+          wednesday: 'Wednesday',
+          thursday: 'Thursday',
+          friday: 'Friday',
+          saturday: 'Saturday',
+          sunday: 'Sunday'
+        },
+        units: {
+          minutes: 'minutes',
+          hours: 'hours',
+          days: 'days'
+        },
+        monthDay: 'Day {day}',
+        hourOption: '{hour}:00',
+        minuteOption: '{minute} min',
+        schedule: {
+          daily: 'Daily',
+          weekly: 'Every {weekday}',
+          monthly: 'Day {day} monthly'
+        },
+        tableBadge: '{value}x · {schedule} {timeRange} {active}',
+        activeBadge: 'Active',
+        effectiveTooltip: 'Limited-time multiplier {limited}x overrides the regular user rate {normal}x',
+        effectiveTooltipDefault: 'Limited-time multiplier {limited}x is active'
       },
       peakRate: {
         enable: 'Enable peak rate multiplier',

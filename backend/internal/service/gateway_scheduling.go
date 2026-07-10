@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 )
 
 // SelectAccount 选择账号（粘性会话+优先级）
@@ -419,25 +419,8 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 
 			if len(routingAvailable) > 0 {
-				// 排序：优先级 > 负载率 > 最后使用时间
 				sort.SliceStable(routingAvailable, func(i, j int) bool {
-					a, b := routingAvailable[i], routingAvailable[j]
-					if a.account.Priority != b.account.Priority {
-						return a.account.Priority < b.account.Priority
-					}
-					if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
-						return a.loadInfo.LoadRate < b.loadInfo.LoadRate
-					}
-					switch {
-					case a.account.LastUsedAt == nil && b.account.LastUsedAt != nil:
-						return true
-					case a.account.LastUsedAt != nil && b.account.LastUsedAt == nil:
-						return false
-					case a.account.LastUsedAt == nil && b.account.LastUsedAt == nil:
-						return false
-					default:
-						return a.account.LastUsedAt.Before(*b.account.LastUsedAt)
-					}
+					return isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(routingAvailable[i], routingAvailable[j], preferOAuth)
 				})
 				shuffleWithinSortGroups(routingAvailable)
 
@@ -678,10 +661,11 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 		}
 
-		// 分层过滤选择：优先级 →（可选）最早重置 → 负载率 → LRU
+		// 分层过滤选择：最高调度 → 优先级 →（可选）最早重置 → 负载率 → LRU
 		for len(available) > 0 {
+			candidates := filterByHighestSchedulingLoadCandidates(available)
 			// 1. 取优先级最小的集合
-			candidates := filterByMinPriority(available)
+			candidates = filterByMinPriority(candidates)
 			// 2. （可选）use-it-or-lose-it：优先选用会话窗口最早重置的账号
 			if cfg.PreferSoonestReset {
 				candidates = filterBySoonestReset(candidates)
@@ -1491,25 +1475,7 @@ func selectByLRU(accounts []accountWithLoad, preferOAuth bool) *accountWithLoad 
 }
 
 func sortAccountsByPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
-	sort.SliceStable(accounts, func(i, j int) bool {
-		a, b := accounts[i], accounts[j]
-		if a.Priority != b.Priority {
-			return a.Priority < b.Priority
-		}
-		switch {
-		case a.LastUsedAt == nil && b.LastUsedAt != nil:
-			return true
-		case a.LastUsedAt != nil && b.LastUsedAt == nil:
-			return false
-		case a.LastUsedAt == nil && b.LastUsedAt == nil:
-			if preferOAuth && a.Type != b.Type {
-				return a.Type == AccountTypeOAuth
-			}
-			return false
-		default:
-			return a.LastUsedAt.Before(*b.LastUsedAt)
-		}
-	})
+	sortAccountsByHighestSchedulingPriorityAndLastUsed(accounts, preferOAuth)
 	shuffleWithinPriorityAndLastUsed(accounts, preferOAuth)
 }
 
@@ -1532,6 +1498,9 @@ func shuffleWithinSortGroups(accounts []accountWithLoad) {
 }
 
 func sameAccountWithLoadGroup(a, b accountWithLoad) bool {
+	if accountHighestSchedulingEffective(a.account) != accountHighestSchedulingEffective(b.account) {
+		return false
+	}
 	if a.account.Priority != b.account.Priority {
 		return false
 	}
@@ -1580,6 +1549,9 @@ func shuffleWithinPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
 }
 
 func sameAccountGroup(a, b *Account) bool {
+	if accountHighestSchedulingEffective(a) != accountHighestSchedulingEffective(b) {
+		return false
+	}
 	if a.Priority != b.Priority {
 		return false
 	}
@@ -1609,6 +1581,11 @@ func (s *GatewayService) sortCandidatesForFallback(accounts []*Account, preferOA
 func sortAccountsByPriorityOnly(accounts []*Account, preferOAuth bool) {
 	sort.SliceStable(accounts, func(i, j int) bool {
 		a, b := accounts[i], accounts[j]
+		aHighest := accountHighestSchedulingEffective(a)
+		bHighest := accountHighestSchedulingEffective(b)
+		if aHighest != bHighest {
+			return aHighest
+		}
 		if a.Priority != b.Priority {
 			return a.Priority < b.Priority
 		}
@@ -1625,9 +1602,10 @@ func shuffleWithinPriority(accounts []*Account) {
 	}
 	r := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
 	for start := 0; start < len(accounts); {
+		highest := accountHighestSchedulingEffective(accounts[start])
 		priority := accounts[start].Priority
 		end := start + 1
-		for end < len(accounts) && accounts[end].Priority == priority {
+		for end < len(accounts) && accountHighestSchedulingEffective(accounts[end]) == highest && accounts[end].Priority == priority {
 			end++
 		}
 		if end-start > 1 {

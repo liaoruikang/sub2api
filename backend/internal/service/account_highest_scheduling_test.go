@@ -1,106 +1,84 @@
 package service
 
-import (
-	"encoding/json"
-	"testing"
-	"time"
-)
+import "testing"
 
-func TestAccountHighestSchedulingModeDefaultDisabled(t *testing.T) {
-	account := &Account{}
-	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
-
-	if account.IsHighestSchedulingModeConfigured() {
-		t.Fatalf("expected highest scheduling mode to be disabled by default")
-	}
-	if account.IsHighestSchedulingModeEffective(now) {
-		t.Fatalf("expected highest scheduling mode to be ineffective by default")
-	}
-}
-
-func TestAccountHighestSchedulingModeEffectiveWhenEnabled(t *testing.T) {
-	account := &Account{Extra: map[string]any{"highest_scheduling_mode": true}}
-	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
-
-	if !account.IsHighestSchedulingModeConfigured() {
-		t.Fatalf("expected highest scheduling mode to be configured")
-	}
-	if !account.IsHighestSchedulingModeEffective(now) {
-		t.Fatalf("expected highest scheduling mode to be effective")
-	}
-}
-
-func TestAccountHighestSchedulingModeSuppressedUntilFuture(t *testing.T) {
-	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
-	account := &Account{Extra: map[string]any{
-		"highest_scheduling_mode":             true,
-		"highest_scheduling_suppressed_until": now.Add(10 * time.Minute).Format(time.RFC3339),
-	}}
-
-	if !account.IsHighestSchedulingModeSuppressed(now) {
-		t.Fatalf("expected future suppression timestamp to suppress highest scheduling mode")
-	}
-	if account.IsHighestSchedulingModeEffective(now) {
-		t.Fatalf("expected future suppression timestamp to make highest scheduling ineffective")
-	}
-}
-
-func TestAccountHighestSchedulingModeSuppressedUntilPastResumes(t *testing.T) {
-	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
-	account := &Account{Extra: map[string]any{
-		"highest_scheduling_mode":             true,
-		"highest_scheduling_suppressed_until": now.Add(-10 * time.Minute).Format(time.RFC3339),
-	}}
-
-	if account.IsHighestSchedulingModeSuppressed(now) {
-		t.Fatalf("expected past suppression timestamp not to suppress highest scheduling mode")
-	}
-	if !account.IsHighestSchedulingModeEffective(now) {
-		t.Fatalf("expected past suppression timestamp to let highest scheduling resume")
-	}
-}
-
-func TestAccountHighestSchedulingModeManualSuppression(t *testing.T) {
-	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
-	account := &Account{Extra: map[string]any{
-		"highest_scheduling_mode":       true,
-		"highest_scheduling_suppressed": true,
-	}}
-
-	if !account.IsHighestSchedulingModeSuppressed(now) {
-		t.Fatalf("expected manual suppression flag to suppress highest scheduling mode")
-	}
-	if account.IsHighestSchedulingModeEffective(now) {
-		t.Fatalf("expected manual suppression flag to make highest scheduling ineffective")
-	}
-}
-
-func TestAccountHighestSchedulingRecoveryMinutesParsing(t *testing.T) {
+func TestAccountHighestSchedulingModeUsesStrictBooleanSemantics(t *testing.T) {
 	tests := []struct {
 		name  string
 		value any
-		want  int
+		want  bool
 	}{
-		{name: "int", value: 15, want: 15},
-		{name: "int64", value: int64(16), want: 16},
-		{name: "float64", value: float64(17), want: 17},
-		{name: "json number", value: json.Number("18"), want: 18},
-		{name: "string", value: "19", want: 19},
-		{name: "negative", value: -1, want: 0},
-		{name: "invalid", value: "soon", want: 0},
-		{name: "missing", value: nil, want: 0},
+		{name: "missing", value: nil, want: false},
+		{name: "true", value: true, want: true},
+		{name: "false", value: false, want: false},
+		{name: "string true", value: "true", want: false},
+		{name: "number one", value: 1, want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			extra := map[string]any{}
 			if tt.value != nil {
-				extra["highest_scheduling_recovery_minutes"] = tt.value
+				extra[AccountExtraHighestSchedulingMode] = tt.value
 			}
 			account := &Account{Extra: extra}
-			if got := account.GetHighestSchedulingRecoveryMinutes(); got != tt.want {
-				t.Fatalf("GetHighestSchedulingRecoveryMinutes() = %d, want %d", got, tt.want)
+			if got := account.IsHighestSchedulingModeConfigured(); got != tt.want {
+				t.Fatalf("IsHighestSchedulingModeConfigured() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSanitizeAccountHighestSchedulingExtraRemovesDeprecatedKeys(t *testing.T) {
+	extra := map[string]any{
+		AccountExtraHighestSchedulingMode:      false,
+		"highest_scheduling_recovery_minutes":  15,
+		"highest_scheduling_suppressed":        true,
+		"highest_scheduling_suppressed_until":  "2026-06-09T12:15:00Z",
+		"highest_scheduling_suppressed_at":     "2026-06-09T12:00:00Z",
+		"highest_scheduling_suppressed_reason": "boom",
+		"unrelated":                            1,
+	}
+
+	sanitized := SanitizeAccountHighestSchedulingExtra(extra)
+
+	if got, exists := sanitized[AccountExtraHighestSchedulingMode]; !exists || got != false {
+		t.Fatalf("valid false mode = %v (exists=%v), want preserved", got, exists)
+	}
+	for _, key := range []string{
+		"highest_scheduling_recovery_minutes",
+		"highest_scheduling_suppressed",
+		"highest_scheduling_suppressed_until",
+		"highest_scheduling_suppressed_at",
+		"highest_scheduling_suppressed_reason",
+	} {
+		if _, exists := sanitized[key]; exists {
+			t.Fatalf("deprecated key %q was not removed: %#v", key, sanitized)
+		}
+		if _, exists := extra[key]; !exists {
+			t.Fatalf("input key %q was modified: %#v", key, extra)
+		}
+	}
+	if got := sanitized["unrelated"]; got != 1 {
+		t.Fatalf("unrelated key = %v, want 1", got)
+	}
+}
+
+func TestSanitizeAccountHighestSchedulingExtraRemovesNonBooleanMode(t *testing.T) {
+	extra := map[string]any{
+		AccountExtraHighestSchedulingMode: "true",
+		"unrelated":                       "keep",
+	}
+
+	sanitized := SanitizeAccountHighestSchedulingExtra(extra)
+
+	if _, exists := sanitized[AccountExtraHighestSchedulingMode]; exists {
+		t.Fatalf("non-boolean mode should be removed: %#v", sanitized)
+	}
+	if got := sanitized["unrelated"]; got != "keep" {
+		t.Fatalf("unrelated key = %v, want keep", got)
+	}
+	if got := extra[AccountExtraHighestSchedulingMode]; got != "true" {
+		t.Fatalf("input mode = %v, want unchanged", got)
 	}
 }

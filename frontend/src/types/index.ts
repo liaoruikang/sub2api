@@ -1132,11 +1132,6 @@ export interface OpenAIResponsesState {
 
 export interface HighestSchedulingExtraState {
   highest_scheduling_mode?: boolean
-  highest_scheduling_recovery_minutes?: number
-  highest_scheduling_suppressed?: boolean
-  highest_scheduling_suppressed_until?: string | null
-  highest_scheduling_suppressed_at?: string | null
-  highest_scheduling_suppressed_reason?: string | null
 }
 
 export interface CreateAccountRequest {

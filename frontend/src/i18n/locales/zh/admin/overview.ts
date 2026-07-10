@@ -451,6 +451,7 @@ export default {
       leaveEmptyToKeep: '留空则保持原密码不变',
       generatePassword: '生成随机密码',
       copyPassword: '复制密码',
+      passwordCopied: '密码已复制',
       creating: '创建中...',
       updating: '更新中...',
       columns: {
@@ -748,6 +749,8 @@ export default {
         rateMultiplier: '费率倍数',
         rpmOverride: 'RPM 覆盖',
         rpmOverrideHint: '该用户在此分组的 RPM 上限；留空 = 使用分组默认；0 = 不限制',
+        limitedTimeRpmOverride: '限时 RPM 覆盖',
+        limitedTimeRpmOverrideHint: '限时窗口内该用户的 RPM 上限；留空 = 使用分组限时默认值；0 = 不限制',
         rateDefault: '默认',
         rpmDefault: '默认',
         exclusive: '独占',
@@ -787,6 +790,9 @@ export default {
         rpmLimit: '每分钟请求数 (RPM)',
         rpmLimitPlaceholder: '0 表示不限制',
         rpmLimitHint: '每用户在本分组每分钟最大请求数，0 = 不限制；一旦设置即接管该用户的限流（覆盖用户级 rpm_limit）',
+        userConcurrencyLimit: '用户并发限制',
+        userConcurrencyLimitPlaceholder: '0 表示使用用户并发',
+        userConcurrencyLimitHint: '每个用户在本分组可同时运行的请求数；0 表示不额外限制，继续使用用户并发上限。',
         exclusiveLabel: '专属分组',
         exclusiveHint: '专属分组，可以手动指定给用户',
         platformLabel: '平台限制',
@@ -872,6 +878,13 @@ export default {
       noRpmOverrides: '暂无用户设置了专属 RPM',
       rpmSaved: '专属 RPM 已保存',
       groupRpmDefault: '分组默认 RPM',
+      limitedTimeRpmOverrides: '限时专属 RPM',
+      limitedTimeRpmOverridesTitle: '分组限时专属 RPM 管理',
+      addUserLimitedTimeRpm: '添加用户限时专属 RPM',
+      noLimitedTimeRpmOverrides: '暂无用户设置限时专属 RPM',
+      limitedTimeRpmSaved: '限时专属 RPM 已保存',
+      limitedTimeGroupRpmDefault: '分组限时默认 RPM',
+      limitedTimeRpmHint: '仅在限时倍率窗口生效；0 表示不限制，未设置用户覆盖时使用分组限时默认 RPM。',
       searchUserPlaceholder: '搜索用户邮箱...',
       noRateMultipliers: '暂无用户设置了专属倍率',
       rateUpdated: '专属倍率已更新',
@@ -929,6 +942,51 @@ export default {
           '视频按秒计费：费用 = 每秒价格 × 时长（1-15 秒，未指定默认 8 秒）。默认叠加当前分组有效倍率；开启独立倍率后改用视频独立倍率。',
         finalPricePreview: '最终每秒价格预览',
         notConfigured: '未配置'
+      },
+      limitedTimeMultiplier: {
+        title: '启用限时倍率',
+        hint: '按日、周或月定时启用临时倍率，并可在窗口内覆盖 RPM 和用户并发限制。',
+        startTime: '开始时间',
+        startTimeHint: '按所选周期在指定时间开始，持续到设定时长结束。',
+        value: '限时倍率',
+        duration: '持续时长',
+        limitedTimeRpmLimit: '限时 RPM 上限',
+        limitedTimeRpmLimitPlaceholder: '0 表示不限制',
+        limitedTimeRpmLimitHint: '窗口生效期间每个用户的默认 RPM 上限，0 表示不限制。',
+        limitedTimeUserConcurrencyLimit: '限时用户并发限制',
+        limitedTimeUserConcurrencyLimitPlaceholder: '0 表示使用常规限制',
+        limitedTimeUserConcurrencyLimitHint: '窗口生效期间每个用户的并发上限，0 表示继续使用分组常规限制。',
+        frequency: {
+          daily: '每天',
+          weekly: '每周',
+          monthly: '每月'
+        },
+        weekdays: {
+          monday: '周一',
+          tuesday: '周二',
+          wednesday: '周三',
+          thursday: '周四',
+          friday: '周五',
+          saturday: '周六',
+          sunday: '周日'
+        },
+        units: {
+          minutes: '分钟',
+          hours: '小时',
+          days: '天'
+        },
+        monthDay: '每月 {day} 日',
+        hourOption: '{hour} 时',
+        minuteOption: '{minute} 分',
+        schedule: {
+          daily: '每天',
+          weekly: '每周{weekday}',
+          monthly: '每月 {day} 日'
+        },
+        tableBadge: '{value}x · {schedule} {timeRange} {active}',
+        activeBadge: '生效中',
+        effectiveTooltip: '限时倍率 {limited}x 已覆盖用户常规倍率 {normal}x',
+        effectiveTooltipDefault: '当前使用限时倍率 {limited}x'
       },
       peakRate: {
         enable: '启用高峰倍率',

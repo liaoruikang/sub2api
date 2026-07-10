@@ -1,6 +1,5 @@
 package service
 
-
 // 本文件由 openai_gateway_service.go 纯移动拆分而来：用量记录、计费成本计算与
 // Codex 用量快照。仅做代码搬迁，无任何行为变更。
 
@@ -75,12 +74,14 @@ func (s *OpenAIGatewayService) BuildOpenAIImageCostSummary(ctx context.Context, 
 	if s.cfg != nil {
 		multiplier = s.cfg.Default.RateMultiplier
 	}
+	now := timezone.Now()
 	if user != nil && apiKey.GroupID != nil && apiKey.Group != nil {
 		resolver := s.userGroupRateResolver
 		if resolver == nil {
 			resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
 		}
 		multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+		multiplier = apiKey.Group.BillingRateMultiplierForBaseAt(multiplier, now)
 	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 
@@ -119,7 +120,8 @@ func (s *OpenAIGatewayService) BuildOpenAIImageCostSummary(ctx context.Context, 
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
 	}
-	cost, err := s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier)
+	videoMultiplier := resolveVideoRateMultiplier(apiKey, multiplier)
+	cost, err := s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, videoMultiplier, tokens, serviceTier)
 	if err != nil || cost == nil {
 		return summary
 	}
@@ -238,17 +240,19 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if s.cfg != nil {
 		multiplier = s.cfg.Default.RateMultiplier
 	}
+	now := timezone.Now()
 	if apiKey.GroupID != nil && apiKey.Group != nil {
 		resolver := s.userGroupRateResolver
 		if resolver == nil {
 			resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
 		}
 		multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+		multiplier = apiKey.Group.BillingRateMultiplierForBaseAt(multiplier, now)
 	}
 	// token 倍率叠加高峰因子（token 计费含图片 token，图片按次倍率不受影响）。高峰因子按请求时刻现算，
 	// 不并入上面的 Resolve，以免污染 user:group 倍率缓存。
 	baseMultiplier := multiplier
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, timezone.Now())
+	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, now)
 	videoMultiplier := resolveVideoRateMultiplier(apiKey, baseMultiplier)
 
 	var cost *CostBreakdown

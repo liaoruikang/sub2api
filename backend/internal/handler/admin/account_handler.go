@@ -790,7 +790,6 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
-	sanitizeAccountHighestSchedulingExtra(req.Extra, true)
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -875,7 +874,6 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
-	sanitizeAccountHighestSchedulingExtra(req.Extra, false)
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -1616,7 +1614,6 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 
 			// base_rpm 输入校验：负值归零，超过 10000 截断
 			sanitizeExtraBaseRPM(item.Extra)
-			sanitizeAccountHighestSchedulingExtra(item.Extra, true)
 
 			skipCheck := item.ConfirmMixedChannelRisk != nil && *item.ConfirmMixedChannelRisk
 
@@ -1810,7 +1807,6 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
-	sanitizeAccountHighestSchedulingExtra(req.Extra, false)
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -2752,39 +2748,4 @@ func sanitizeExtraBaseRPM(extra map[string]any) {
 		v = 10000
 	}
 	extra["base_rpm"] = v
-}
-
-const highestSchedulingRecoveryMinutesMax = 10080
-
-func sanitizeAccountHighestSchedulingExtra(extra map[string]any, create bool) {
-	if extra == nil {
-		return
-	}
-
-	if raw, ok := extra[service.AccountExtraHighestSchedulingMode]; ok {
-		if _, valid := raw.(bool); !valid {
-			delete(extra, service.AccountExtraHighestSchedulingMode)
-		}
-	}
-
-	if raw, ok := extra[service.AccountExtraHighestSchedulingRecoveryMinutes]; ok {
-		minutes := service.ParseExtraInt(raw)
-		if minutes < 0 {
-			minutes = 0
-		} else if minutes > highestSchedulingRecoveryMinutesMax {
-			minutes = highestSchedulingRecoveryMinutesMax
-		}
-		extra[service.AccountExtraHighestSchedulingRecoveryMinutes] = minutes
-	}
-
-	if create {
-		for _, key := range []string{
-			service.AccountExtraHighestSchedulingSuppressed,
-			service.AccountExtraHighestSchedulingSuppressedUntil,
-			service.AccountExtraHighestSchedulingSuppressedAt,
-			service.AccountExtraHighestSchedulingSuppressedReason,
-		} {
-			delete(extra, key)
-		}
-	}
 }

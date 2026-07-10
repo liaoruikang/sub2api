@@ -135,29 +135,29 @@ func TestBuildSchedulerMetadataAccount_KeepsModelRateLimits(t *testing.T) {
 	require.Nil(t, got.Extra["unused_large_field"])
 }
 
-func TestBuildSchedulerMetadataAccount_KeepsHighestSchedulingFields(t *testing.T) {
+func TestBuildSchedulerMetadataAccount_ProjectsOnlyHighestSchedulingMode(t *testing.T) {
 	account := service.Account{
 		ID:       91,
 		Platform: service.PlatformOpenAI,
 		Extra: map[string]any{
-			service.AccountExtraHighestSchedulingMode:             true,
-			service.AccountExtraHighestSchedulingRecoveryMinutes:  30,
-			service.AccountExtraHighestSchedulingSuppressed:       true,
-			service.AccountExtraHighestSchedulingSuppressedUntil:  "2026-06-16T10:10:00Z",
-			service.AccountExtraHighestSchedulingSuppressedAt:     "2026-06-16T09:40:00Z",
-			service.AccountExtraHighestSchedulingSuppressedReason: "rate limited",
-			"unused_large_field":                                  "drop-me",
+			service.AccountExtraHighestSchedulingMode: false,
+			"highest_scheduling_recovery_minutes":     30,
+			"highest_scheduling_suppressed":           true,
+			"highest_scheduling_suppressed_until":     "2026-06-16T10:10:00Z",
+			"highest_scheduling_suppressed_at":        "2026-06-16T09:40:00Z",
+			"highest_scheduling_suppressed_reason":    "rate limited",
+			"unused_large_field":                      "drop-me",
 		},
 	}
 
 	got := buildSchedulerMetadataAccount(account)
 
-	require.Equal(t, true, got.Extra[service.AccountExtraHighestSchedulingMode])
-	require.Equal(t, 30, got.Extra[service.AccountExtraHighestSchedulingRecoveryMinutes])
-	require.Equal(t, true, got.Extra[service.AccountExtraHighestSchedulingSuppressed])
-	require.Equal(t, "2026-06-16T10:10:00Z", got.Extra[service.AccountExtraHighestSchedulingSuppressedUntil])
-	require.Equal(t, "2026-06-16T09:40:00Z", got.Extra[service.AccountExtraHighestSchedulingSuppressedAt])
-	require.Equal(t, "rate limited", got.Extra[service.AccountExtraHighestSchedulingSuppressedReason])
+	require.Equal(t, false, got.Extra[service.AccountExtraHighestSchedulingMode])
+	require.NotContains(t, got.Extra, "highest_scheduling_recovery_minutes")
+	require.NotContains(t, got.Extra, "highest_scheduling_suppressed")
+	require.NotContains(t, got.Extra, "highest_scheduling_suppressed_until")
+	require.NotContains(t, got.Extra, "highest_scheduling_suppressed_at")
+	require.NotContains(t, got.Extra, "highest_scheduling_suppressed_reason")
 	require.Nil(t, got.Extra["unused_large_field"])
 }
 
