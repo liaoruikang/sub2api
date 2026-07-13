@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
+	"github.com/Wei-Shaw/sub2api/ent/grokvideojob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
@@ -924,6 +925,58 @@ func init() {
 	errorpassthroughruleDescSkipMonitoring := errorpassthroughruleFields[11].Descriptor()
 	// errorpassthroughrule.DefaultSkipMonitoring holds the default value on creation for the skip_monitoring field.
 	errorpassthroughrule.DefaultSkipMonitoring = errorpassthroughruleDescSkipMonitoring.Default.(bool)
+	grokvideojobFields := schema.GrokVideoJob{}.Fields()
+	_ = grokvideojobFields
+	// grokvideojobDescRequestID is the schema descriptor for request_id field.
+	grokvideojobDescRequestID := grokvideojobFields[0].Descriptor()
+	// grokvideojob.RequestIDValidator is a validator for the "request_id" field. It is called by the builders before save.
+	grokvideojob.RequestIDValidator = grokvideojobDescRequestID.Validators[0].(func(string) error)
+	// grokvideojobDescModel is the schema descriptor for model field.
+	grokvideojobDescModel := grokvideojobFields[5].Descriptor()
+	// grokvideojob.DefaultModel holds the default value on creation for the model field.
+	grokvideojob.DefaultModel = grokvideojobDescModel.Default.(string)
+	// grokvideojob.ModelValidator is a validator for the "model" field. It is called by the builders before save.
+	grokvideojob.ModelValidator = grokvideojobDescModel.Validators[0].(func(string) error)
+	// grokvideojobDescPromptPreview is the schema descriptor for prompt_preview field.
+	grokvideojobDescPromptPreview := grokvideojobFields[6].Descriptor()
+	// grokvideojob.DefaultPromptPreview holds the default value on creation for the prompt_preview field.
+	grokvideojob.DefaultPromptPreview = grokvideojobDescPromptPreview.Default.(string)
+	// grokvideojob.PromptPreviewValidator is a validator for the "prompt_preview" field. It is called by the builders before save.
+	grokvideojob.PromptPreviewValidator = grokvideojobDescPromptPreview.Validators[0].(func(string) error)
+	// grokvideojobDescStatus is the schema descriptor for status field.
+	grokvideojobDescStatus := grokvideojobFields[7].Descriptor()
+	// grokvideojob.DefaultStatus holds the default value on creation for the status field.
+	grokvideojob.DefaultStatus = grokvideojobDescStatus.Default.(string)
+	// grokvideojob.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	grokvideojob.StatusValidator = grokvideojobDescStatus.Validators[0].(func(string) error)
+	// grokvideojobDescProgressPercent is the schema descriptor for progress_percent field.
+	grokvideojobDescProgressPercent := grokvideojobFields[8].Descriptor()
+	// grokvideojob.DefaultProgressPercent holds the default value on creation for the progress_percent field.
+	grokvideojob.DefaultProgressPercent = grokvideojobDescProgressPercent.Default.(int)
+	// grokvideojobDescProgressText is the schema descriptor for progress_text field.
+	grokvideojobDescProgressText := grokvideojobFields[9].Descriptor()
+	// grokvideojob.DefaultProgressText holds the default value on creation for the progress_text field.
+	grokvideojob.DefaultProgressText = grokvideojobDescProgressText.Default.(string)
+	// grokvideojob.ProgressTextValidator is a validator for the "progress_text" field. It is called by the builders before save.
+	grokvideojob.ProgressTextValidator = grokvideojobDescProgressText.Validators[0].(func(string) error)
+	// grokvideojobDescLastErrorCode is the schema descriptor for last_error_code field.
+	grokvideojobDescLastErrorCode := grokvideojobFields[13].Descriptor()
+	// grokvideojob.LastErrorCodeValidator is a validator for the "last_error_code" field. It is called by the builders before save.
+	grokvideojob.LastErrorCodeValidator = grokvideojobDescLastErrorCode.Validators[0].(func(string) error)
+	// grokvideojobDescCreatedAt is the schema descriptor for created_at field.
+	grokvideojobDescCreatedAt := grokvideojobFields[15].Descriptor()
+	// grokvideojob.DefaultCreatedAt holds the default value on creation for the created_at field.
+	grokvideojob.DefaultCreatedAt = grokvideojobDescCreatedAt.Default.(func() time.Time)
+	// grokvideojobDescUpdatedAt is the schema descriptor for updated_at field.
+	grokvideojobDescUpdatedAt := grokvideojobFields[16].Descriptor()
+	// grokvideojob.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	grokvideojob.DefaultUpdatedAt = grokvideojobDescUpdatedAt.Default.(func() time.Time)
+	// grokvideojob.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	grokvideojob.UpdateDefaultUpdatedAt = grokvideojobDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// grokvideojobDescSubmittedAt is the schema descriptor for submitted_at field.
+	grokvideojobDescSubmittedAt := grokvideojobFields[17].Descriptor()
+	// grokvideojob.DefaultSubmittedAt holds the default value on creation for the submitted_at field.
+	grokvideojob.DefaultSubmittedAt = grokvideojobDescSubmittedAt.Default.(func() time.Time)
 	groupMixin := schema.Group{}.Mixin()
 	groupMixinHooks1 := groupMixin[1].Hooks()
 	group.Hooks[0] = groupMixinHooks1[0]
@@ -1070,57 +1123,57 @@ func init() {
 	// group.DefaultVideoRateMultiplier holds the default value on creation for the video_rate_multiplier field.
 	group.DefaultVideoRateMultiplier = groupDescVideoRateMultiplier.Default.(float64)
 	// groupDescClaudeCodeOnly is the schema descriptor for claude_code_only field.
-		groupDescClaudeCodeOnly := groupFields[35].Descriptor()
-		// group.DefaultClaudeCodeOnly holds the default value on creation for the claude_code_only field.
-		group.DefaultClaudeCodeOnly = groupDescClaudeCodeOnly.Default.(bool)
-		// groupDescModelRoutingEnabled is the schema descriptor for model_routing_enabled field.
-		groupDescModelRoutingEnabled := groupFields[39].Descriptor()
-		// group.DefaultModelRoutingEnabled holds the default value on creation for the model_routing_enabled field.
-		group.DefaultModelRoutingEnabled = groupDescModelRoutingEnabled.Default.(bool)
-		// groupDescMcpXMLInject is the schema descriptor for mcp_xml_inject field.
-		groupDescMcpXMLInject := groupFields[40].Descriptor()
-		// group.DefaultMcpXMLInject holds the default value on creation for the mcp_xml_inject field.
-		group.DefaultMcpXMLInject = groupDescMcpXMLInject.Default.(bool)
-		// groupDescSupportedModelScopes is the schema descriptor for supported_model_scopes field.
-		groupDescSupportedModelScopes := groupFields[41].Descriptor()
-		// group.DefaultSupportedModelScopes holds the default value on creation for the supported_model_scopes field.
-		group.DefaultSupportedModelScopes = groupDescSupportedModelScopes.Default.([]string)
-		// groupDescSortOrder is the schema descriptor for sort_order field.
-		groupDescSortOrder := groupFields[42].Descriptor()
-		// group.DefaultSortOrder holds the default value on creation for the sort_order field.
-		group.DefaultSortOrder = groupDescSortOrder.Default.(int)
-		// groupDescAllowMessagesDispatch is the schema descriptor for allow_messages_dispatch field.
-		groupDescAllowMessagesDispatch := groupFields[43].Descriptor()
-		// group.DefaultAllowMessagesDispatch holds the default value on creation for the allow_messages_dispatch field.
-		group.DefaultAllowMessagesDispatch = groupDescAllowMessagesDispatch.Default.(bool)
-		// groupDescRequireOauthOnly is the schema descriptor for require_oauth_only field.
-		groupDescRequireOauthOnly := groupFields[44].Descriptor()
-		// group.DefaultRequireOauthOnly holds the default value on creation for the require_oauth_only field.
-		group.DefaultRequireOauthOnly = groupDescRequireOauthOnly.Default.(bool)
-		// groupDescRequirePrivacySet is the schema descriptor for require_privacy_set field.
-		groupDescRequirePrivacySet := groupFields[45].Descriptor()
-		// group.DefaultRequirePrivacySet holds the default value on creation for the require_privacy_set field.
-		group.DefaultRequirePrivacySet = groupDescRequirePrivacySet.Default.(bool)
-		// groupDescDefaultMappedModel is the schema descriptor for default_mapped_model field.
-		groupDescDefaultMappedModel := groupFields[46].Descriptor()
+	groupDescClaudeCodeOnly := groupFields[36].Descriptor()
+	// group.DefaultClaudeCodeOnly holds the default value on creation for the claude_code_only field.
+	group.DefaultClaudeCodeOnly = groupDescClaudeCodeOnly.Default.(bool)
+	// groupDescModelRoutingEnabled is the schema descriptor for model_routing_enabled field.
+	groupDescModelRoutingEnabled := groupFields[40].Descriptor()
+	// group.DefaultModelRoutingEnabled holds the default value on creation for the model_routing_enabled field.
+	group.DefaultModelRoutingEnabled = groupDescModelRoutingEnabled.Default.(bool)
+	// groupDescMcpXMLInject is the schema descriptor for mcp_xml_inject field.
+	groupDescMcpXMLInject := groupFields[41].Descriptor()
+	// group.DefaultMcpXMLInject holds the default value on creation for the mcp_xml_inject field.
+	group.DefaultMcpXMLInject = groupDescMcpXMLInject.Default.(bool)
+	// groupDescSupportedModelScopes is the schema descriptor for supported_model_scopes field.
+	groupDescSupportedModelScopes := groupFields[42].Descriptor()
+	// group.DefaultSupportedModelScopes holds the default value on creation for the supported_model_scopes field.
+	group.DefaultSupportedModelScopes = groupDescSupportedModelScopes.Default.([]string)
+	// groupDescSortOrder is the schema descriptor for sort_order field.
+	groupDescSortOrder := groupFields[43].Descriptor()
+	// group.DefaultSortOrder holds the default value on creation for the sort_order field.
+	group.DefaultSortOrder = groupDescSortOrder.Default.(int)
+	// groupDescAllowMessagesDispatch is the schema descriptor for allow_messages_dispatch field.
+	groupDescAllowMessagesDispatch := groupFields[44].Descriptor()
+	// group.DefaultAllowMessagesDispatch holds the default value on creation for the allow_messages_dispatch field.
+	group.DefaultAllowMessagesDispatch = groupDescAllowMessagesDispatch.Default.(bool)
+	// groupDescRequireOauthOnly is the schema descriptor for require_oauth_only field.
+	groupDescRequireOauthOnly := groupFields[45].Descriptor()
+	// group.DefaultRequireOauthOnly holds the default value on creation for the require_oauth_only field.
+	group.DefaultRequireOauthOnly = groupDescRequireOauthOnly.Default.(bool)
+	// groupDescRequirePrivacySet is the schema descriptor for require_privacy_set field.
+	groupDescRequirePrivacySet := groupFields[46].Descriptor()
+	// group.DefaultRequirePrivacySet holds the default value on creation for the require_privacy_set field.
+	group.DefaultRequirePrivacySet = groupDescRequirePrivacySet.Default.(bool)
+	// groupDescDefaultMappedModel is the schema descriptor for default_mapped_model field.
+	groupDescDefaultMappedModel := groupFields[47].Descriptor()
 	// group.DefaultDefaultMappedModel holds the default value on creation for the default_mapped_model field.
 	group.DefaultDefaultMappedModel = groupDescDefaultMappedModel.Default.(string)
 	// group.DefaultMappedModelValidator is a validator for the "default_mapped_model" field. It is called by the builders before save.
 	group.DefaultMappedModelValidator = groupDescDefaultMappedModel.Validators[0].(func(string) error)
 	// groupDescMessagesDispatchModelConfig is the schema descriptor for messages_dispatch_model_config field.
-		groupDescMessagesDispatchModelConfig := groupFields[47].Descriptor()
-		// group.DefaultMessagesDispatchModelConfig holds the default value on creation for the messages_dispatch_model_config field.
-		group.DefaultMessagesDispatchModelConfig = groupDescMessagesDispatchModelConfig.Default.(domain.OpenAIMessagesDispatchModelConfig)
-		// groupDescModelsListConfig is the schema descriptor for models_list_config field.
-		groupDescModelsListConfig := groupFields[48].Descriptor()
-		// group.DefaultModelsListConfig holds the default value on creation for the models_list_config field.
-		group.DefaultModelsListConfig = groupDescModelsListConfig.Default.(domain.GroupModelsListConfig)
-		// groupDescRpmLimit is the schema descriptor for rpm_limit field.
-		groupDescRpmLimit := groupFields[49].Descriptor()
+	groupDescMessagesDispatchModelConfig := groupFields[48].Descriptor()
+	// group.DefaultMessagesDispatchModelConfig holds the default value on creation for the messages_dispatch_model_config field.
+	group.DefaultMessagesDispatchModelConfig = groupDescMessagesDispatchModelConfig.Default.(domain.OpenAIMessagesDispatchModelConfig)
+	// groupDescModelsListConfig is the schema descriptor for models_list_config field.
+	groupDescModelsListConfig := groupFields[49].Descriptor()
+	// group.DefaultModelsListConfig holds the default value on creation for the models_list_config field.
+	group.DefaultModelsListConfig = groupDescModelsListConfig.Default.(domain.GroupModelsListConfig)
+	// groupDescRpmLimit is the schema descriptor for rpm_limit field.
+	groupDescRpmLimit := groupFields[50].Descriptor()
 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
 	// groupDescUserConcurrencyLimit is the schema descriptor for user_concurrency_limit field.
-	groupDescUserConcurrencyLimit := groupFields[50].Descriptor()
+	groupDescUserConcurrencyLimit := groupFields[51].Descriptor()
 	// group.DefaultUserConcurrencyLimit holds the default value on creation for the user_concurrency_limit field.
 	group.DefaultUserConcurrencyLimit = groupDescUserConcurrencyLimit.Default.(int)
 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()

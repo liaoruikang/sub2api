@@ -27,6 +27,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
+	"github.com/Wei-Shaw/sub2api/ent/grokvideojob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
@@ -78,6 +79,7 @@ const (
 	TypeChannelMonitorHistory         = "ChannelMonitorHistory"
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
+	TypeGrokVideoJob                  = "GrokVideoJob"
 	TypeGroup                         = "Group"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
 	TypeIdentityAdoptionDecision      = "IdentityAdoptionDecision"
@@ -20788,6 +20790,1722 @@ func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ErrorPassthroughRule edge %s", name)
 }
 
+// GrokVideoJobMutation represents an operation that mutates the GrokVideoJob nodes in the graph.
+type GrokVideoJobMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	request_id          *string
+	user_id             *int64
+	adduser_id          *int64
+	api_key_id          *int64
+	addapi_key_id       *int64
+	group_id            *int64
+	addgroup_id         *int64
+	account_id          *int64
+	addaccount_id       *int64
+	model               *string
+	prompt_preview      *string
+	status              *string
+	progress_percent    *int
+	addprogress_percent *int
+	progress_text       *string
+	result_url          *string
+	result_urls         *string
+	cover_image_url     *string
+	last_error_code     *string
+	last_error_message  *string
+	created_at          *time.Time
+	updated_at          *time.Time
+	submitted_at        *time.Time
+	last_polled_at      *time.Time
+	finished_at         *time.Time
+	clearedFields       map[string]struct{}
+	done                bool
+	oldValue            func(context.Context) (*GrokVideoJob, error)
+	predicates          []predicate.GrokVideoJob
+}
+
+var _ ent.Mutation = (*GrokVideoJobMutation)(nil)
+
+// grokvideojobOption allows management of the mutation configuration using functional options.
+type grokvideojobOption func(*GrokVideoJobMutation)
+
+// newGrokVideoJobMutation creates new mutation for the GrokVideoJob entity.
+func newGrokVideoJobMutation(c config, op Op, opts ...grokvideojobOption) *GrokVideoJobMutation {
+	m := &GrokVideoJobMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeGrokVideoJob,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withGrokVideoJobID sets the ID field of the mutation.
+func withGrokVideoJobID(id int64) grokvideojobOption {
+	return func(m *GrokVideoJobMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *GrokVideoJob
+		)
+		m.oldValue = func(ctx context.Context) (*GrokVideoJob, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().GrokVideoJob.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withGrokVideoJob sets the old GrokVideoJob of the mutation.
+func withGrokVideoJob(node *GrokVideoJob) grokvideojobOption {
+	return func(m *GrokVideoJobMutation) {
+		m.oldValue = func(context.Context) (*GrokVideoJob, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m GrokVideoJobMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m GrokVideoJobMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *GrokVideoJobMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *GrokVideoJobMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().GrokVideoJob.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetRequestID sets the "request_id" field.
+func (m *GrokVideoJobMutation) SetRequestID(s string) {
+	m.request_id = &s
+}
+
+// RequestID returns the value of the "request_id" field in the mutation.
+func (m *GrokVideoJobMutation) RequestID() (r string, exists bool) {
+	v := m.request_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestID returns the old "request_id" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldRequestID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestID: %w", err)
+	}
+	return oldValue.RequestID, nil
+}
+
+// ResetRequestID resets all changes to the "request_id" field.
+func (m *GrokVideoJobMutation) ResetRequestID() {
+	m.request_id = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *GrokVideoJobMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *GrokVideoJobMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *GrokVideoJobMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *GrokVideoJobMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *GrokVideoJobMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *GrokVideoJobMutation) SetAPIKeyID(i int64) {
+	m.api_key_id = &i
+	m.addapi_key_id = nil
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *GrokVideoJobMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldAPIKeyID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// AddAPIKeyID adds i to the "api_key_id" field.
+func (m *GrokVideoJobMutation) AddAPIKeyID(i int64) {
+	if m.addapi_key_id != nil {
+		*m.addapi_key_id += i
+	} else {
+		m.addapi_key_id = &i
+	}
+}
+
+// AddedAPIKeyID returns the value that was added to the "api_key_id" field in this mutation.
+func (m *GrokVideoJobMutation) AddedAPIKeyID() (r int64, exists bool) {
+	v := m.addapi_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (m *GrokVideoJobMutation) ClearAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	m.clearedFields[grokvideojob.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyIDCleared returns if the "api_key_id" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) APIKeyIDCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldAPIKeyID]
+	return ok
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *GrokVideoJobMutation) ResetAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	delete(m.clearedFields, grokvideojob.FieldAPIKeyID)
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *GrokVideoJobMutation) SetGroupID(i int64) {
+	m.group_id = &i
+	m.addgroup_id = nil
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *GrokVideoJobMutation) GroupID() (r int64, exists bool) {
+	v := m.group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// AddGroupID adds i to the "group_id" field.
+func (m *GrokVideoJobMutation) AddGroupID(i int64) {
+	if m.addgroup_id != nil {
+		*m.addgroup_id += i
+	} else {
+		m.addgroup_id = &i
+	}
+}
+
+// AddedGroupID returns the value that was added to the "group_id" field in this mutation.
+func (m *GrokVideoJobMutation) AddedGroupID() (r int64, exists bool) {
+	v := m.addgroup_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearGroupID clears the value of the "group_id" field.
+func (m *GrokVideoJobMutation) ClearGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	m.clearedFields[grokvideojob.FieldGroupID] = struct{}{}
+}
+
+// GroupIDCleared returns if the "group_id" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) GroupIDCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldGroupID]
+	return ok
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *GrokVideoJobMutation) ResetGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	delete(m.clearedFields, grokvideojob.FieldGroupID)
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *GrokVideoJobMutation) SetAccountID(i int64) {
+	m.account_id = &i
+	m.addaccount_id = nil
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *GrokVideoJobMutation) AccountID() (r int64, exists bool) {
+	v := m.account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldAccountID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// AddAccountID adds i to the "account_id" field.
+func (m *GrokVideoJobMutation) AddAccountID(i int64) {
+	if m.addaccount_id != nil {
+		*m.addaccount_id += i
+	} else {
+		m.addaccount_id = &i
+	}
+}
+
+// AddedAccountID returns the value that was added to the "account_id" field in this mutation.
+func (m *GrokVideoJobMutation) AddedAccountID() (r int64, exists bool) {
+	v := m.addaccount_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (m *GrokVideoJobMutation) ClearAccountID() {
+	m.account_id = nil
+	m.addaccount_id = nil
+	m.clearedFields[grokvideojob.FieldAccountID] = struct{}{}
+}
+
+// AccountIDCleared returns if the "account_id" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) AccountIDCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldAccountID]
+	return ok
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *GrokVideoJobMutation) ResetAccountID() {
+	m.account_id = nil
+	m.addaccount_id = nil
+	delete(m.clearedFields, grokvideojob.FieldAccountID)
+}
+
+// SetModel sets the "model" field.
+func (m *GrokVideoJobMutation) SetModel(s string) {
+	m.model = &s
+}
+
+// Model returns the value of the "model" field in the mutation.
+func (m *GrokVideoJobMutation) Model() (r string, exists bool) {
+	v := m.model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModel returns the old "model" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModel: %w", err)
+	}
+	return oldValue.Model, nil
+}
+
+// ResetModel resets all changes to the "model" field.
+func (m *GrokVideoJobMutation) ResetModel() {
+	m.model = nil
+}
+
+// SetPromptPreview sets the "prompt_preview" field.
+func (m *GrokVideoJobMutation) SetPromptPreview(s string) {
+	m.prompt_preview = &s
+}
+
+// PromptPreview returns the value of the "prompt_preview" field in the mutation.
+func (m *GrokVideoJobMutation) PromptPreview() (r string, exists bool) {
+	v := m.prompt_preview
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPromptPreview returns the old "prompt_preview" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldPromptPreview(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPromptPreview is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPromptPreview requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPromptPreview: %w", err)
+	}
+	return oldValue.PromptPreview, nil
+}
+
+// ResetPromptPreview resets all changes to the "prompt_preview" field.
+func (m *GrokVideoJobMutation) ResetPromptPreview() {
+	m.prompt_preview = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *GrokVideoJobMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *GrokVideoJobMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *GrokVideoJobMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetProgressPercent sets the "progress_percent" field.
+func (m *GrokVideoJobMutation) SetProgressPercent(i int) {
+	m.progress_percent = &i
+	m.addprogress_percent = nil
+}
+
+// ProgressPercent returns the value of the "progress_percent" field in the mutation.
+func (m *GrokVideoJobMutation) ProgressPercent() (r int, exists bool) {
+	v := m.progress_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgressPercent returns the old "progress_percent" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldProgressPercent(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgressPercent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgressPercent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgressPercent: %w", err)
+	}
+	return oldValue.ProgressPercent, nil
+}
+
+// AddProgressPercent adds i to the "progress_percent" field.
+func (m *GrokVideoJobMutation) AddProgressPercent(i int) {
+	if m.addprogress_percent != nil {
+		*m.addprogress_percent += i
+	} else {
+		m.addprogress_percent = &i
+	}
+}
+
+// AddedProgressPercent returns the value that was added to the "progress_percent" field in this mutation.
+func (m *GrokVideoJobMutation) AddedProgressPercent() (r int, exists bool) {
+	v := m.addprogress_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProgressPercent resets all changes to the "progress_percent" field.
+func (m *GrokVideoJobMutation) ResetProgressPercent() {
+	m.progress_percent = nil
+	m.addprogress_percent = nil
+}
+
+// SetProgressText sets the "progress_text" field.
+func (m *GrokVideoJobMutation) SetProgressText(s string) {
+	m.progress_text = &s
+}
+
+// ProgressText returns the value of the "progress_text" field in the mutation.
+func (m *GrokVideoJobMutation) ProgressText() (r string, exists bool) {
+	v := m.progress_text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgressText returns the old "progress_text" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldProgressText(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgressText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgressText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgressText: %w", err)
+	}
+	return oldValue.ProgressText, nil
+}
+
+// ResetProgressText resets all changes to the "progress_text" field.
+func (m *GrokVideoJobMutation) ResetProgressText() {
+	m.progress_text = nil
+}
+
+// SetResultURL sets the "result_url" field.
+func (m *GrokVideoJobMutation) SetResultURL(s string) {
+	m.result_url = &s
+}
+
+// ResultURL returns the value of the "result_url" field in the mutation.
+func (m *GrokVideoJobMutation) ResultURL() (r string, exists bool) {
+	v := m.result_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultURL returns the old "result_url" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldResultURL(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultURL: %w", err)
+	}
+	return oldValue.ResultURL, nil
+}
+
+// ClearResultURL clears the value of the "result_url" field.
+func (m *GrokVideoJobMutation) ClearResultURL() {
+	m.result_url = nil
+	m.clearedFields[grokvideojob.FieldResultURL] = struct{}{}
+}
+
+// ResultURLCleared returns if the "result_url" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) ResultURLCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldResultURL]
+	return ok
+}
+
+// ResetResultURL resets all changes to the "result_url" field.
+func (m *GrokVideoJobMutation) ResetResultURL() {
+	m.result_url = nil
+	delete(m.clearedFields, grokvideojob.FieldResultURL)
+}
+
+// SetResultUrls sets the "result_urls" field.
+func (m *GrokVideoJobMutation) SetResultUrls(s string) {
+	m.result_urls = &s
+}
+
+// ResultUrls returns the value of the "result_urls" field in the mutation.
+func (m *GrokVideoJobMutation) ResultUrls() (r string, exists bool) {
+	v := m.result_urls
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultUrls returns the old "result_urls" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldResultUrls(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultUrls is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultUrls requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultUrls: %w", err)
+	}
+	return oldValue.ResultUrls, nil
+}
+
+// ClearResultUrls clears the value of the "result_urls" field.
+func (m *GrokVideoJobMutation) ClearResultUrls() {
+	m.result_urls = nil
+	m.clearedFields[grokvideojob.FieldResultUrls] = struct{}{}
+}
+
+// ResultUrlsCleared returns if the "result_urls" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) ResultUrlsCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldResultUrls]
+	return ok
+}
+
+// ResetResultUrls resets all changes to the "result_urls" field.
+func (m *GrokVideoJobMutation) ResetResultUrls() {
+	m.result_urls = nil
+	delete(m.clearedFields, grokvideojob.FieldResultUrls)
+}
+
+// SetCoverImageURL sets the "cover_image_url" field.
+func (m *GrokVideoJobMutation) SetCoverImageURL(s string) {
+	m.cover_image_url = &s
+}
+
+// CoverImageURL returns the value of the "cover_image_url" field in the mutation.
+func (m *GrokVideoJobMutation) CoverImageURL() (r string, exists bool) {
+	v := m.cover_image_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCoverImageURL returns the old "cover_image_url" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldCoverImageURL(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCoverImageURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCoverImageURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCoverImageURL: %w", err)
+	}
+	return oldValue.CoverImageURL, nil
+}
+
+// ClearCoverImageURL clears the value of the "cover_image_url" field.
+func (m *GrokVideoJobMutation) ClearCoverImageURL() {
+	m.cover_image_url = nil
+	m.clearedFields[grokvideojob.FieldCoverImageURL] = struct{}{}
+}
+
+// CoverImageURLCleared returns if the "cover_image_url" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) CoverImageURLCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldCoverImageURL]
+	return ok
+}
+
+// ResetCoverImageURL resets all changes to the "cover_image_url" field.
+func (m *GrokVideoJobMutation) ResetCoverImageURL() {
+	m.cover_image_url = nil
+	delete(m.clearedFields, grokvideojob.FieldCoverImageURL)
+}
+
+// SetLastErrorCode sets the "last_error_code" field.
+func (m *GrokVideoJobMutation) SetLastErrorCode(s string) {
+	m.last_error_code = &s
+}
+
+// LastErrorCode returns the value of the "last_error_code" field in the mutation.
+func (m *GrokVideoJobMutation) LastErrorCode() (r string, exists bool) {
+	v := m.last_error_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastErrorCode returns the old "last_error_code" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldLastErrorCode(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastErrorCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastErrorCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastErrorCode: %w", err)
+	}
+	return oldValue.LastErrorCode, nil
+}
+
+// ClearLastErrorCode clears the value of the "last_error_code" field.
+func (m *GrokVideoJobMutation) ClearLastErrorCode() {
+	m.last_error_code = nil
+	m.clearedFields[grokvideojob.FieldLastErrorCode] = struct{}{}
+}
+
+// LastErrorCodeCleared returns if the "last_error_code" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) LastErrorCodeCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldLastErrorCode]
+	return ok
+}
+
+// ResetLastErrorCode resets all changes to the "last_error_code" field.
+func (m *GrokVideoJobMutation) ResetLastErrorCode() {
+	m.last_error_code = nil
+	delete(m.clearedFields, grokvideojob.FieldLastErrorCode)
+}
+
+// SetLastErrorMessage sets the "last_error_message" field.
+func (m *GrokVideoJobMutation) SetLastErrorMessage(s string) {
+	m.last_error_message = &s
+}
+
+// LastErrorMessage returns the value of the "last_error_message" field in the mutation.
+func (m *GrokVideoJobMutation) LastErrorMessage() (r string, exists bool) {
+	v := m.last_error_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastErrorMessage returns the old "last_error_message" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldLastErrorMessage(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastErrorMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastErrorMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastErrorMessage: %w", err)
+	}
+	return oldValue.LastErrorMessage, nil
+}
+
+// ClearLastErrorMessage clears the value of the "last_error_message" field.
+func (m *GrokVideoJobMutation) ClearLastErrorMessage() {
+	m.last_error_message = nil
+	m.clearedFields[grokvideojob.FieldLastErrorMessage] = struct{}{}
+}
+
+// LastErrorMessageCleared returns if the "last_error_message" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) LastErrorMessageCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldLastErrorMessage]
+	return ok
+}
+
+// ResetLastErrorMessage resets all changes to the "last_error_message" field.
+func (m *GrokVideoJobMutation) ResetLastErrorMessage() {
+	m.last_error_message = nil
+	delete(m.clearedFields, grokvideojob.FieldLastErrorMessage)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *GrokVideoJobMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *GrokVideoJobMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *GrokVideoJobMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *GrokVideoJobMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *GrokVideoJobMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *GrokVideoJobMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetSubmittedAt sets the "submitted_at" field.
+func (m *GrokVideoJobMutation) SetSubmittedAt(t time.Time) {
+	m.submitted_at = &t
+}
+
+// SubmittedAt returns the value of the "submitted_at" field in the mutation.
+func (m *GrokVideoJobMutation) SubmittedAt() (r time.Time, exists bool) {
+	v := m.submitted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmittedAt returns the old "submitted_at" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldSubmittedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmittedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmittedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmittedAt: %w", err)
+	}
+	return oldValue.SubmittedAt, nil
+}
+
+// ResetSubmittedAt resets all changes to the "submitted_at" field.
+func (m *GrokVideoJobMutation) ResetSubmittedAt() {
+	m.submitted_at = nil
+}
+
+// SetLastPolledAt sets the "last_polled_at" field.
+func (m *GrokVideoJobMutation) SetLastPolledAt(t time.Time) {
+	m.last_polled_at = &t
+}
+
+// LastPolledAt returns the value of the "last_polled_at" field in the mutation.
+func (m *GrokVideoJobMutation) LastPolledAt() (r time.Time, exists bool) {
+	v := m.last_polled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastPolledAt returns the old "last_polled_at" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldLastPolledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastPolledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastPolledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastPolledAt: %w", err)
+	}
+	return oldValue.LastPolledAt, nil
+}
+
+// ClearLastPolledAt clears the value of the "last_polled_at" field.
+func (m *GrokVideoJobMutation) ClearLastPolledAt() {
+	m.last_polled_at = nil
+	m.clearedFields[grokvideojob.FieldLastPolledAt] = struct{}{}
+}
+
+// LastPolledAtCleared returns if the "last_polled_at" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) LastPolledAtCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldLastPolledAt]
+	return ok
+}
+
+// ResetLastPolledAt resets all changes to the "last_polled_at" field.
+func (m *GrokVideoJobMutation) ResetLastPolledAt() {
+	m.last_polled_at = nil
+	delete(m.clearedFields, grokvideojob.FieldLastPolledAt)
+}
+
+// SetFinishedAt sets the "finished_at" field.
+func (m *GrokVideoJobMutation) SetFinishedAt(t time.Time) {
+	m.finished_at = &t
+}
+
+// FinishedAt returns the value of the "finished_at" field in the mutation.
+func (m *GrokVideoJobMutation) FinishedAt() (r time.Time, exists bool) {
+	v := m.finished_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinishedAt returns the old "finished_at" field's value of the GrokVideoJob entity.
+// If the GrokVideoJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GrokVideoJobMutation) OldFinishedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinishedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinishedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinishedAt: %w", err)
+	}
+	return oldValue.FinishedAt, nil
+}
+
+// ClearFinishedAt clears the value of the "finished_at" field.
+func (m *GrokVideoJobMutation) ClearFinishedAt() {
+	m.finished_at = nil
+	m.clearedFields[grokvideojob.FieldFinishedAt] = struct{}{}
+}
+
+// FinishedAtCleared returns if the "finished_at" field was cleared in this mutation.
+func (m *GrokVideoJobMutation) FinishedAtCleared() bool {
+	_, ok := m.clearedFields[grokvideojob.FieldFinishedAt]
+	return ok
+}
+
+// ResetFinishedAt resets all changes to the "finished_at" field.
+func (m *GrokVideoJobMutation) ResetFinishedAt() {
+	m.finished_at = nil
+	delete(m.clearedFields, grokvideojob.FieldFinishedAt)
+}
+
+// Where appends a list predicates to the GrokVideoJobMutation builder.
+func (m *GrokVideoJobMutation) Where(ps ...predicate.GrokVideoJob) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the GrokVideoJobMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *GrokVideoJobMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.GrokVideoJob, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *GrokVideoJobMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *GrokVideoJobMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (GrokVideoJob).
+func (m *GrokVideoJobMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *GrokVideoJobMutation) Fields() []string {
+	fields := make([]string, 0, 20)
+	if m.request_id != nil {
+		fields = append(fields, grokvideojob.FieldRequestID)
+	}
+	if m.user_id != nil {
+		fields = append(fields, grokvideojob.FieldUserID)
+	}
+	if m.api_key_id != nil {
+		fields = append(fields, grokvideojob.FieldAPIKeyID)
+	}
+	if m.group_id != nil {
+		fields = append(fields, grokvideojob.FieldGroupID)
+	}
+	if m.account_id != nil {
+		fields = append(fields, grokvideojob.FieldAccountID)
+	}
+	if m.model != nil {
+		fields = append(fields, grokvideojob.FieldModel)
+	}
+	if m.prompt_preview != nil {
+		fields = append(fields, grokvideojob.FieldPromptPreview)
+	}
+	if m.status != nil {
+		fields = append(fields, grokvideojob.FieldStatus)
+	}
+	if m.progress_percent != nil {
+		fields = append(fields, grokvideojob.FieldProgressPercent)
+	}
+	if m.progress_text != nil {
+		fields = append(fields, grokvideojob.FieldProgressText)
+	}
+	if m.result_url != nil {
+		fields = append(fields, grokvideojob.FieldResultURL)
+	}
+	if m.result_urls != nil {
+		fields = append(fields, grokvideojob.FieldResultUrls)
+	}
+	if m.cover_image_url != nil {
+		fields = append(fields, grokvideojob.FieldCoverImageURL)
+	}
+	if m.last_error_code != nil {
+		fields = append(fields, grokvideojob.FieldLastErrorCode)
+	}
+	if m.last_error_message != nil {
+		fields = append(fields, grokvideojob.FieldLastErrorMessage)
+	}
+	if m.created_at != nil {
+		fields = append(fields, grokvideojob.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, grokvideojob.FieldUpdatedAt)
+	}
+	if m.submitted_at != nil {
+		fields = append(fields, grokvideojob.FieldSubmittedAt)
+	}
+	if m.last_polled_at != nil {
+		fields = append(fields, grokvideojob.FieldLastPolledAt)
+	}
+	if m.finished_at != nil {
+		fields = append(fields, grokvideojob.FieldFinishedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *GrokVideoJobMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case grokvideojob.FieldRequestID:
+		return m.RequestID()
+	case grokvideojob.FieldUserID:
+		return m.UserID()
+	case grokvideojob.FieldAPIKeyID:
+		return m.APIKeyID()
+	case grokvideojob.FieldGroupID:
+		return m.GroupID()
+	case grokvideojob.FieldAccountID:
+		return m.AccountID()
+	case grokvideojob.FieldModel:
+		return m.Model()
+	case grokvideojob.FieldPromptPreview:
+		return m.PromptPreview()
+	case grokvideojob.FieldStatus:
+		return m.Status()
+	case grokvideojob.FieldProgressPercent:
+		return m.ProgressPercent()
+	case grokvideojob.FieldProgressText:
+		return m.ProgressText()
+	case grokvideojob.FieldResultURL:
+		return m.ResultURL()
+	case grokvideojob.FieldResultUrls:
+		return m.ResultUrls()
+	case grokvideojob.FieldCoverImageURL:
+		return m.CoverImageURL()
+	case grokvideojob.FieldLastErrorCode:
+		return m.LastErrorCode()
+	case grokvideojob.FieldLastErrorMessage:
+		return m.LastErrorMessage()
+	case grokvideojob.FieldCreatedAt:
+		return m.CreatedAt()
+	case grokvideojob.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case grokvideojob.FieldSubmittedAt:
+		return m.SubmittedAt()
+	case grokvideojob.FieldLastPolledAt:
+		return m.LastPolledAt()
+	case grokvideojob.FieldFinishedAt:
+		return m.FinishedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *GrokVideoJobMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case grokvideojob.FieldRequestID:
+		return m.OldRequestID(ctx)
+	case grokvideojob.FieldUserID:
+		return m.OldUserID(ctx)
+	case grokvideojob.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case grokvideojob.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case grokvideojob.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case grokvideojob.FieldModel:
+		return m.OldModel(ctx)
+	case grokvideojob.FieldPromptPreview:
+		return m.OldPromptPreview(ctx)
+	case grokvideojob.FieldStatus:
+		return m.OldStatus(ctx)
+	case grokvideojob.FieldProgressPercent:
+		return m.OldProgressPercent(ctx)
+	case grokvideojob.FieldProgressText:
+		return m.OldProgressText(ctx)
+	case grokvideojob.FieldResultURL:
+		return m.OldResultURL(ctx)
+	case grokvideojob.FieldResultUrls:
+		return m.OldResultUrls(ctx)
+	case grokvideojob.FieldCoverImageURL:
+		return m.OldCoverImageURL(ctx)
+	case grokvideojob.FieldLastErrorCode:
+		return m.OldLastErrorCode(ctx)
+	case grokvideojob.FieldLastErrorMessage:
+		return m.OldLastErrorMessage(ctx)
+	case grokvideojob.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case grokvideojob.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case grokvideojob.FieldSubmittedAt:
+		return m.OldSubmittedAt(ctx)
+	case grokvideojob.FieldLastPolledAt:
+		return m.OldLastPolledAt(ctx)
+	case grokvideojob.FieldFinishedAt:
+		return m.OldFinishedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown GrokVideoJob field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GrokVideoJobMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case grokvideojob.FieldRequestID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestID(v)
+		return nil
+	case grokvideojob.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case grokvideojob.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case grokvideojob.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case grokvideojob.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case grokvideojob.FieldModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModel(v)
+		return nil
+	case grokvideojob.FieldPromptPreview:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPromptPreview(v)
+		return nil
+	case grokvideojob.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case grokvideojob.FieldProgressPercent:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgressPercent(v)
+		return nil
+	case grokvideojob.FieldProgressText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgressText(v)
+		return nil
+	case grokvideojob.FieldResultURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultURL(v)
+		return nil
+	case grokvideojob.FieldResultUrls:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultUrls(v)
+		return nil
+	case grokvideojob.FieldCoverImageURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCoverImageURL(v)
+		return nil
+	case grokvideojob.FieldLastErrorCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastErrorCode(v)
+		return nil
+	case grokvideojob.FieldLastErrorMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastErrorMessage(v)
+		return nil
+	case grokvideojob.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case grokvideojob.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case grokvideojob.FieldSubmittedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmittedAt(v)
+		return nil
+	case grokvideojob.FieldLastPolledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastPolledAt(v)
+		return nil
+	case grokvideojob.FieldFinishedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinishedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GrokVideoJob field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *GrokVideoJobMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, grokvideojob.FieldUserID)
+	}
+	if m.addapi_key_id != nil {
+		fields = append(fields, grokvideojob.FieldAPIKeyID)
+	}
+	if m.addgroup_id != nil {
+		fields = append(fields, grokvideojob.FieldGroupID)
+	}
+	if m.addaccount_id != nil {
+		fields = append(fields, grokvideojob.FieldAccountID)
+	}
+	if m.addprogress_percent != nil {
+		fields = append(fields, grokvideojob.FieldProgressPercent)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *GrokVideoJobMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case grokvideojob.FieldUserID:
+		return m.AddedUserID()
+	case grokvideojob.FieldAPIKeyID:
+		return m.AddedAPIKeyID()
+	case grokvideojob.FieldGroupID:
+		return m.AddedGroupID()
+	case grokvideojob.FieldAccountID:
+		return m.AddedAccountID()
+	case grokvideojob.FieldProgressPercent:
+		return m.AddedProgressPercent()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GrokVideoJobMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case grokvideojob.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	case grokvideojob.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAPIKeyID(v)
+		return nil
+	case grokvideojob.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupID(v)
+		return nil
+	case grokvideojob.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAccountID(v)
+		return nil
+	case grokvideojob.FieldProgressPercent:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProgressPercent(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GrokVideoJob numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *GrokVideoJobMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(grokvideojob.FieldAPIKeyID) {
+		fields = append(fields, grokvideojob.FieldAPIKeyID)
+	}
+	if m.FieldCleared(grokvideojob.FieldGroupID) {
+		fields = append(fields, grokvideojob.FieldGroupID)
+	}
+	if m.FieldCleared(grokvideojob.FieldAccountID) {
+		fields = append(fields, grokvideojob.FieldAccountID)
+	}
+	if m.FieldCleared(grokvideojob.FieldResultURL) {
+		fields = append(fields, grokvideojob.FieldResultURL)
+	}
+	if m.FieldCleared(grokvideojob.FieldResultUrls) {
+		fields = append(fields, grokvideojob.FieldResultUrls)
+	}
+	if m.FieldCleared(grokvideojob.FieldCoverImageURL) {
+		fields = append(fields, grokvideojob.FieldCoverImageURL)
+	}
+	if m.FieldCleared(grokvideojob.FieldLastErrorCode) {
+		fields = append(fields, grokvideojob.FieldLastErrorCode)
+	}
+	if m.FieldCleared(grokvideojob.FieldLastErrorMessage) {
+		fields = append(fields, grokvideojob.FieldLastErrorMessage)
+	}
+	if m.FieldCleared(grokvideojob.FieldLastPolledAt) {
+		fields = append(fields, grokvideojob.FieldLastPolledAt)
+	}
+	if m.FieldCleared(grokvideojob.FieldFinishedAt) {
+		fields = append(fields, grokvideojob.FieldFinishedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *GrokVideoJobMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *GrokVideoJobMutation) ClearField(name string) error {
+	switch name {
+	case grokvideojob.FieldAPIKeyID:
+		m.ClearAPIKeyID()
+		return nil
+	case grokvideojob.FieldGroupID:
+		m.ClearGroupID()
+		return nil
+	case grokvideojob.FieldAccountID:
+		m.ClearAccountID()
+		return nil
+	case grokvideojob.FieldResultURL:
+		m.ClearResultURL()
+		return nil
+	case grokvideojob.FieldResultUrls:
+		m.ClearResultUrls()
+		return nil
+	case grokvideojob.FieldCoverImageURL:
+		m.ClearCoverImageURL()
+		return nil
+	case grokvideojob.FieldLastErrorCode:
+		m.ClearLastErrorCode()
+		return nil
+	case grokvideojob.FieldLastErrorMessage:
+		m.ClearLastErrorMessage()
+		return nil
+	case grokvideojob.FieldLastPolledAt:
+		m.ClearLastPolledAt()
+		return nil
+	case grokvideojob.FieldFinishedAt:
+		m.ClearFinishedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown GrokVideoJob nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *GrokVideoJobMutation) ResetField(name string) error {
+	switch name {
+	case grokvideojob.FieldRequestID:
+		m.ResetRequestID()
+		return nil
+	case grokvideojob.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case grokvideojob.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case grokvideojob.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case grokvideojob.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case grokvideojob.FieldModel:
+		m.ResetModel()
+		return nil
+	case grokvideojob.FieldPromptPreview:
+		m.ResetPromptPreview()
+		return nil
+	case grokvideojob.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case grokvideojob.FieldProgressPercent:
+		m.ResetProgressPercent()
+		return nil
+	case grokvideojob.FieldProgressText:
+		m.ResetProgressText()
+		return nil
+	case grokvideojob.FieldResultURL:
+		m.ResetResultURL()
+		return nil
+	case grokvideojob.FieldResultUrls:
+		m.ResetResultUrls()
+		return nil
+	case grokvideojob.FieldCoverImageURL:
+		m.ResetCoverImageURL()
+		return nil
+	case grokvideojob.FieldLastErrorCode:
+		m.ResetLastErrorCode()
+		return nil
+	case grokvideojob.FieldLastErrorMessage:
+		m.ResetLastErrorMessage()
+		return nil
+	case grokvideojob.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case grokvideojob.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case grokvideojob.FieldSubmittedAt:
+		m.ResetSubmittedAt()
+		return nil
+	case grokvideojob.FieldLastPolledAt:
+		m.ResetLastPolledAt()
+		return nil
+	case grokvideojob.FieldFinishedAt:
+		m.ResetFinishedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown GrokVideoJob field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *GrokVideoJobMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *GrokVideoJobMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *GrokVideoJobMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *GrokVideoJobMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *GrokVideoJobMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *GrokVideoJobMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *GrokVideoJobMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown GrokVideoJob unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *GrokVideoJobMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown GrokVideoJob edge %s", name)
+}
+
 // GroupMutation represents an operation that mutates the Group nodes in the graph.
 type GroupMutation struct {
 	config
@@ -20852,6 +22570,8 @@ type GroupMutation struct {
 	addvideo_price_720p                         *float64
 	video_price_1080p                           *float64
 	addvideo_price_1080p                        *float64
+	web_search_price_per_call                   *float64
+	addweb_search_price_per_call                *float64
 	claude_code_only                            *bool
 	fallback_group_id                           *int64
 	addfallback_group_id                        *int64
@@ -22916,6 +24636,76 @@ func (m *GroupMutation) ResetVideoPrice1080p() {
 	delete(m.clearedFields, group.FieldVideoPrice1080p)
 }
 
+// SetWebSearchPricePerCall sets the "web_search_price_per_call" field.
+func (m *GroupMutation) SetWebSearchPricePerCall(f float64) {
+	m.web_search_price_per_call = &f
+	m.addweb_search_price_per_call = nil
+}
+
+// WebSearchPricePerCall returns the value of the "web_search_price_per_call" field in the mutation.
+func (m *GroupMutation) WebSearchPricePerCall() (r float64, exists bool) {
+	v := m.web_search_price_per_call
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWebSearchPricePerCall returns the old "web_search_price_per_call" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldWebSearchPricePerCall(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWebSearchPricePerCall is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWebSearchPricePerCall requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWebSearchPricePerCall: %w", err)
+	}
+	return oldValue.WebSearchPricePerCall, nil
+}
+
+// AddWebSearchPricePerCall adds f to the "web_search_price_per_call" field.
+func (m *GroupMutation) AddWebSearchPricePerCall(f float64) {
+	if m.addweb_search_price_per_call != nil {
+		*m.addweb_search_price_per_call += f
+	} else {
+		m.addweb_search_price_per_call = &f
+	}
+}
+
+// AddedWebSearchPricePerCall returns the value that was added to the "web_search_price_per_call" field in this mutation.
+func (m *GroupMutation) AddedWebSearchPricePerCall() (r float64, exists bool) {
+	v := m.addweb_search_price_per_call
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearWebSearchPricePerCall clears the value of the "web_search_price_per_call" field.
+func (m *GroupMutation) ClearWebSearchPricePerCall() {
+	m.web_search_price_per_call = nil
+	m.addweb_search_price_per_call = nil
+	m.clearedFields[group.FieldWebSearchPricePerCall] = struct{}{}
+}
+
+// WebSearchPricePerCallCleared returns if the "web_search_price_per_call" field was cleared in this mutation.
+func (m *GroupMutation) WebSearchPricePerCallCleared() bool {
+	_, ok := m.clearedFields[group.FieldWebSearchPricePerCall]
+	return ok
+}
+
+// ResetWebSearchPricePerCall resets all changes to the "web_search_price_per_call" field.
+func (m *GroupMutation) ResetWebSearchPricePerCall() {
+	m.web_search_price_per_call = nil
+	m.addweb_search_price_per_call = nil
+	delete(m.clearedFields, group.FieldWebSearchPricePerCall)
+}
+
 // SetClaudeCodeOnly sets the "claude_code_only" field.
 func (m *GroupMutation) SetClaudeCodeOnly(b bool) {
 	m.claude_code_only = &b
@@ -24006,7 +25796,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 54)
+	fields := make([]string, 0, 55)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -24120,6 +25910,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.video_price_1080p != nil {
 		fields = append(fields, group.FieldVideoPrice1080p)
+	}
+	if m.web_search_price_per_call != nil {
+		fields = append(fields, group.FieldWebSearchPricePerCall)
 	}
 	if m.claude_code_only != nil {
 		fields = append(fields, group.FieldClaudeCodeOnly)
@@ -24253,6 +26046,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.VideoPrice720p()
 	case group.FieldVideoPrice1080p:
 		return m.VideoPrice1080p()
+	case group.FieldWebSearchPricePerCall:
+		return m.WebSearchPricePerCall()
 	case group.FieldClaudeCodeOnly:
 		return m.ClaudeCodeOnly()
 	case group.FieldFallbackGroupID:
@@ -24370,6 +26165,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldVideoPrice720p(ctx)
 	case group.FieldVideoPrice1080p:
 		return m.OldVideoPrice1080p(ctx)
+	case group.FieldWebSearchPricePerCall:
+		return m.OldWebSearchPricePerCall(ctx)
 	case group.FieldClaudeCodeOnly:
 		return m.OldClaudeCodeOnly(ctx)
 	case group.FieldFallbackGroupID:
@@ -24677,6 +26474,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetVideoPrice1080p(v)
 		return nil
+	case group.FieldWebSearchPricePerCall:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWebSearchPricePerCall(v)
+		return nil
 	case group.FieldClaudeCodeOnly:
 		v, ok := value.(bool)
 		if !ok {
@@ -24857,6 +26661,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addvideo_price_1080p != nil {
 		fields = append(fields, group.FieldVideoPrice1080p)
 	}
+	if m.addweb_search_price_per_call != nil {
+		fields = append(fields, group.FieldWebSearchPricePerCall)
+	}
 	if m.addfallback_group_id != nil {
 		fields = append(fields, group.FieldFallbackGroupID)
 	}
@@ -24920,6 +26727,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedVideoPrice720p()
 	case group.FieldVideoPrice1080p:
 		return m.AddedVideoPrice1080p()
+	case group.FieldWebSearchPricePerCall:
+		return m.AddedWebSearchPricePerCall()
 	case group.FieldFallbackGroupID:
 		return m.AddedFallbackGroupID()
 	case group.FieldFallbackGroupIDOnInvalidRequest:
@@ -25079,6 +26888,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddVideoPrice1080p(v)
 		return nil
+	case group.FieldWebSearchPricePerCall:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWebSearchPricePerCall(v)
+		return nil
 	case group.FieldFallbackGroupID:
 		v, ok := value.(int64)
 		if !ok {
@@ -25155,6 +26971,9 @@ func (m *GroupMutation) ClearedFields() []string {
 	if m.FieldCleared(group.FieldVideoPrice1080p) {
 		fields = append(fields, group.FieldVideoPrice1080p)
 	}
+	if m.FieldCleared(group.FieldWebSearchPricePerCall) {
+		fields = append(fields, group.FieldWebSearchPricePerCall)
+	}
 	if m.FieldCleared(group.FieldFallbackGroupID) {
 		fields = append(fields, group.FieldFallbackGroupID)
 	}
@@ -25210,6 +27029,9 @@ func (m *GroupMutation) ClearField(name string) error {
 		return nil
 	case group.FieldVideoPrice1080p:
 		m.ClearVideoPrice1080p()
+		return nil
+	case group.FieldWebSearchPricePerCall:
+		m.ClearWebSearchPricePerCall()
 		return nil
 	case group.FieldFallbackGroupID:
 		m.ClearFallbackGroupID()
@@ -25341,6 +27163,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldVideoPrice1080p:
 		m.ResetVideoPrice1080p()
+		return nil
+	case group.FieldWebSearchPricePerCall:
+		m.ResetWebSearchPricePerCall()
 		return nil
 	case group.FieldClaudeCodeOnly:
 		m.ResetClaudeCodeOnly()

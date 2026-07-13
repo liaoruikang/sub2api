@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 21 // v21: include batch image, scheduling, limited-time, peak-rate, concurrency, and video pricing group snapshot fields
+const apiKeyAuthSnapshotVersion = 22 // v22: include web search pricing plus scheduling, limited-time, peak-rate, concurrency, image, and video group snapshot fields
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int

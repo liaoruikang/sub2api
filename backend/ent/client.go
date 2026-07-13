@@ -30,6 +30,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
+	"github.com/Wei-Shaw/sub2api/ent/grokvideojob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
@@ -92,6 +93,8 @@ type Client struct {
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
+	// GrokVideoJob is the client for interacting with the GrokVideoJob builders.
+	GrokVideoJob *GrokVideoJobClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
@@ -164,6 +167,7 @@ func (c *Client) init() {
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
+	c.GrokVideoJob = NewGrokVideoJobClient(c.config)
 	c.Group = NewGroupClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
@@ -294,6 +298,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
+		GrokVideoJob:                  NewGrokVideoJobClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
@@ -351,6 +356,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
+		GrokVideoJob:                  NewGrokVideoJobClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
@@ -407,7 +413,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.ErrorPassthroughRule, c.GrokVideoJob, c.Group, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
 		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
@@ -427,7 +433,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.ErrorPassthroughRule, c.GrokVideoJob, c.Group, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
 		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
@@ -472,6 +478,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChannelMonitorRequestTemplate.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
 		return c.ErrorPassthroughRule.mutate(ctx, m)
+	case *GrokVideoJobMutation:
+		return c.GrokVideoJob.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
 	case *IdempotencyRecordMutation:
@@ -2854,6 +2862,139 @@ func (c *ErrorPassthroughRuleClient) mutate(ctx context.Context, m *ErrorPassthr
 		return (&ErrorPassthroughRuleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ErrorPassthroughRule mutation op: %q", m.Op())
+	}
+}
+
+// GrokVideoJobClient is a client for the GrokVideoJob schema.
+type GrokVideoJobClient struct {
+	config
+}
+
+// NewGrokVideoJobClient returns a client for the GrokVideoJob from the given config.
+func NewGrokVideoJobClient(c config) *GrokVideoJobClient {
+	return &GrokVideoJobClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `grokvideojob.Hooks(f(g(h())))`.
+func (c *GrokVideoJobClient) Use(hooks ...Hook) {
+	c.hooks.GrokVideoJob = append(c.hooks.GrokVideoJob, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `grokvideojob.Intercept(f(g(h())))`.
+func (c *GrokVideoJobClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GrokVideoJob = append(c.inters.GrokVideoJob, interceptors...)
+}
+
+// Create returns a builder for creating a GrokVideoJob entity.
+func (c *GrokVideoJobClient) Create() *GrokVideoJobCreate {
+	mutation := newGrokVideoJobMutation(c.config, OpCreate)
+	return &GrokVideoJobCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GrokVideoJob entities.
+func (c *GrokVideoJobClient) CreateBulk(builders ...*GrokVideoJobCreate) *GrokVideoJobCreateBulk {
+	return &GrokVideoJobCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GrokVideoJobClient) MapCreateBulk(slice any, setFunc func(*GrokVideoJobCreate, int)) *GrokVideoJobCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GrokVideoJobCreateBulk{err: fmt.Errorf("calling to GrokVideoJobClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GrokVideoJobCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GrokVideoJobCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GrokVideoJob.
+func (c *GrokVideoJobClient) Update() *GrokVideoJobUpdate {
+	mutation := newGrokVideoJobMutation(c.config, OpUpdate)
+	return &GrokVideoJobUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GrokVideoJobClient) UpdateOne(_m *GrokVideoJob) *GrokVideoJobUpdateOne {
+	mutation := newGrokVideoJobMutation(c.config, OpUpdateOne, withGrokVideoJob(_m))
+	return &GrokVideoJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GrokVideoJobClient) UpdateOneID(id int64) *GrokVideoJobUpdateOne {
+	mutation := newGrokVideoJobMutation(c.config, OpUpdateOne, withGrokVideoJobID(id))
+	return &GrokVideoJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GrokVideoJob.
+func (c *GrokVideoJobClient) Delete() *GrokVideoJobDelete {
+	mutation := newGrokVideoJobMutation(c.config, OpDelete)
+	return &GrokVideoJobDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GrokVideoJobClient) DeleteOne(_m *GrokVideoJob) *GrokVideoJobDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GrokVideoJobClient) DeleteOneID(id int64) *GrokVideoJobDeleteOne {
+	builder := c.Delete().Where(grokvideojob.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GrokVideoJobDeleteOne{builder}
+}
+
+// Query returns a query builder for GrokVideoJob.
+func (c *GrokVideoJobClient) Query() *GrokVideoJobQuery {
+	return &GrokVideoJobQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGrokVideoJob},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GrokVideoJob entity by its id.
+func (c *GrokVideoJobClient) Get(ctx context.Context, id int64) (*GrokVideoJob, error) {
+	return c.Query().Where(grokvideojob.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GrokVideoJobClient) GetX(ctx context.Context, id int64) *GrokVideoJob {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *GrokVideoJobClient) Hooks() []Hook {
+	return c.hooks.GrokVideoJob
+}
+
+// Interceptors returns the client interceptors.
+func (c *GrokVideoJobClient) Interceptors() []Interceptor {
+	return c.inters.GrokVideoJob
+}
+
+func (c *GrokVideoJobClient) mutate(ctx context.Context, m *GrokVideoJobMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GrokVideoJobCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GrokVideoJobUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GrokVideoJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GrokVideoJobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GrokVideoJob mutation op: %q", m.Op())
 	}
 }
 
@@ -6669,8 +6810,8 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ErrorPassthroughRule, Group, IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		ChannelMonitorRequestTemplate, ErrorPassthroughRule, GrokVideoJob, Group,
+		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
 		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
 		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
@@ -6680,8 +6821,8 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ErrorPassthroughRule, Group, IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		ChannelMonitorRequestTemplate, ErrorPassthroughRule, GrokVideoJob, Group,
+		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
 		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
 		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,

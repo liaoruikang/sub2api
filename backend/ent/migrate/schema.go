@@ -830,6 +830,58 @@ var (
 			},
 		},
 	}
+	// GrokVideoJobsColumns holds the columns for the "grok_video_jobs" table.
+	GrokVideoJobsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "request_id", Type: field.TypeString, Size: 128},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "api_key_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "model", Type: field.TypeString, Size: 128, Default: ""},
+		{Name: "prompt_preview", Type: field.TypeString, Size: 500, Default: ""},
+		{Name: "status", Type: field.TypeString, Size: 32, Default: "pending"},
+		{Name: "progress_percent", Type: field.TypeInt, Default: 0},
+		{Name: "progress_text", Type: field.TypeString, Size: 255, Default: ""},
+		{Name: "result_url", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "result_urls", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "cover_image_url", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "last_error_code", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "last_error_message", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "submitted_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "last_polled_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "finished_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// GrokVideoJobsTable holds the schema information for the "grok_video_jobs" table.
+	GrokVideoJobsTable = &schema.Table{
+		Name:       "grok_video_jobs",
+		Columns:    GrokVideoJobsColumns,
+		PrimaryKey: []*schema.Column{GrokVideoJobsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "grokvideojob_request_id",
+				Unique:  true,
+				Columns: []*schema.Column{GrokVideoJobsColumns[1]},
+			},
+			{
+				Name:    "grokvideojob_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{GrokVideoJobsColumns[2], GrokVideoJobsColumns[16]},
+			},
+			{
+				Name:    "grokvideojob_status_updated_at",
+				Unique:  false,
+				Columns: []*schema.Column{GrokVideoJobsColumns[8], GrokVideoJobsColumns[17]},
+			},
+			{
+				Name:    "grokvideojob_api_key_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{GrokVideoJobsColumns[3], GrokVideoJobsColumns[16]},
+			},
+		},
+	}
 	// GroupsColumns holds the columns for the "groups" table.
 	GroupsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -871,6 +923,7 @@ var (
 		{Name: "video_price_480p", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "video_price_720p", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "video_price_1080p", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "web_search_price_per_call", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "claude_code_only", Type: field.TypeBool, Default: false},
 		{Name: "fallback_group_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "fallback_group_id_on_invalid_request", Type: field.TypeInt64, Nullable: true},
@@ -922,7 +975,7 @@ var (
 			{
 				Name:    "group_sort_order",
 				Unique:  false,
-					Columns: []*schema.Column{GroupsColumns[46]},
+				Columns: []*schema.Column{GroupsColumns[47]},
 			},
 		},
 	}
@@ -2021,6 +2074,7 @@ var (
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
 		ErrorPassthroughRulesTable,
+		GrokVideoJobsTable,
 		GroupsTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
@@ -2105,6 +2159,9 @@ func init() {
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",
+	}
+	GrokVideoJobsTable.Annotation = &entsql.Annotation{
+		Table: "grok_video_jobs",
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",
