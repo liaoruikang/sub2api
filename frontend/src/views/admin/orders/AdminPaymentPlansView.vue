@@ -169,7 +169,7 @@ const planColumns = computed((): Column[] => [
   { key: 'stock_count', label: t('payment.admin.stockCount') },
   { key: 'new_user_only', label: t('payment.admin.newUserOnly') },
   { key: 'first_purchase_discount_enabled', label: t('payment.admin.firstPurchaseDiscountEnabled') },
-  { key: 'validity_days', label: t('payment.admin.validityDays') },
+  { key: 'validity_days', label: t('payment.admin.validity') },
   { key: 'listed_at', label: t('payment.admin.listedAt') },
   { key: 'off_sale_at', label: t('payment.admin.offSaleAt') },
   { key: 'for_sale', label: t('payment.admin.forSale') },
