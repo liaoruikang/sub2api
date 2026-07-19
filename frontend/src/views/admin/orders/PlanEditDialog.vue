@@ -64,6 +64,11 @@
         </div>
         <div><label class="input-label">{{ t('payment.admin.stockCount') }}</label><input v-model.number="planForm.stock_count" type="number" min="0" class="input" /></div>
         <div><label class="input-label">{{ t('payment.admin.sortOrder') }}</label><input v-model.number="planForm.sort_order" type="number" min="0" class="input" /></div>
+        <div>
+          <label class="input-label">{{ t('payment.admin.currency') }}</label>
+          <input v-model="planForm.currency" type="text" maxlength="3" class="input uppercase" :placeholder="t('payment.admin.currencyPlaceholder')" />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.currencyHint') }}</p>
+        </div>
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div>
@@ -184,7 +189,7 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const saving = ref(false)
-const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true, listed_at: '', off_sale_at: '', new_user_only: false, purchase_limit_count: 0, ip_purchase_limit_count: 0, stock_count: 0, first_purchase_discount_enabled: false, first_purchase_discount_price: 0 })
+const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true, listed_at: '', off_sale_at: '', new_user_only: false, purchase_limit_count: 0, ip_purchase_limit_count: 0, stock_count: 0, first_purchase_discount_enabled: false, first_purchase_discount_price: 0 })
 const planFeaturesText = ref('')
 
 const validityUnitOptions = computed(() => [
@@ -259,10 +264,10 @@ const subscriptionCnyPreview = computed(() => {
 watch(() => props.show, (visible) => {
   if (!visible) return
   if (props.plan) {
-    Object.assign(planForm, { name: props.plan.name, group_id: props.plan.group_id, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0, validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days', sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale, listed_at: toDateTimeLocal(props.plan.listed_at), off_sale_at: toDateTimeLocal(props.plan.off_sale_at), new_user_only: props.plan.new_user_only || false, purchase_limit_count: props.plan.purchase_limit_count || 0, ip_purchase_limit_count: props.plan.ip_purchase_limit_count || 0, stock_count: props.plan.stock_count || 0, first_purchase_discount_enabled: props.plan.first_purchase_discount_enabled, first_purchase_discount_price: props.plan.first_purchase_discount_price || 0 })
+    Object.assign(planForm, { name: props.plan.name, group_id: props.plan.group_id, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0, currency: props.plan.currency || '', validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days', sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale, listed_at: toDateTimeLocal(props.plan.listed_at), off_sale_at: toDateTimeLocal(props.plan.off_sale_at), new_user_only: props.plan.new_user_only || false, purchase_limit_count: props.plan.purchase_limit_count || 0, ip_purchase_limit_count: props.plan.ip_purchase_limit_count || 0, stock_count: props.plan.stock_count || 0, first_purchase_discount_enabled: props.plan.first_purchase_discount_enabled, first_purchase_discount_price: props.plan.first_purchase_discount_price || 0 })
     planFeaturesText.value = (props.plan.features || []).join('\n')
   } else {
-    Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true, listed_at: '', off_sale_at: '', new_user_only: false, purchase_limit_count: 0, ip_purchase_limit_count: 0, stock_count: 0, first_purchase_discount_enabled: false, first_purchase_discount_price: 0 })
+    Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true, listed_at: '', off_sale_at: '', new_user_only: false, purchase_limit_count: 0, ip_purchase_limit_count: 0, stock_count: 0, first_purchase_discount_enabled: false, first_purchase_discount_price: 0 })
     planFeaturesText.value = ''
   }
 })
@@ -276,6 +281,7 @@ function buildPlanPayload(): AdminCreatePlanRequest | AdminUpdatePlanRequest {
     description: planForm.description,
     price: planForm.price,
     original_price: planForm.original_price || undefined,
+    currency: planForm.currency.trim().toUpperCase(),
     validity_days: planForm.validity_days,
     validity_unit: planForm.validity_unit,
     sort_order: planForm.sort_order,

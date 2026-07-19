@@ -51,33 +51,34 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 	}
 	// Enrich plans with group platform for frontend color coding
 	type planWithPlatform struct {
-		ID                           int64      `json:"id"`
-		GroupID                      int64      `json:"group_id"`
-		GroupPlatform                string     `json:"group_platform"`
-		GroupName                    string     `json:"group_name"`
-		RateMultiplier               float64    `json:"rate_multiplier"`
-		PeakRateEnabled              bool       `json:"peak_rate_enabled"`
-		PeakStart                    string     `json:"peak_start"`
-		PeakEnd                      string     `json:"peak_end"`
-		PeakRateMultiplier           float64    `json:"peak_rate_multiplier"`
-		Name                         string     `json:"name"`
-		Description                  string     `json:"description"`
-		Price                        float64    `json:"price"`
-		OriginalPrice                *float64   `json:"original_price,omitempty"`
-		ValidityDays                 int        `json:"validity_days"`
-		ValidityUnit                 string     `json:"validity_unit"`
-		Features                     string     `json:"features"`
-		ProductName                  string     `json:"product_name"`
-		ForSale                      bool       `json:"for_sale"`
-		ListedAt                     *time.Time `json:"listed_at,omitempty"`
-		NewUserOnly                  bool       `json:"new_user_only"`
-		OffSaleAt                    *time.Time `json:"off_sale_at,omitempty"`
-		PurchaseLimitCount           int        `json:"purchase_limit_count"`
-		IPPurchaseLimitCount         int        `json:"ip_purchase_limit_count"`
-		StockCount                   int        `json:"stock_count"`
-		FirstPurchaseDiscountEnabled bool       `json:"first_purchase_discount_enabled"`
-		FirstPurchaseDiscountPrice   *float64   `json:"first_purchase_discount_price,omitempty"`
-		SortOrder                    int        `json:"sort_order"`
+			ID                           int64      `json:"id"`
+			GroupID                      int64      `json:"group_id"`
+			GroupPlatform                string     `json:"group_platform"`
+			GroupName                    string     `json:"group_name"`
+			RateMultiplier               float64    `json:"rate_multiplier"`
+			PeakRateEnabled              bool       `json:"peak_rate_enabled"`
+			PeakStart                    string     `json:"peak_start"`
+			PeakEnd                      string     `json:"peak_end"`
+			PeakRateMultiplier           float64    `json:"peak_rate_multiplier"`
+			Name                         string     `json:"name"`
+			Description                  string     `json:"description"`
+			Price                        float64    `json:"price"`
+			OriginalPrice                *float64   `json:"original_price,omitempty"`
+			Currency                     string     `json:"currency,omitempty"`
+			ValidityDays                 int        `json:"validity_days"`
+			ValidityUnit                 string     `json:"validity_unit"`
+			Features                     string     `json:"features"`
+			ProductName                  string     `json:"product_name"`
+			ForSale                      bool       `json:"for_sale"`
+			ListedAt                     *time.Time `json:"listed_at,omitempty"`
+			NewUserOnly                  bool       `json:"new_user_only"`
+			OffSaleAt                    *time.Time `json:"off_sale_at,omitempty"`
+			PurchaseLimitCount           int        `json:"purchase_limit_count"`
+			IPPurchaseLimitCount         int        `json:"ip_purchase_limit_count"`
+			StockCount                   int        `json:"stock_count"`
+			FirstPurchaseDiscountEnabled bool       `json:"first_purchase_discount_enabled"`
+			FirstPurchaseDiscountPrice   *float64   `json:"first_purchase_discount_price,omitempty"`
+			SortOrder                    int        `json:"sort_order"`
 	}
 	groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), plans)
 	result := make([]planWithPlatform, 0, len(plans))
@@ -89,6 +90,7 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 			RateMultiplier: gi.RateMultiplier, PeakRateEnabled: gi.PeakRateEnabled,
 			PeakStart: gi.PeakStart, PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			Currency:     p.Currency,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
 			ProductName: p.ProductName, ForSale: p.ForSale, ListedAt: p.ListedAt, OffSaleAt: p.OffSaleAt,
 			NewUserOnly: p.NewUserOnly, PurchaseLimitCount: p.PurchaseLimitCount,
@@ -171,6 +173,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
 			ModelScopes: gi.ModelScopes,
 			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			Currency:     p.Currency,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName:                    p.ProductName,
 			ListedAt:                       p.ListedAt,
@@ -237,6 +240,7 @@ type checkoutPlan struct {
 	Description                    string     `json:"description"`
 	Price                          float64    `json:"price"`
 	OriginalPrice                  *float64   `json:"original_price,omitempty"`
+	Currency                       string     `json:"currency,omitempty"`
 	ValidityDays                   int        `json:"validity_days"`
 	ValidityUnit                   string     `json:"validity_unit"`
 	Features                       []string   `json:"features"`
