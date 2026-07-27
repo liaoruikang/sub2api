@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 22 // v22: include web search pricing plus scheduling, limited-time, peak-rate, concurrency, image, and video group snapshot fields
+const apiKeyAuthSnapshotVersion = 23 // v23: include OpenAI live, reasoning effort, limited-time RPM, concurrency, and pricing group snapshot fields
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -408,6 +408,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			VideoPrice480P:                       apiKey.Group.VideoPrice480P,
 			VideoPrice720P:                       apiKey.Group.VideoPrice720P,
 			VideoPrice1080P:                      apiKey.Group.VideoPrice1080P,
+			WebSearchPricePerCall:                apiKey.Group.WebSearchPricePerCall,
 			ClaudeCodeOnly:                       apiKey.Group.ClaudeCodeOnly,
 			FallbackGroupID:                      apiKey.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:      apiKey.Group.FallbackGroupIDOnInvalidRequest,
@@ -416,6 +417,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			MCPXMLInject:                         apiKey.Group.MCPXMLInject,
 			SupportedModelScopes:                 apiKey.Group.SupportedModelScopes,
 			AllowMessagesDispatch:                apiKey.Group.AllowMessagesDispatch,
+			AllowLive:                            apiKey.Group.AllowLive,
 			RequireOAuthOnly:                     apiKey.Group.RequireOAuthOnly,
 			RequirePrivacySet:                    apiKey.Group.RequirePrivacySet,
 			DefaultMappedModel:                   apiKey.Group.DefaultMappedModel,
@@ -425,6 +427,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			LimitedTimeRPMLimit:                  apiKey.Group.LimitedTimeRPMLimit,
 			LimitedTimeUserConcurrencyLimit:      apiKey.Group.LimitedTimeUserConcurrencyLimit,
 			UserConcurrencyLimit:                 apiKey.Group.UserConcurrencyLimit,
+			MaxReasoningEffort:                   apiKey.Group.MaxReasoningEffort,
+			ReasoningEffortMappings:              apiKey.Group.ReasoningEffortMappings,
 			PeakRateEnabled:                      apiKey.Group.PeakRateEnabled,
 			PeakStart:                            apiKey.Group.PeakStart,
 			PeakEnd:                              apiKey.Group.PeakEnd,
@@ -503,6 +507,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			VideoPrice480P:                       snapshot.Group.VideoPrice480P,
 			VideoPrice720P:                       snapshot.Group.VideoPrice720P,
 			VideoPrice1080P:                      snapshot.Group.VideoPrice1080P,
+			WebSearchPricePerCall:                snapshot.Group.WebSearchPricePerCall,
 			ClaudeCodeOnly:                       snapshot.Group.ClaudeCodeOnly,
 			FallbackGroupID:                      snapshot.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:      snapshot.Group.FallbackGroupIDOnInvalidRequest,
@@ -511,6 +516,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			MCPXMLInject:                         snapshot.Group.MCPXMLInject,
 			SupportedModelScopes:                 snapshot.Group.SupportedModelScopes,
 			AllowMessagesDispatch:                snapshot.Group.AllowMessagesDispatch,
+			AllowLive:                            snapshot.Group.AllowLive,
 			RequireOAuthOnly:                     snapshot.Group.RequireOAuthOnly,
 			RequirePrivacySet:                    snapshot.Group.RequirePrivacySet,
 			DefaultMappedModel:                   snapshot.Group.DefaultMappedModel,
@@ -520,6 +526,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			LimitedTimeRPMLimit:                  snapshot.Group.LimitedTimeRPMLimit,
 			LimitedTimeUserConcurrencyLimit:      snapshot.Group.LimitedTimeUserConcurrencyLimit,
 			UserConcurrencyLimit:                 snapshot.Group.UserConcurrencyLimit,
+			MaxReasoningEffort:                   snapshot.Group.MaxReasoningEffort,
+			ReasoningEffortMappings:              snapshot.Group.ReasoningEffortMappings,
 			PeakRateEnabled:                      snapshot.Group.PeakRateEnabled,
 			PeakStart:                            snapshot.Group.PeakStart,
 			PeakEnd:                              snapshot.Group.PeakEnd,
