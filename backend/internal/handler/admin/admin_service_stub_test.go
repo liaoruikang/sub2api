@@ -32,6 +32,7 @@ type stubAdminService struct {
 	createAccountErr                    error
 	createSparkShadowErr                error
 	updateAccountErr                    error
+	lastUpdateAccountInput              *service.UpdateAccountInput
 	bulkUpdateAccountErr                error
 	lastBulkUpdateAccountInput          *service.BulkUpdateAccountsInput
 	getAccountResult                    *service.Account
@@ -509,6 +510,7 @@ func (s *stubAdminService) RecoverDuplicateAccount(ctx context.Context, id int64
 
 func (s *stubAdminService) UpdateAccount(ctx context.Context, id int64, input *service.UpdateAccountInput) (*service.Account, error) {
 	s.updateAccountCalls++
+	s.lastUpdateAccountInput = input
 	if s.updateAccountErr != nil {
 		return nil, s.updateAccountErr
 	}
@@ -788,6 +790,30 @@ func (s *stubAdminService) ReplaceUserGroup(ctx context.Context, userID, oldGrou
 
 func (s *stubAdminService) RevertAccountProxyFallback(ctx context.Context, id int64) error {
 	return nil
+}
+
+func (s *stubAdminService) GetHighestSchedulingRotationConfig(ctx context.Context) (*service.HighestSchedulingRotationState, error) {
+	return &service.HighestSchedulingRotationState{
+		Config:           service.DefaultHighestSchedulingRotationConfig(),
+		ActiveAccountIDs: []int64{},
+		CandidateCount:   0,
+	}, nil
+}
+
+func (s *stubAdminService) UpdateHighestSchedulingRotationConfig(ctx context.Context, config service.HighestSchedulingRotationConfig) (*service.HighestSchedulingRotationState, error) {
+	return &service.HighestSchedulingRotationState{
+		Config:           config,
+		ActiveAccountIDs: []int64{},
+		CandidateCount:   0,
+	}, nil
+}
+
+func (s *stubAdminService) ReconcileHighestSchedulingRotation(ctx context.Context, reason string) (*service.HighestSchedulingRotationState, error) {
+	return s.GetHighestSchedulingRotationConfig(ctx)
+}
+
+func (s *stubAdminService) IsHighestSchedulingRotationManagedAccount(ctx context.Context, account *service.Account) (bool, error) {
+	return false, nil
 }
 
 func (s *stubAdminService) CreateShadow(ctx context.Context, parentID int64, opts service.ShadowOptions) (*service.Account, error) {

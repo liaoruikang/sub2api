@@ -82,6 +82,57 @@
         </div>
       </div>
 
+      <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
+      <div
+        v-if="allOpenAIOAuthOnly"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <div class="flex-1 pr-4">
+            <label
+              id="bulk-edit-openai-flatten-namespaces-label"
+              class="input-label mb-0"
+              for="bulk-edit-openai-flatten-namespaces-enabled"
+            >
+              {{ t('admin.accounts.openai.flattenNamespaces') }}
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
+            </p>
+          </div>
+          <input
+            v-model="enableOpenAIFlattenNamespaces"
+            id="bulk-edit-openai-flatten-namespaces-enabled"
+            type="checkbox"
+            aria-controls="bulk-edit-openai-flatten-namespaces-body"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div
+          id="bulk-edit-openai-flatten-namespaces-body"
+          :class="!enableOpenAIFlattenNamespaces && 'pointer-events-none opacity-50'"
+          role="group"
+          aria-labelledby="bulk-edit-openai-flatten-namespaces-label"
+        >
+          <button
+            id="bulk-edit-openai-flatten-namespaces-toggle"
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+            @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
       <!-- Base URL (API Key only) -->
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -118,6 +169,98 @@
         <p class="input-hint">
           {{ t('admin.accounts.bulkEdit.baseUrlNotice') }}
         </p>
+      </div>
+
+      <!-- Pool mode -->
+      <div v-if="allPoolModeCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <div class="flex-1 pr-4">
+            <label
+              id="bulk-edit-pool-mode-label"
+              class="input-label mb-0"
+              for="bulk-edit-pool-mode-enabled"
+            >
+              {{ t('admin.accounts.poolMode') }}
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.bulkEdit.poolModeNotice') }}
+            </p>
+          </div>
+          <input
+            v-model="enablePoolMode"
+            id="bulk-edit-pool-mode-enabled"
+            type="checkbox"
+            aria-controls="bulk-edit-pool-mode-body"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div
+          id="bulk-edit-pool-mode-body"
+          :class="!enablePoolMode && 'pointer-events-none opacity-50'"
+          class="space-y-4"
+          role="group"
+          aria-labelledby="bulk-edit-pool-mode-label"
+        >
+          <button
+            id="bulk-edit-pool-mode-toggle"
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              poolModeEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+            @click="poolModeEnabled = !poolModeEnabled"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+          <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+            <p class="text-xs text-blue-700 dark:text-blue-400">
+              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
+              {{ t('admin.accounts.poolModeInfo') }}
+            </p>
+          </div>
+          <div v-if="poolModeEnabled">
+            <label class="input-label" for="bulk-edit-pool-mode-retry-count">
+              {{ t('admin.accounts.poolModeRetryCount') }}
+            </label>
+            <input
+              v-model.number="poolModeRetryCount"
+              id="bulk-edit-pool-mode-retry-count"
+              type="number"
+              min="0"
+              :max="MAX_POOL_MODE_RETRY_COUNT"
+              class="input"
+              @input="poolModeRetryCount = normalizePoolModeRetryCount(poolModeRetryCount)"
+            />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{
+                t('admin.accounts.poolModeRetryCountHint', {
+                  default: DEFAULT_POOL_MODE_RETRY_COUNT,
+                  max: MAX_POOL_MODE_RETRY_COUNT
+                })
+              }}
+            </p>
+          </div>
+          <div v-if="poolModeEnabled">
+            <label class="input-label" for="bulk-edit-pool-mode-retry-status-codes">
+              {{ t('admin.accounts.poolModeRetryStatusCodes') }}
+            </label>
+            <input
+              v-model="poolModeRetryStatusCodesInput"
+              id="bulk-edit-pool-mode-retry-status-codes"
+              type="text"
+              class="input"
+              :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
+            />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
+            </p>
+          </div>
+        </div>
       </div>
 
       <!-- Model restriction -->
@@ -746,6 +889,14 @@
             aria-labelledby="bulk-edit-rate-multiplier-label"
           />
           <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
+          <p
+            v-if="enableRateMultiplier"
+            class="mt-2 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-300"
+            data-testid="bulk-rate-sync-warning"
+          >
+            <Icon name="exclamationTriangle" size="xs" class="mt-0.5 flex-shrink-0" />
+            <span>{{ t('admin.accounts.bulkEdit.rateSyncWarning') }}</span>
+          </p>
         </div>
       </div>
 
@@ -901,8 +1052,8 @@
         </div>
       </div>
 
-      <!-- Upstream billing auto probe (OpenAI API Key only) -->
-      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <!-- Upstream billing auto probe (any API-key platform) -->
+      <div v-if="allBillingProbeCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
           <div class="flex-1 pr-4">
             <label
@@ -1379,12 +1530,38 @@ const allOpenAIOAuth = computed(() => {
   )
 })
 
+// 严格 OAuth（不含 setup-token）：namespace 摊平兼容开关只对 OAuth 账号生效
+const allOpenAIOAuthOnly = computed(() => {
+  return (
+    targetSelectedPlatforms.value.length === 1 &&
+    targetSelectedPlatforms.value[0] === 'openai' &&
+    targetSelectedTypes.value.length > 0 &&
+    targetSelectedTypes.value.every(t => t === 'oauth')
+  )
+})
+
 const allOpenAIAPIKey = computed(() => {
   return (
     targetSelectedPlatforms.value.length === 1 &&
     targetSelectedPlatforms.value[0] === 'openai' &&
     targetSelectedTypes.value.length > 0 &&
     targetSelectedTypes.value.every(t => t === 'apikey')
+  )
+})
+
+// 上游倍率自动探测已放宽到全部 API-key 平台：只要求所选类型全为 apikey，
+// 平台不限（sub2api 上游即可应答 /v1/sub2api/billing）。
+const allBillingProbeCapable = computed(() => {
+  return (
+    targetSelectedTypes.value.length > 0 &&
+    targetSelectedTypes.value.every(t => t === 'apikey')
+  )
+})
+
+const allPoolModeCapable = computed(() => {
+  return (
+    targetSelectedTypes.value.length > 0 &&
+    targetSelectedTypes.value.every(t => t === 'oauth' || t === 'apikey' || t === 'bedrock')
   )
 })
 
@@ -1434,6 +1611,7 @@ interface ModelMapping {
 
 // State - field enable flags
 const enableBaseUrl = ref(false)
+const enablePoolMode = ref(false)
 const enableModelRestriction = ref(false)
 const enableCustomErrorCodes = ref(false)
 const enableInterceptWarmup = ref(false)
@@ -1447,6 +1625,7 @@ const enableRateMultiplier = ref(false)
 const enableStatus = ref(false)
 const enableGroups = ref(false)
 const enableOpenAIPassthrough = ref(false)
+const enableOpenAIFlattenNamespaces = ref(false)
 const enableOpenAIWSMode = ref(false)
 const enableOpenAIAPIKeyWSMode = ref(false)
 const enableUpstreamBillingAutoProbe = ref(false)
@@ -1462,6 +1641,12 @@ const showMixedChannelWarning = ref(false)
 const mixedChannelWarningMessage = ref('')
 const pendingUpdatesForConfirm = ref<Record<string, unknown> | null>(null)
 const baseUrl = ref('')
+const DEFAULT_POOL_MODE_RETRY_COUNT = 3
+const MAX_POOL_MODE_RETRY_COUNT = 10
+const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
+const poolModeEnabled = ref(false)
+const poolModeRetryCount = ref(DEFAULT_POOL_MODE_RETRY_COUNT)
+const poolModeRetryStatusCodesInput = ref('')
 const modelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
 const allowedModels = ref<string[]>([])
 const modelMappings = ref<ModelMapping[]>([])
@@ -1479,6 +1664,8 @@ const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
 const groupIds = ref<number[]>([])
 const openaiPassthroughEnabled = ref(false)
+// Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
+const openaiFlattenNamespacesEnabled = ref(false)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
@@ -1618,6 +1805,49 @@ const removeErrorCode = (code: number) => {
   }
 }
 
+function parsePoolModeRetryStatusCodes(input: string): number[] {
+  if (!input || !input.trim()) return []
+  const seen = new Set<number>()
+  const out: number[] = []
+  for (const token of input.split(/[,\s]+/)) {
+    const trimmed = token.trim()
+    if (!trimmed) continue
+    const n = Number(trimmed)
+    if (!Number.isFinite(n) || !Number.isInteger(n)) continue
+    if (n < 100 || n > 599) continue
+    if (seen.has(n)) continue
+    seen.add(n)
+    out.push(n)
+  }
+  return out.sort((a, b) => a - b)
+}
+
+const hasInvalidPoolModeRetryStatusCodeInput = () => {
+  if (!poolModeRetryStatusCodesInput.value.trim()) return false
+  return poolModeRetryStatusCodesInput.value
+    .split(/[,\s]+/)
+    .some((token) => {
+      const trimmed = token.trim()
+      if (!trimmed) return false
+      const n = Number(trimmed)
+      return !Number.isFinite(n) || !Number.isInteger(n) || n < 100 || n > 599
+    })
+}
+
+const normalizePoolModeRetryCount = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_POOL_MODE_RETRY_COUNT
+  }
+  const normalized = Math.trunc(value)
+  if (normalized < 0) {
+    return 0
+  }
+  if (normalized > MAX_POOL_MODE_RETRY_COUNT) {
+    return MAX_POOL_MODE_RETRY_COUNT
+  }
+  return normalized
+}
+
 const buildModelMappingObject = (): Record<string, string> | null => {
   return buildModelMappingPayload(
     modelRestrictionMode.value,
@@ -1684,12 +1914,30 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     }
   }
 
+  if (enablePoolMode.value) {
+    credentials.pool_mode = poolModeEnabled.value
+    if (poolModeEnabled.value) {
+      credentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
+      credentials.pool_mode_retry_status_codes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
+    } else {
+      credentials.pool_mode_retry_count = 0
+      credentials.pool_mode_retry_status_codes = []
+    }
+    credentialsChanged = true
+  }
+
   if (enableOpenAIPassthrough.value) {
     const extra = ensureExtra()
     extra.openai_passthrough = openaiPassthroughEnabled.value
     if (!openaiPassthroughEnabled.value) {
       extra.openai_oauth_passthrough = false
     }
+  }
+
+  // 同时校验可见性：勾选后又改了目标筛选条件时，不应把该键写到非 OAuth 账号上
+  if (enableOpenAIFlattenNamespaces.value && allOpenAIOAuthOnly.value) {
+    const extra = ensureExtra()
+    extra.openai_responses_flatten_namespaces = openaiFlattenNamespacesEnabled.value
   }
 
   if (enableModelRestriction.value && !isOpenAIModelRestrictionDisabled.value) {
@@ -1859,7 +2107,9 @@ const handleSubmit = async () => {
 
   const hasAnyFieldEnabled =
     enableBaseUrl.value ||
+    enablePoolMode.value ||
     enableOpenAIPassthrough.value ||
+    enableOpenAIFlattenNamespaces.value ||
     enableModelRestriction.value ||
     enableCustomErrorCodes.value ||
     enableInterceptWarmup.value ||
@@ -1895,6 +2145,11 @@ const handleSubmit = async () => {
       appStore.showError(t('admin.accounts.grokCustomBaseUrl.invalid'))
       return
     }
+  }
+
+  if (enablePoolMode.value && poolModeEnabled.value && hasInvalidPoolModeRetryStatusCodeInput()) {
+    appStore.showError(t('admin.accounts.bulkEdit.invalidPoolModeRetryStatusCodes'))
+    return
   }
 
   if (enableHeaderOverride.value && headerOverrideEnabled.value) {
@@ -1960,6 +2215,10 @@ const submitBulkUpdate = async (baseUpdates: Record<string, unknown>) => {
       pendingUpdatesForConfirm.value = baseUpdates
       mixedChannelWarningMessage.value = error.message
       showMixedChannelWarning.value = true
+    } else if (error.reason === 'UPSTREAM_BILLING_RATE_SYNC_BULK_CONFLICT') {
+      appStore.showError(t('admin.accounts.bulkEdit.rateSyncConflict', {
+        count: error.metadata?.count ?? 1
+      }))
     } else {
       appStore.showError(error.message || t('admin.accounts.bulkEdit.failed'))
       console.error('Error bulk updating accounts:', error)
@@ -1989,6 +2248,7 @@ watch(
     if (!newShow) {
       // Reset all enable flags
       enableBaseUrl.value = false
+      enablePoolMode.value = false
       enableModelRestriction.value = false
       enableCustomErrorCodes.value = false
       enableInterceptWarmup.value = false
@@ -2002,6 +2262,7 @@ watch(
       enableStatus.value = false
       enableGroups.value = false
       enableOpenAIPassthrough.value = false
+      enableOpenAIFlattenNamespaces.value = false
       enableOpenAIWSMode.value = false
       enableOpenAIAPIKeyWSMode.value = false
       enableUpstreamBillingAutoProbe.value = false
@@ -2013,7 +2274,11 @@ watch(
 
       // Reset all values
       baseUrl.value = ''
+      poolModeEnabled.value = false
+      poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
+      poolModeRetryStatusCodesInput.value = ''
       openaiPassthroughEnabled.value = false
+      openaiFlattenNamespacesEnabled.value = false
       modelRestrictionMode.value = 'whitelist'
       allowedModels.value = []
       modelMappings.value = []

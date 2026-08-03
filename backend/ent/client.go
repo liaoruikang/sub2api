@@ -6970,24 +6970,24 @@ type (
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		GrokVideoJob, Group, IdempotencyRecord, IdentityAdoptionDecision,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Hook
+			GrokVideoJob, Group, IdempotencyRecord, IdentityAdoptionDecision,
+			PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+			PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+			SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+			UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+			UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		GrokVideoJob, Group, IdempotencyRecord, IdentityAdoptionDecision,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Interceptor
+			GrokVideoJob, Group, IdempotencyRecord, IdentityAdoptionDecision,
+			PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+			PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+			SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+			UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+			UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

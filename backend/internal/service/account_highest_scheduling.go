@@ -83,27 +83,25 @@ func sortAccountsByHighestSchedulingPriorityAndLastUsed(accounts []*Account, pre
 	})
 }
 
-func filterByHighestSchedulingLoadCandidates(accounts []accountWithLoad) []accountWithLoad {
-	if len(accounts) == 0 {
-		return accounts
-	}
-	hasHighest := false
+func highestSchedulingLoadTier(accounts []accountWithLoad) []accountWithLoad {
 	for _, account := range accounts {
 		if accountHighestSchedulingEffective(account.account) {
-			hasHighest = true
-			break
+			out := make([]accountWithLoad, 0, len(accounts))
+			for _, candidate := range accounts {
+				if accountHighestSchedulingEffective(candidate.account) {
+					out = append(out, candidate)
+				}
+			}
+			return out
 		}
 	}
-	if !hasHighest {
-		return accounts
-	}
-	out := make([]accountWithLoad, 0, len(accounts))
-	for _, account := range accounts {
-		if accountHighestSchedulingEffective(account.account) {
-			out = append(out, account)
-		}
-	}
-	return out
+	return accounts
+}
+
+func sortByHighestSchedulingLoadCandidates(accounts []accountWithLoad, preferOAuth bool) {
+	sort.SliceStable(accounts, func(i, j int) bool {
+		return isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(accounts[i], accounts[j], preferOAuth)
+	})
 }
 
 func isBetterAccountWithLoadByHighestSchedulingPriorityLoadAndLastUsed(candidate, current accountWithLoad, preferOAuth bool) bool {

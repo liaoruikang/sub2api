@@ -713,6 +713,8 @@ const ChevronDownIcon = {
 const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
 const flagPayment = makeSidebarFlag(FeatureFlags.payment)
 const flagAvailableChannels = makeSidebarFlag(FeatureFlags.availableChannels)
+const flagImagePlayground = makeSidebarFlag(FeatureFlags.imagePlayground)
+const flagVideoJobs = makeSidebarFlag(FeatureFlags.videoJobs)
 const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
@@ -731,8 +733,8 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   }
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
-    { path: '/images', label: t('nav.imagePlayground'), icon: ImageIcon, hideInSimpleMode: true },
-    { path: '/videos', label: t('nav.videoJobs'), icon: VideoIcon, hideInSimpleMode: true },
+    { path: '/images', label: t('nav.imagePlayground'), icon: ImageIcon, hideInSimpleMode: true, featureFlag: flagImagePlayground },
+    { path: '/videos', label: t('nav.videoJobs'), icon: VideoIcon, hideInSimpleMode: true, featureFlag: flagVideoJobs },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },

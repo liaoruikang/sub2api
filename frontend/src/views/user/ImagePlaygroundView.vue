@@ -13,15 +13,20 @@
         </p>
       </section>
 
-      <div v-else-if="!loadingOptions" class="grid items-start gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
-        <div class="xl:relative">
+      <div
+        v-else-if="!loadingOptions"
+        class="grid items-start gap-6"
+        :class="advancedEnabled ? 'xl:grid-cols-[420px_minmax(360px,520px)_minmax(0,1fr)] xl:h-[calc(100vh-8rem)] xl:min-h-0 xl:items-stretch xl:overflow-hidden' : 'xl:grid-cols-[440px_minmax(0,1fr)]'"
+      >
+        <div :class="advancedEnabled ? 'xl:min-h-0' : 'xl:relative'">
           <section
             data-test="image-generator-panel"
-            class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800 xl:fixed xl:top-24 xl:flex xl:max-h-[calc(100vh-7rem)] xl:w-[440px] xl:flex-col"
+            class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800"
+            :class="advancedEnabled ? 'xl:flex xl:h-full xl:min-h-0 xl:flex-col' : 'xl:fixed xl:top-24 xl:flex xl:max-h-[calc(100vh-8rem)] xl:w-[440px] xl:flex-col'"
           >
             <div
               data-test="image-generator-scroll"
-              class="xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-2"
+              :class="advancedEnabled ? 'xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:overflow-y-auto xl:pr-1' : 'xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-2'"
             >
               <div class="mb-5 flex items-start justify-between gap-4">
                 <div>
@@ -32,9 +37,34 @@
                     {{ t('imagePlayground.generatorDescription') }}
                   </p>
                 </div>
+
+                <label
+                  for="image-advanced"
+                  class="inline-flex min-w-0 shrink-0 cursor-pointer items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-sm transition hover:border-primary-300 dark:border-dark-600 dark:bg-dark-700"
+                >
+                  <span class="text-sm font-medium text-gray-900 dark:text-white">
+                    {{ t('imagePlayground.advancedModeLabel') }}
+                  </span>
+                  <span
+                    class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition"
+                    :class="advancedEnabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-500'"
+                  >
+                    <span
+                      class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
+                      :class="advancedEnabled ? 'translate-x-5' : 'translate-x-0.5'"
+                    />
+                  </span>
+                  <input
+                    id="image-advanced"
+                    v-model="advancedEnabled"
+                    data-test="image-advanced"
+                    type="checkbox"
+                    class="sr-only"
+                  />
+                </label>
               </div>
 
-              <form class="space-y-5" @submit.prevent="handleGenerate">
+              <form class="flex min-h-0 flex-1 flex-col gap-5" @submit.prevent="handleGenerate">
             <div class="grid gap-5 md:grid-cols-2">
               <div>
                 <label for="image-key" class="input-label">
@@ -81,7 +111,7 @@
               </div>
             </div>
 
-            <div>
+            <div class="flex min-h-0 flex-1 flex-col">
               <label for="image-prompt" class="input-label">
                 {{ t('imagePlayground.promptLabel') }}
               </label>
@@ -90,7 +120,7 @@
                 v-model="prompt"
                 data-test="image-prompt"
                 rows="5"
-                class="input min-h-[132px] resize-y leading-6"
+                class="input min-h-0 flex-1 resize-y leading-6"
                 :placeholder="t('imagePlayground.promptPlaceholder')"
               />
             </div>
@@ -347,9 +377,108 @@
           </section>
         </div>
 
-        <aside class="space-y-6">
+        <section
+          v-if="advancedEnabled"
+          class="flex flex-col gap-6 xl:h-full xl:min-h-0"
+        >
+          <div class="flex min-h-0 flex-1 flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t('imagePlayground.advancedModeLabel') }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                {{ t('imagePlayground.advancedModeHint') }}
+              </p>
+            </div>
+
+            <div class="mt-5 flex min-h-0 flex-1 flex-col space-y-4">
+              <div>
+                <label for="image-advanced-path" class="input-label">
+                  {{ t('imagePlayground.advancedPathLabel') }}
+                </label>
+                <input
+                  id="image-advanced-path"
+                  v-model="advancedRequestPath"
+                  data-test="image-advanced-path"
+                  type="text"
+                  class="input font-mono text-xs"
+                  :aria-invalid="advancedRequestError ? 'true' : 'false'"
+                  @input="handleAdvancedRequestPathInput"
+                />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('imagePlayground.advancedPathHint') }}
+                </p>
+              </div>
+
+              <div class="flex min-h-0 flex-1 flex-col">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <label for="image-advanced-body" class="input-label">
+                    {{ t('imagePlayground.advancedBodyLabel') }}
+                  </label>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    @click="formatAdvancedRequestBody"
+                  >
+                    {{ t('imagePlayground.advancedFormatAction') }}
+                  </button>
+                </div>
+                <textarea
+                  id="image-advanced-body"
+                  v-model="advancedRequestBodyText"
+                  data-test="image-advanced-body"
+                  rows="18"
+                  class="input min-h-0 flex-1 resize-none font-mono text-xs leading-5"
+                  spellcheck="false"
+                  :aria-invalid="advancedRequestError ? 'true' : 'false'"
+                  @input="handleAdvancedRequestBodyInput"
+                />
+              </div>
+
+              <p
+                v-if="advancedRequestError"
+                data-test="image-advanced-error"
+                class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
+              >
+                {{ advancedRequestError }}
+              </p>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t('imagePlayground.advancedResultTitle') }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                {{ t('imagePlayground.advancedResultDescription') }}
+              </p>
+            </div>
+
+            <div class="mt-4 space-y-4">
+              <div>
+                <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('imagePlayground.advancedLastRequestLabel') }}
+                </p>
+                <pre class="max-h-80 overflow-auto rounded-xl bg-gray-950 p-4 text-xs leading-5 text-gray-100"><code>{{ prettyAdvancedRequest }}</code></pre>
+              </div>
+              <div>
+                <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('imagePlayground.advancedLastResponseLabel') }}
+                </p>
+                <pre class="max-h-80 overflow-auto rounded-xl bg-gray-950 p-4 text-xs leading-5 text-gray-100"><code>{{ prettyAdvancedResponse }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside
+          class="space-y-6"
+          :class="advancedEnabled ? 'xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:space-y-0 xl:gap-6 xl:overflow-hidden' : ''"
+        >
           <section
             class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800"
+            :class="advancedEnabled ? 'xl:shrink-0 xl:overflow-hidden' : ''"
           >
             <div class="flex items-start justify-between gap-4">
               <div>
@@ -455,8 +584,10 @@
             </div>
           </section>
 
+
           <section
             class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800"
+            :class="advancedEnabled ? 'xl:shrink-0 xl:overflow-hidden' : ''"
           >
             <div class="space-y-2">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -470,7 +601,10 @@
             </div>
           </section>
 
-          <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800">
+          <section
+            class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800"
+            :class="advancedEnabled ? 'xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:overflow-hidden' : ''"
+          >
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -490,11 +624,19 @@
               </button>
             </div>
 
-            <div v-if="historyRecords.length === 0" class="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500 dark:bg-dark-700 dark:text-gray-400">
+            <div
+              v-if="historyRecords.length === 0"
+              class="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500 dark:bg-dark-700 dark:text-gray-400"
+              :class="advancedEnabled ? 'xl:min-h-0 xl:flex-1' : ''"
+            >
               {{ t('imagePlayground.historyEmpty') }}
             </div>
 
-            <div v-else class="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            <div
+              v-else
+              class="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3"
+              :class="advancedEnabled ? 'xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1' : ''"
+            >
               <article
                 v-for="record in historyRecords"
                 :key="record.id"
@@ -887,10 +1029,14 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  extractImageGenerationErrorMessage,
   generateImage,
+  generateImageAdvanced,
+  imageGeneratePayload,
   generateImageStream,
   getImageOptions,
   type ImagePlaygroundCostMetadata,
+  type ImagePlaygroundGenerateInput,
   type ImagePlaygroundGenerateResponse,
   type ImagePlaygroundImageResult,
   type ImagePlaygroundKeyOption,
@@ -961,6 +1107,12 @@ interface ImagePreviewDragState {
   originY: number
 }
 
+interface AdvancedRequestState {
+  path: string
+  body: Record<string, unknown>
+  multipart: boolean
+}
+
 type ImageHistoryItem = ImageHistoryRecord['images'][number]
 
 const MAX_REFERENCE_FILE_SIZE = 20 * 1024 * 1024
@@ -987,6 +1139,15 @@ const sizeRatioOptions: SizeRatioOption[] = [
   { label: '3:4', width: 3, height: 4 },
   { label: '21:9', width: 21, height: 9 },
 ]
+const ADVANCED_MODE_STORAGE_KEY = 'image_playground_advanced_mode_enabled'
+
+const readAdvancedModeEnabled = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(ADVANCED_MODE_STORAGE_KEY) === 'true'
+}
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -1024,6 +1185,14 @@ const referenceDragging = ref(false)
 const pendingReuseModel = ref<string | null>(null)
 const imagePreview = ref<ImagePreviewState | null>(null)
 const streamEnabled = ref(false)
+const advancedEnabled = ref(readAdvancedModeEnabled())
+const advancedRequestPath = ref('/v1/images/generations')
+const advancedRequestBodyText = ref('{}')
+const advancedRequestError = ref('')
+const advancedRequestDirty = ref(false)
+const lastAdvancedRequest = ref<AdvancedRequestState | null>(null)
+const lastAdvancedResponse = ref<unknown>(null)
+const lastAdvancedError = ref<unknown>(null)
 const generationProgressActive = ref(false)
 const generationProgressPercent = ref<number | null>(null)
 const generationProgressText = ref('')
@@ -1031,6 +1200,8 @@ const previewZoom = ref(1)
 const previewOffset = ref<ImagePreviewOffset>({ x: 0, y: 0 })
 const previewDragState = ref<ImagePreviewDragState | null>(null)
 let streamAbortController: AbortController | null = null
+let syncingAdvancedRequest = false
+let skipNextSelectedKeyModelSync = false
 
 const clearMessages = (): void => {
   statusMessage.value = ''
@@ -1242,7 +1413,8 @@ const generateDisabled = computed(() => {
     generating.value ||
     invalidCompression.value ||
     invalidCount.value ||
-    hasOversizeFile.value
+    hasOversizeFile.value ||
+    (advancedEnabled.value && Boolean(advancedRequestError.value))
   )
 })
 const formattedCurrentPrice = computed(() => formatPrice(currentPrice.value))
@@ -1279,8 +1451,52 @@ watch(selectedKeyId, (nextKeyId) => {
     return
   }
 
+  if (skipNextSelectedKeyModelSync) {
+    skipNextSelectedKeyModelSync = false
+    return
+  }
+
   model.value = nextKey.default_model || nextKey.models[0] || fallbackModels.value[0] || ''
 })
+
+watch(advancedEnabled, (enabled) => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(ADVANCED_MODE_STORAGE_KEY, String(enabled))
+  }
+
+  if (enabled && !advancedRequestDirty.value) {
+    syncAdvancedRequestFromForm()
+  }
+})
+
+watch(
+  [selectedKeyId, model, prompt, size, quality, outputFormat, compressionInput, moderation, count, streamEnabled, referenceItems],
+  () => {
+    if (syncingAdvancedRequest || !advancedEnabled.value || advancedRequestDirty.value) {
+      return
+    }
+    syncAdvancedRequestFromForm()
+  },
+  { deep: true }
+)
+
+const handleAdvancedRequestPathInput = (event: Event): void => {
+  if (syncingAdvancedRequest || !advancedEnabled.value) {
+    return
+  }
+  advancedRequestPath.value = (event.target as HTMLInputElement).value
+  advancedRequestDirty.value = true
+  refreshAdvancedValidation()
+}
+
+const handleAdvancedRequestBodyInput = (event: Event): void => {
+  if (syncingAdvancedRequest || !advancedEnabled.value) {
+    return
+  }
+  advancedRequestBodyText.value = (event.target as HTMLTextAreaElement).value
+  advancedRequestDirty.value = true
+  refreshAdvancedValidation()
+}
 
 const imageMimeType = (format: string): string => {
   if (format === 'jpeg') {
@@ -1833,7 +2049,7 @@ const createHistoryRecordFromResponse = async (
   }
 }
 
-const generationInputFromSnapshot = (snapshot: GenerationSnapshot, countOverride = snapshot.count) => ({
+const generationInputFromSnapshot = (snapshot: GenerationSnapshot, countOverride = snapshot.count): ImagePlaygroundGenerateInput => ({
   api_key_id: snapshot.apiKeyId,
   model: snapshot.model,
   prompt: snapshot.prompt,
@@ -1845,6 +2061,260 @@ const generationInputFromSnapshot = (snapshot: GenerationSnapshot, countOverride
   n: countOverride,
   reference_images: snapshot.referenceImages,
 })
+
+const advancedPathFromSnapshot = (snapshot: GenerationSnapshot): string => {
+  return snapshot.referenceImages.length > 0 ? '/v1/images/edits' : '/v1/images/generations'
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+const prettyJSON = (value: unknown): string => {
+  if (value == null) {
+    return t('imagePlayground.advancedNoData')
+  }
+
+  return JSON.stringify(value, null, 2)
+}
+
+const buildAdvancedRequestBody = (snapshot: GenerationSnapshot, base: Record<string, unknown> = {}): Record<string, unknown> => {
+  const input = generationInputFromSnapshot(snapshot)
+  const nextBody: Record<string, unknown> = {
+    ...base,
+    ...imageGeneratePayload(input),
+    stream: effectiveStreamEnabled.value,
+  }
+
+  if (typeof input.output_compression !== 'number') {
+    delete nextBody.output_compression
+  }
+
+  return nextBody
+}
+
+const parseAdvancedRequestBodyObject = (): Record<string, unknown> | null => {
+  try {
+    const parsed = JSON.parse(advancedRequestBodyText.value)
+    return isRecord(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+const syncAdvancedRequestFromForm = (): void => {
+  const snapshot = createGenerationSnapshot()
+  if (!snapshot) {
+    advancedRequestBodyText.value = '{}'
+    advancedRequestPath.value = '/v1/images/generations'
+    return
+  }
+
+  const base = parseAdvancedRequestBodyObject() ?? {}
+  advancedRequestPath.value = advancedPathFromSnapshot(snapshot)
+  advancedRequestBodyText.value = prettyJSON(buildAdvancedRequestBody(snapshot, base))
+  advancedRequestError.value = ''
+  advancedRequestDirty.value = false
+}
+
+const fieldString = (body: Record<string, unknown>, key: string): string | null => {
+  const value = body[key]
+  return typeof value === 'string' ? value : null
+}
+
+const fieldInteger = (body: Record<string, unknown>, key: string): number | null => {
+  const value = body[key]
+  if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isSafeInteger(parsed) ? parsed : null
+  }
+  return null
+}
+
+const validateAdvancedRequest = (): Record<string, unknown> | null => {
+  const path = advancedRequestPath.value.trim()
+  if (path !== '/v1/images/generations' && path !== '/v1/images/edits') {
+    advancedRequestError.value = t('imagePlayground.advancedInvalidPath')
+    return null
+  }
+
+  if (path === '/v1/images/edits' && referenceImagesForSubmit.value.length === 0) {
+    advancedRequestError.value = t('imagePlayground.advancedEditRequiresReference')
+    return null
+  }
+
+  if (path === '/v1/images/generations' && referenceImagesForSubmit.value.length > 0) {
+    advancedRequestError.value = t('imagePlayground.advancedGenerationRejectsReference')
+    return null
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(advancedRequestBodyText.value)
+  } catch {
+    advancedRequestError.value = t('imagePlayground.advancedInvalidJSON')
+    return null
+  }
+
+  if (!isRecord(parsed)) {
+    advancedRequestError.value = t('imagePlayground.advancedJSONMustBeObject')
+    return null
+  }
+
+  const apiKeyId = fieldInteger(parsed, 'api_key_id')
+  const nextModel = fieldString(parsed, 'model')?.trim()
+  const nextPrompt = fieldString(parsed, 'prompt')?.trim()
+  if (!apiKeyId || !availableKeys.value.some((key) => key.id === apiKeyId)) {
+    advancedRequestError.value = t('imagePlayground.advancedInvalidApiKey')
+    return null
+  }
+  if (!nextModel) {
+    advancedRequestError.value = t('imagePlayground.advancedInvalidModel')
+    return null
+  }
+  if (!nextPrompt) {
+    advancedRequestError.value = t('imagePlayground.advancedInvalidPrompt')
+    return null
+  }
+
+  const nextCount = fieldInteger(parsed, 'n')
+  if (!nextCount || nextCount < 1 || nextCount > 10) {
+    advancedRequestError.value = t('imagePlayground.countInvalid')
+    return null
+  }
+
+  if ('output_compression' in parsed) {
+    const nextCompression = fieldInteger(parsed, 'output_compression')
+    if (nextCompression == null || nextCompression < 0 || nextCompression > 100) {
+      advancedRequestError.value = t('imagePlayground.compressionInvalid')
+      return null
+    }
+  }
+
+  advancedRequestError.value = ''
+  return parsed
+}
+
+const applyAdvancedRequestBody = (body: Record<string, unknown>): void => {
+  syncingAdvancedRequest = true
+  try {
+    const nextApiKeyId = fieldInteger(body, 'api_key_id')
+    if (nextApiKeyId != null) {
+      if (selectedKeyId.value !== nextApiKeyId) {
+        skipNextSelectedKeyModelSync = true
+      }
+      selectedKeyId.value = nextApiKeyId
+    }
+
+    const nextModel = fieldString(body, 'model')
+    if (nextModel) {
+      model.value = nextModel
+    }
+
+    const nextPrompt = fieldString(body, 'prompt')
+    if (nextPrompt != null) {
+      prompt.value = nextPrompt
+    }
+
+    const nextSize = fieldString(body, 'size')
+    if (nextSize != null) {
+      size.value = nextSize
+    }
+
+    const nextQuality = fieldString(body, 'quality')
+    if (nextQuality != null) {
+      quality.value = nextQuality
+    }
+
+    const nextModeration = fieldString(body, 'moderation')
+    if (nextModeration != null) {
+      moderation.value = nextModeration
+    }
+
+    const nextCount = fieldInteger(body, 'n')
+    if (nextCount != null) {
+      count.value = nextCount
+    }
+
+    const nextFormat = fieldString(body, 'output_format')
+    const nextCompression = fieldInteger(body, 'output_compression')
+    if (nextFormat != null) {
+      applyOutputSettings(nextFormat, nextCompression ?? undefined)
+    }
+
+    if (typeof body.stream === 'boolean') {
+      streamEnabled.value = body.stream
+    }
+
+    if (Array.isArray(body.reference_images)) {
+      referenceItems.value = body.reference_images
+        .filter((item): item is File => item instanceof File)
+        .map((file) => ({
+          id: createReferenceId(file),
+          file,
+          tooLarge: file.size > MAX_REFERENCE_FILE_SIZE,
+        }))
+    }
+
+    if (typeof body.path === 'string' && body.path.trim()) {
+      advancedRequestPath.value = body.path.trim()
+    }
+  } finally {
+    syncingAdvancedRequest = false
+  }
+}
+
+const refreshAdvancedValidation = (): void => {
+  if (!advancedEnabled.value || !advancedRequestDirty.value) {
+    return
+  }
+
+  const body = validateAdvancedRequest()
+  if (body) {
+    applyAdvancedRequestBody(body)
+    advancedRequestDirty.value = false
+    syncAdvancedRequestFromForm()
+  }
+}
+
+const formatAdvancedRequestBody = (): void => {
+  const body = validateAdvancedRequest()
+  if (!body) {
+    return
+  }
+
+  advancedRequestBodyText.value = prettyJSON(body)
+}
+
+const currentAdvancedRequest = (snapshot: GenerationSnapshot): AdvancedRequestState => {
+  const base = parseAdvancedRequestBodyObject() ?? {}
+  const body = advancedRequestDirty.value ? validateAdvancedRequest() : buildAdvancedRequestBody(snapshot, base)
+  return {
+    path: advancedRequestPath.value.trim() || advancedPathFromSnapshot(snapshot),
+    body: body ?? buildAdvancedRequestBody(snapshot, base),
+    multipart: snapshot.referenceImages.length > 0,
+  }
+}
+
+const advancedBodyForBatch = (body: Record<string, unknown>, batchCount: number): Record<string, unknown> => ({
+  ...body,
+  n: batchCount,
+})
+
+const advancedErrorPayload = (error: unknown): unknown => {
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, any>
+    return record.response?.data ?? record.error ?? record
+  }
+
+  return error
+}
+
+const prettyAdvancedRequest = computed(() => prettyJSON(lastAdvancedRequest.value))
+const prettyAdvancedResponse = computed(() => prettyJSON(lastAdvancedError.value ?? lastAdvancedResponse.value))
 
 const generationBatchCounts = (totalCount: number): number[] => {
   const counts: number[] = []
@@ -2014,10 +2484,23 @@ const appendStreamedImage = (image: ImagePlaygroundImageResult, snapshot: Genera
 }
 
 const handleGenerate = async (): Promise<void> => {
+  if (advancedEnabled.value && advancedRequestDirty.value) {
+    const body = validateAdvancedRequest()
+    if (!body) {
+      return
+    }
+    applyAdvancedRequestBody(body)
+  }
+
   const snapshot = createGenerationSnapshot()
   if (generateDisabled.value || !snapshot) {
     return
   }
+
+  const advancedRequest = currentAdvancedRequest(snapshot)
+  lastAdvancedRequest.value = advancedRequest
+  lastAdvancedResponse.value = null
+  lastAdvancedError.value = null
 
   const useStream = effectiveStreamEnabled.value
   generating.value = true
@@ -2049,7 +2532,12 @@ const handleGenerate = async (): Promise<void> => {
             onProgress: handleStreamProgress,
             onImage: (image) => appendStreamedImage(image, snapshot),
           })
-        : await generateImage(input)
+        : advancedEnabled.value
+          ? await generateImageAdvanced({
+              body: advancedBodyForBatch(advancedRequest.body, batchCount),
+              reference_images: snapshot.referenceImages,
+            })
+          : await generateImage(input)
 
       responses.push(response)
       if (!useStream) {
@@ -2064,6 +2552,7 @@ const handleGenerate = async (): Promise<void> => {
     }
 
     const response = mergeImageGenerateResponses(responses)
+    lastAdvancedResponse.value = response
     const generatedImages = await localizeGeneratedImages(response.data ?? [], snapshot.outputFormat)
 
     currentResults.value = generatedImages
@@ -2085,7 +2574,9 @@ const handleGenerate = async (): Promise<void> => {
   } catch (error) {
     currentResults.value = []
     currentPrice.value = undefined
-    showError(t('imagePlayground.generateFailed'))
+    lastAdvancedError.value = advancedErrorPayload(error)
+    const upstreamMessage = extractImageGenerationErrorMessage(error)
+    showError(upstreamMessage ? `${t('imagePlayground.generateFailed')}: ${upstreamMessage}` : t('imagePlayground.generateFailed'))
   } finally {
     if (useStream) {
       streamAbortController = null

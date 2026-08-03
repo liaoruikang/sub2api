@@ -217,6 +217,29 @@ func TestRateLimitService_HandleUpstreamError_OAuth401InvalidatorError(t *testin
 	require.Len(t, invalidator.accounts, 1)
 }
 
+func TestRateLimitService_HandleUpstreamError_OAuthPoolMode401SkipsTempUnschedulable(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{}
+	invalidator := &tokenCacheInvalidatorRecorder{}
+	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	service.SetTokenCacheInvalidator(invalidator)
+	account := &Account{
+		ID:       104,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"pool_mode":     true,
+			"refresh_token": "rt-104",
+		},
+	}
+
+	shouldDisable := service.HandleUpstreamError(context.Background(), account, 401, http.Header{}, []byte("unauthorized"))
+
+	require.False(t, shouldDisable)
+	require.Equal(t, 0, repo.setErrorCalls)
+	require.Equal(t, 0, repo.tempCalls)
+	require.Empty(t, invalidator.accounts)
+}
+
 func TestRateLimitService_HandleUpstreamError_NonOAuth401(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{}
 	invalidator := &tokenCacheInvalidatorRecorder{}

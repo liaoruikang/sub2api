@@ -88,7 +88,7 @@ func TestSortAccountsByPriorityOnly_HighestSchedulingBeatsRandomFallbackPriority
 	}
 }
 
-func TestFilterByHighestSchedulingLoadCandidates(t *testing.T) {
+func TestHighestSchedulingLoadTier(t *testing.T) {
 	normal := highestSchedulingTestAccount(1, 1, nil, nil)
 	highest := highestSchedulingTestAccount(2, 99, nil, true)
 	invalidMode := highestSchedulingTestAccount(3, 1, nil, "true")
@@ -98,9 +98,28 @@ func TestFilterByHighestSchedulingLoadCandidates(t *testing.T) {
 		{account: invalidMode, loadInfo: &AccountLoadInfo{AccountID: invalidMode.ID, LoadRate: 0}},
 	}
 
-	filtered := filterByHighestSchedulingLoadCandidates(candidates)
+	filtered := highestSchedulingLoadTier(candidates)
 	if len(filtered) != 1 || filtered[0].account.ID != highest.ID {
-		t.Fatalf("expected only strict-boolean highest candidate, got %#v", filtered)
+		t.Fatalf("expected only strict-boolean highest tier, got %#v", filtered)
+	}
+}
+
+func TestSortByHighestSchedulingLoadCandidates(t *testing.T) {
+	normal := highestSchedulingTestAccount(1, 1, nil, nil)
+	highest := highestSchedulingTestAccount(2, 99, nil, true)
+	invalidMode := highestSchedulingTestAccount(3, 1, nil, "true")
+	candidates := []accountWithLoad{
+		{account: normal, loadInfo: &AccountLoadInfo{AccountID: normal.ID, LoadRate: 0}},
+		{account: highest, loadInfo: &AccountLoadInfo{AccountID: highest.ID, LoadRate: 0}},
+		{account: invalidMode, loadInfo: &AccountLoadInfo{AccountID: invalidMode.ID, LoadRate: 0}},
+	}
+
+	sortByHighestSchedulingLoadCandidates(candidates, false)
+	want := []int64{highest.ID, normal.ID, invalidMode.ID}
+	for i, id := range want {
+		if candidates[i].account.ID != id {
+			t.Fatalf("candidates[%d].ID = %d, want %d", i, candidates[i].account.ID, id)
+		}
 	}
 }
 

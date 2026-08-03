@@ -29,8 +29,10 @@ func TestUserImageGenerationRouteAppliesRequestBodyLimit(t *testing.T) {
 			c.Set(string(middleware.ContextKeyUserRole), service.RoleUser)
 			c.Next()
 		}),
+		middleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() }),
 		nil,
 		&config.Config{Gateway: config.GatewayConfig{MaxBodySize: 4}},
+		nil,
 	)
 
 	recorder := httptest.NewRecorder()

@@ -1309,6 +1309,56 @@
           </div>
         </div>
 
+        <!-- 分组利润控制（五个平台 token 请求） -->
+        <div v-if="isProfitControlPlatform(createForm.platform)" class="border-t pt-4">
+          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              v-model="createForm.profit_control_enabled"
+              type="checkbox"
+              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>{{ t("admin.groups.profitControl.enable") }}</span>
+          </label>
+          <p class="mb-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+            {{
+              createForm.profit_control_enabled
+                ? t("admin.groups.profitControl.enabledHint")
+                : t("admin.groups.profitControl.disabledHint")
+            }}
+          </p>
+          <div
+            v-if="createForm.profit_control_enabled"
+            class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
+          >
+            <div>
+              <label class="input-label">{{ t("admin.groups.profitControl.minMargin") }}</label>
+              <input
+                v-model.number="createForm.profit_min_margin_percent"
+                type="number"
+                step="0.1"
+                min="0"
+                max="99.99"
+                class="input"
+                placeholder="0"
+                :title="t('admin.groups.profitControl.minMarginHint')"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.profitControl.safetyBuffer") }}</label>
+              <input
+                v-model.number="createForm.profit_safety_buffer_percent"
+                type="number"
+                step="0.1"
+                min="0"
+                max="99.99"
+                class="input"
+                placeholder="0"
+                :title="t('admin.groups.profitControl.safetyBufferHint')"
+              />
+            </div>
+          </div>
+        </div>
+
         <!-- 支持的模型系列（仅 antigravity 平台） -->
         <div v-if="createForm.platform === 'antigravity'" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
@@ -3006,6 +3056,56 @@
           </div>
         </div>
 
+        <!-- 分组利润控制（五个平台 token 请求） -->
+        <div v-if="isProfitControlPlatform(editForm.platform)" class="border-t pt-4">
+          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              v-model="editForm.profit_control_enabled"
+              type="checkbox"
+              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>{{ t("admin.groups.profitControl.enable") }}</span>
+          </label>
+          <p class="mb-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+            {{
+              editForm.profit_control_enabled
+                ? t("admin.groups.profitControl.enabledHint")
+                : t("admin.groups.profitControl.disabledHint")
+            }}
+          </p>
+          <div
+            v-if="editForm.profit_control_enabled"
+            class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
+          >
+            <div>
+              <label class="input-label">{{ t("admin.groups.profitControl.minMargin") }}</label>
+              <input
+                v-model.number="editForm.profit_min_margin_percent"
+                type="number"
+                step="0.1"
+                min="0"
+                max="99.99"
+                class="input"
+                placeholder="0"
+                :title="t('admin.groups.profitControl.minMarginHint')"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.profitControl.safetyBuffer") }}</label>
+              <input
+                v-model.number="editForm.profit_safety_buffer_percent"
+                type="number"
+                step="0.1"
+                min="0"
+                max="99.99"
+                class="input"
+                placeholder="0"
+                :title="t('admin.groups.profitControl.safetyBufferHint')"
+              />
+            </div>
+          </div>
+        </div>
+
         <!-- 支持的模型系列（仅 antigravity 平台） -->
         <div v-if="editForm.platform === 'antigravity'" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
@@ -4404,6 +4504,13 @@ import {
 import { createModelsListCandidatesTracker } from "./groupsModelsListCandidates";
 import { normalizeSupportedModelScopesForPlatform } from "./groupsSupportedModelScopes";
 import {
+  isProfitControlPlatform,
+  profitPercentToDecimal,
+  profitDecimalToPercent,
+  validateProfitControlFormState,
+  type ProfitControlFormState,
+} from "./groupsProfitControl";
+import {
   normalizeReasoningEffortForPlatform,
   reasoningEffortMappingsToAPI,
   reasoningEffortMappingsToRows,
@@ -4988,6 +5095,10 @@ const createForm = reactive({
   peak_start: "",
   peak_end: "",
   peak_rate_multiplier: 1.0,
+  // 分组利润控制（五个 token 平台）；界面按百分比输入，提交时转小数
+  profit_control_enabled: false,
+  profit_min_margin_percent: 0,
+  profit_safety_buffer_percent: 0,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
   fallback_group_id: null as number | null,
@@ -5352,6 +5463,10 @@ const editForm = reactive({
   peak_start: "",
   peak_end: "",
   peak_rate_multiplier: 1.0,
+  // 分组利润控制（五个 token 平台）；界面按百分比输入，提交时转小数
+  profit_control_enabled: false,
+  profit_min_margin_percent: 0,
+  profit_safety_buffer_percent: 0,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
   fallback_group_id: null as number | null,
@@ -5810,6 +5925,9 @@ const closeCreateModal = () => {
   createForm.peak_start = "";
   createForm.peak_end = "";
   createForm.peak_rate_multiplier = 1.0;
+  createForm.profit_control_enabled = false;
+  createForm.profit_min_margin_percent = 0;
+  createForm.profit_safety_buffer_percent = 0;
   createForm.claude_code_only = false;
   createForm.fallback_group_id = null;
   createForm.fallback_group_id_on_invalid_request = null;
@@ -6010,6 +6128,18 @@ const normalizeNonNegativeInt = (value: number | string | null | undefined) => {
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
 };
 
+const percentToDecimal = profitPercentToDecimal;
+const decimalToPercent = profitDecimalToPercent;
+
+const validateProfitControlForm = (form: ProfitControlFormState): boolean => {
+  const errorKey = validateProfitControlFormState(form);
+  if (errorKey) {
+    appStore.showError(t(`admin.groups.profitControl.${errorKey}`));
+    return false;
+  }
+  return true;
+};
+
 const handleCreateGroup = async () => {
   if (!createForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
@@ -6020,6 +6150,9 @@ const handleCreateGroup = async () => {
     createReasoningEffortPolicyRef.value &&
     !createReasoningEffortPolicyRef.value.validate()
   ) {
+    return;
+  }
+  if (!validateProfitControlForm(createForm)) {
     return;
   }
   submitting.value = true;
@@ -6074,7 +6207,17 @@ const handleCreateGroup = async () => {
       reasoning_effort_mappings: reasoningEffortMappingsToAPI(
         createForm.reasoning_effort_mappings,
       ),
+      // 利润控制：界面百分比转小数提交；仅五个 token 平台可启用
+      profit_control_enabled:
+        isProfitControlPlatform(createForm.platform) &&
+        createForm.profit_control_enabled,
+      profit_min_margin: percentToDecimal(createForm.profit_min_margin_percent),
+      profit_safety_buffer: percentToDecimal(
+        createForm.profit_safety_buffer_percent,
+      ),
     };
+    delete (requestData as Record<string, unknown>).profit_min_margin_percent;
+    delete (requestData as Record<string, unknown>).profit_safety_buffer_percent;
     // v-model.number 清空输入框时产生 ""，转为 null 让后端设为无限制
     const emptyToNull = (v: any) => (v === "" ? null : v);
     requestData.daily_limit_usd = emptyToNull(requestData.daily_limit_usd);
@@ -6190,6 +6333,13 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.peak_start = group.peak_start ?? "";
   editForm.peak_end = group.peak_end ?? "";
   editForm.peak_rate_multiplier = group.peak_rate_multiplier ?? 1.0;
+  editForm.profit_control_enabled = group.profit_control_enabled ?? false;
+  editForm.profit_min_margin_percent = decimalToPercent(
+    group.profit_min_margin ?? 0,
+  );
+  editForm.profit_safety_buffer_percent = decimalToPercent(
+    group.profit_safety_buffer ?? 0,
+  );
   editForm.claude_code_only = group.claude_code_only || false;
   editForm.fallback_group_id = group.fallback_group_id;
   editForm.fallback_group_id_on_invalid_request =
@@ -6251,6 +6401,9 @@ const closeEditModal = () => {
   editForm.peak_start = "";
   editForm.peak_end = "";
   editForm.peak_rate_multiplier = 1.0;
+  editForm.profit_control_enabled = false;
+  editForm.profit_min_margin_percent = 0;
+  editForm.profit_safety_buffer_percent = 0;
   editForm.video_rate_independent = false;
   editForm.video_rate_multiplier = 1;
   editForm.video_price_480p = null;
@@ -6273,6 +6426,9 @@ const handleUpdateGroup = async () => {
     editReasoningEffortPolicyRef.value &&
     !editReasoningEffortPolicyRef.value.validate()
   ) {
+    return;
+  }
+  if (!validateProfitControlForm(editForm)) {
     return;
   }
 
@@ -6334,7 +6490,17 @@ const handleUpdateGroup = async () => {
       reasoning_effort_mappings: reasoningEffortMappingsToAPI(
         editForm.reasoning_effort_mappings,
       ),
+      // 利润控制：界面百分比转小数提交；仅五个 token 平台可启用
+      profit_control_enabled:
+        isProfitControlPlatform(editForm.platform) &&
+        editForm.profit_control_enabled,
+      profit_min_margin: percentToDecimal(editForm.profit_min_margin_percent),
+      profit_safety_buffer: percentToDecimal(
+        editForm.profit_safety_buffer_percent,
+      ),
     };
+    delete (payload as Record<string, unknown>).profit_min_margin_percent;
+    delete (payload as Record<string, unknown>).profit_safety_buffer_percent;
     // v-model.number 清空输入框时产生 ""，转为 null 让后端设为无限制
     const emptyToNull = (v: any) => (v === "" ? null : v);
     payload.daily_limit_usd = emptyToNull(payload.daily_limit_usd);
@@ -6701,6 +6867,11 @@ watch(
       resetMessagesDispatchFormState(createForm);
       createForm.allow_live = false;
     }
+    if (!isProfitControlPlatform(newVal)) {
+      createForm.profit_control_enabled = false;
+      createForm.profit_min_margin_percent = 0;
+      createForm.profit_safety_buffer_percent = 0;
+    }
     createForm.max_reasoning_effort = normalizeReasoningEffortForPlatform(
       newVal,
       createForm.max_reasoning_effort,
@@ -6743,6 +6914,11 @@ watch(
     if (newVal !== "openai") {
       resetMessagesDispatchFormState(editForm);
       editForm.allow_live = false;
+    }
+    if (!isProfitControlPlatform(newVal)) {
+      editForm.profit_control_enabled = false;
+      editForm.profit_min_margin_percent = 0;
+      editForm.profit_safety_buffer_percent = 0;
     }
     editForm.max_reasoning_effort = normalizeReasoningEffortForPlatform(
       newVal,

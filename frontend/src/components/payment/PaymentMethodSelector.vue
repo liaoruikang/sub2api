@@ -3,16 +3,20 @@
     <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
       {{ t('payment.paymentMethod') }}
     </label>
-    <div class="grid grid-cols-2 gap-3 sm:flex">
+    <div
+      data-testid="payment-method-grid"
+      class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+    >
       <button
         v-for="method in sortedMethods"
         :key="method.type"
         type="button"
+        :title="methodLabel(method)"
         :disabled="!method.available"
         :aria-pressed="selected === method.type"
         :aria-label="t(`payment.methods.${method.type}`)"
         :class="[
-          'relative flex h-[60px] flex-col items-center justify-center rounded-lg border px-3 transition-all sm:flex-1',
+          'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg border px-3 transition-all',
           !method.available
             ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
             : selected === method.type
@@ -21,13 +25,12 @@
         ]"
         @click="method.available && emit('select', method.type)"
       >
-        <span class="flex items-center gap-2">
+        <span class="flex w-full min-w-0 items-center justify-center gap-2">
           <img
             v-if="methodIcon(method.type)"
             :src="methodIcon(method.type)"
-            alt=""
-            aria-hidden="true"
-            class="h-7 w-7 object-contain"
+            :alt="methodLabel(method)"
+            class="h-7 w-7 shrink-0 object-contain"
           />
           <span
             v-else
@@ -37,8 +40,10 @@
           >
             {{ methodBadgeText(method.type) }}
           </span>
-          <span class="flex flex-col items-start leading-none">
-            <span class="text-base font-semibold">{{ methodLabel(method) }}</span>
+          <span class="flex min-w-0 flex-col items-start leading-none">
+            <span data-testid="payment-method-label" class="block w-full truncate text-base font-semibold">
+              {{ methodLabel(method) }}
+            </span>
             <span
               v-if="method.fee_rate > 0"
               class="text-[10px] tracking-wide text-gray-500 dark:text-dark-400"

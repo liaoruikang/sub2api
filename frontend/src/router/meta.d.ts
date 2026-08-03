@@ -56,6 +56,18 @@ declare module 'vue-router' {
     requiresRiskControl?: boolean
 
     /**
+     * 是否要求在线生图功能开关已启用
+     * @default false
+     */
+    requiresImagePlayground?: boolean
+
+    /**
+     * 是否要求视频任务功能开关已启用
+     * @default false
+     */
+    requiresVideoJobs?: boolean
+
+    /**
      * i18n key for the page title
      */
     titleKey?: string

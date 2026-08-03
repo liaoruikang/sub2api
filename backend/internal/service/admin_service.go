@@ -105,6 +105,10 @@ type AdminService interface {
 	ForceAntigravityPrivacy(ctx context.Context, account *Account) string
 	SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error)
 	BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error)
+	GetHighestSchedulingRotationConfig(ctx context.Context) (*HighestSchedulingRotationState, error)
+	UpdateHighestSchedulingRotationConfig(ctx context.Context, config HighestSchedulingRotationConfig) (*HighestSchedulingRotationState, error)
+	ReconcileHighestSchedulingRotation(ctx context.Context, reason string) (*HighestSchedulingRotationState, error)
+	IsHighestSchedulingRotationManagedAccount(ctx context.Context, account *Account) (bool, error)
 	CheckMixedChannelRisk(ctx context.Context, currentAccountID int64, currentAccountPlatform string, groupIDs []int64) error
 	// RevertAccountProxyFallback 将账号的 proxy_id 切回 proxy_fallback_origin_id，并清空 origin 字段。
 	// 若账号不存在返回 ErrAccountNotFound；若账号存在但不在 fallback 状态，返回 ErrAccountNotInFallback。
@@ -276,6 +280,10 @@ type CreateGroupInput struct {
 	MaxReasoningEffort string
 	// ReasoningEffortMappings OpenAI/Codex 推理强度精确映射。
 	ReasoningEffortMappings []ReasoningEffortMapping
+	// 分组利润控制（五个 token 平台分组可启用；margin/buffer 为小数，nil 按 0 处理）
+	ProfitControlEnabled bool
+	ProfitMinMargin      *float64
+	ProfitSafetyBuffer   *float64
 	// 从指定分组复制账号（创建分组后在同一事务内绑定）
 	CopyAccountsFromGroupIDs []int64
 }
@@ -347,6 +355,10 @@ type UpdateGroupInput struct {
 	MaxReasoningEffort *string
 	// ReasoningEffortMappings nil 表示不修改，空数组表示清空，非空数组表示替换。
 	ReasoningEffortMappings *[]ReasoningEffortMapping
+	// 分组利润控制（nil 表示不修改；margin/buffer 为小数）
+	ProfitControlEnabled *bool
+	ProfitMinMargin      *float64
+	ProfitSafetyBuffer   *float64
 	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
 	CopyAccountsFromGroupIDs []int64
 }
@@ -398,6 +410,8 @@ type UpdateAccountInput struct {
 	GroupIDs              *[]int64
 	ExpiresAt             *int64
 	AutoPauseOnExpired    *bool
+	ProbeEnabled          *bool
+	RateSyncEnabled       *bool
 	SkipMixedChannelCheck bool // 跳过混合渠道检查（用户已确认风险）
 }
 
@@ -639,6 +653,7 @@ type adminServiceImpl struct {
 	groupDuplicateRepo   GroupDuplicateRepository
 	accountRepo          AccountRepository
 	accountDuplicateRepo AccountDuplicateRepository
+	accountBillingRepo   AccountBillingSettingsRepository
 	proxyRepo            ProxyRepository
 	apiKeyRepo           APIKeyRepository
 	redeemCodeRepo       RedeemCodeRepository
@@ -697,6 +712,7 @@ func NewAdminService(
 		groupDuplicateRepo:   groupRepo,
 		accountRepo:          accountRepo,
 		accountDuplicateRepo: accountRepo,
+		accountBillingRepo:   accountRepo,
 		proxyRepo:            proxyRepo,
 		apiKeyRepo:           apiKeyRepo,
 		redeemCodeRepo:       redeemCodeRepo,
@@ -716,4 +732,54 @@ func NewAdminService(
 		compositeRouteRepo:   compositeRouteRepo,
 		compositeResolver:    compositeResolver,
 	}
+}
+
+func ProvideAdminService(
+	userRepo UserRepository,
+	groupRepo AdminGroupRepository,
+	accountRepo AdminAccountRepository,
+	proxyRepo ProxyRepository,
+	apiKeyRepo APIKeyRepository,
+	redeemCodeRepo RedeemCodeRepository,
+	userGroupRateRepo UserGroupRateRepository,
+	userRPMCache UserRPMCache,
+	billingCacheService *BillingCacheService,
+	proxyProber ProxyExitInfoProber,
+	proxyLatencyCache ProxyLatencyCache,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	entClient *dbent.Client,
+	settingService *SettingService,
+	defaultSubAssigner DefaultSubscriptionAssigner,
+	userSubRepo UserSubscriptionRepository,
+	privacyClientFactory PrivacyClientFactory,
+	runtimeBlocker AccountRuntimeBlocker,
+	affiliateService *AffiliateService,
+	compositeRouteRepo CompositeModelRouteRepository,
+	compositeResolver *CompositeRouteResolver,
+	rotationReconciler HighestSchedulingRotationReconciler,
+) AdminService {
+	InjectHighestSchedulingRotationReconciler(accountRepo, rotationReconciler)
+	return NewAdminService(
+		userRepo,
+		groupRepo,
+		accountRepo,
+		proxyRepo,
+		apiKeyRepo,
+		redeemCodeRepo,
+		userGroupRateRepo,
+		userRPMCache,
+		billingCacheService,
+		proxyProber,
+		proxyLatencyCache,
+		authCacheInvalidator,
+		entClient,
+		settingService,
+		defaultSubAssigner,
+		userSubRepo,
+		privacyClientFactory,
+		runtimeBlocker,
+		affiliateService,
+		compositeRouteRepo,
+		compositeResolver,
+	)
 }

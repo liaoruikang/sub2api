@@ -44,6 +44,10 @@ func (r *keyBillingRouteRateRepo) GetRPMOverrideByUserAndGroup(context.Context, 
 	return nil, nil
 }
 
+func (r *keyBillingRouteRateRepo) GetLimitedTimeRPMOverrideByUserAndGroup(context.Context, int64, int64) (*int, error) {
+	return nil, nil
+}
+
 func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, *keyBillingRouteRateRepo, string) {
 	gin.SetMode(gin.TestMode)
 	group := &service.Group{

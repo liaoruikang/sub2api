@@ -62,6 +62,19 @@
                 </div>
               </div>
 
+              <button
+                type="button"
+                :class="[
+                  'btn btn-secondary px-2 md:px-3',
+                  highestSchedulingRotationEnabled ? 'text-amber-600 dark:text-amber-300' : ''
+                ]"
+                :title="t('admin.accounts.highestSchedulingRotation.title')"
+                @click="openHighestSchedulingRotation"
+              >
+                <Icon name="sparkles" size="sm" class="md:mr-1.5" />
+                <span class="hidden md:inline">{{ t('admin.accounts.highestSchedulingRotation.shortTitle') }}</span>
+              </button>
+
               <!-- More Tools Dropdown -->
               <div class="relative" ref="accountToolsDropdownRef">
                 <button
@@ -177,6 +190,10 @@
       <template #table>
         <AccountBulkActionsBar
           :selected-ids="selIds"
+          :total-results="pagination.total"
+          :selecting-all="selectingAllResults"
+          :all-results-selected="allResultsSelected"
+          :highest-scheduling-managed="selectedHasHighestSchedulingRotationManagedAccount"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
@@ -185,6 +202,7 @@
           @edit-filtered="openBulkEditFiltered"
           @clear="clearSelection"
           @select-page="selectPage"
+          @select-all-results="handleSelectAllResults"
           @toggle-schedulable="handleBulkToggleSchedulable"
           @toggle-highest-scheduling="handleBulkToggleHighestScheduling"
         />
@@ -289,27 +307,27 @@
             </div>
           </template>
           <template #cell-schedulable="{ row }">
-            <div class="inline-flex flex-wrap items-center gap-1.5">
-              <button @click="handleToggleSchedulable(row)" :disabled="isSchedulingToggleBusy(row.id)" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800" :class="[row.schedulable ? 'bg-primary-500 hover:bg-primary-600' : 'bg-gray-200 hover:bg-gray-300 dark:bg-dark-600 dark:hover:bg-dark-500']" :title="row.schedulable ? t('admin.accounts.schedulableEnabled') : t('admin.accounts.schedulableDisabled')">
-                <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" :class="[row.schedulable ? 'translate-x-4' : 'translate-x-0']" />
-              </button>
-              <button
-                type="button"
-                data-testid="highest-scheduling-toggle"
-                @click="handleToggleHighestScheduling(row)"
-                :disabled="isSchedulingToggleBusy(row.id)"
-                :title="readHighestSchedulingState(row.extra).enabled ? t('admin.accounts.disableHighestSchedulingAction') : t('admin.accounts.enableHighestSchedulingAction')"
-                :class="[
-                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800',
-                  readHighestSchedulingState(row.extra).enabled
-                    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25'
-                    : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600'
-                ]"
-              >
-                <Icon name="sparkles" size="xs" />
-                <span>{{ t('admin.accounts.highestSchedulingMode') }}</span>
-              </button>
-            </div>
+            <button @click="handleToggleSchedulable(row)" :disabled="isSchedulingToggleBusy(row.id)" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800" :class="[row.schedulable ? 'bg-primary-500 hover:bg-primary-600' : 'bg-gray-200 hover:bg-gray-300 dark:bg-dark-600 dark:hover:bg-dark-500']" :title="row.schedulable ? t('admin.accounts.schedulableEnabled') : t('admin.accounts.schedulableDisabled')">
+              <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" :class="[row.schedulable ? 'translate-x-4' : 'translate-x-0']" />
+            </button>
+          </template>
+          <template #cell-highest_scheduling="{ row }">
+            <button
+              type="button"
+              data-testid="highest-scheduling-toggle"
+              @click="handleToggleHighestScheduling(row)"
+              :disabled="isSchedulingToggleBusy(row.id) || isHighestSchedulingRotationManagedAccount(row)"
+              :title="highestSchedulingToggleTitle(row)"
+              :class="[
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800',
+                readHighestSchedulingState(row.extra).enabled
+                  ? 'border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25'
+                  : 'border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600'
+              ]"
+            >
+              <Icon name="sparkles" size="xs" />
+              {{ readHighestSchedulingState(row.extra).enabled ? t('common.enabled') : t('common.disabled') }}
+            </button>
           </template>
           <template #cell-today_stats="{ row }">
             <AccountTodayStatsCell
@@ -357,8 +375,17 @@
             </div>
           </template>
           <template #cell-rate_multiplier="{ row }">
-            <span class="text-sm font-mono text-gray-700 dark:text-gray-300">
-              {{ (row.rate_multiplier ?? 1).toFixed(2) }}x
+            <span class="inline-flex items-center gap-1 text-sm font-mono text-gray-700 dark:text-gray-300">
+              <span>{{ formatMultiplier(row.rate_multiplier ?? 1) }}x</span>
+              <span
+                v-if="row.extra?.upstream_billing_rate_sync_enabled === true"
+                class="inline-flex cursor-help text-emerald-600 dark:text-emerald-400"
+                :aria-label="t('admin.accounts.upstreamBilling.syncedRateTooltip')"
+                :title="t('admin.accounts.upstreamBilling.syncedRateTooltip')"
+                data-testid="account-rate-sync-indicator"
+              >
+                <Icon name="sync" size="xs" />
+              </span>
             </span>
           </template>
           <template #header-upstream_billing_rate="{ column }">
@@ -481,6 +508,152 @@
     </ConfirmDialog>
     <ErrorPassthroughRulesModal :show="showErrorPassthrough" @close="showErrorPassthrough = false" />
     <TLSFingerprintProfilesModal :show="showTLSFingerprintProfiles" @close="showTLSFingerprintProfiles = false" />
+    <Teleport to="body">
+      <div v-if="showHighestSchedulingRotation" class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+        <div class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl ring-1 ring-black/5 dark:border-dark-700 dark:bg-dark-800">
+          <div class="relative overflow-hidden border-b border-gray-200 px-6 py-5 dark:border-dark-700">
+            <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary-500 via-amber-400 to-primary-500" />
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex gap-3">
+                <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-600 ring-1 ring-primary-100 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-500/20">
+                  <Icon name="sparkles" size="sm" />
+                </div>
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ t('admin.accounts.highestSchedulingRotation.title') }}
+                  </h3>
+                  <p class="mt-1 max-w-xl text-sm leading-6 text-gray-500 dark:text-gray-400">
+                    {{ t('admin.accounts.highestSchedulingRotation.description') }}
+                  </p>
+                </div>
+              </div>
+              <button class="rounded-xl p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-200" @click="closeHighestSchedulingRotation">
+                <Icon name="x" size="sm" />
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-4 overflow-y-auto bg-gray-50/70 px-6 py-5 dark:bg-dark-900/30">
+            <div v-if="highestSchedulingRotationLoading" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300">
+              {{ t('common.loading') }}
+            </div>
+            <template v-else>
+              <label class="flex items-center justify-between gap-4 rounded-xl border border-primary-100 bg-white px-4 py-4 shadow-sm dark:border-primary-500/20 dark:bg-dark-800">
+                <div>
+                  <div class="text-sm font-semibold text-gray-900 dark:text-white">
+                    {{ t('admin.accounts.highestSchedulingRotation.enabled') }}
+                  </div>
+                  <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.accounts.highestSchedulingRotation.enabledHint') }}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-dark-800"
+                  :class="highestSchedulingRotationForm.enabled ? 'bg-primary-500' : 'bg-gray-200 dark:bg-dark-600'"
+                  @click="highestSchedulingRotationForm.enabled = !highestSchedulingRotationForm.enabled"
+                >
+                  <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition" :class="highestSchedulingRotationForm.enabled ? 'translate-x-5' : 'translate-x-0'" />
+                </button>
+              </label>
+
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_220px]">
+                <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+                  <div class="mb-3">
+                    <div class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t('admin.accounts.highestSchedulingRotation.groups') }}
+                    </div>
+                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.accounts.highestSchedulingRotation.groupsHint') }}
+                    </div>
+                  </div>
+                  <div class="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900/40 sm:grid-cols-2">
+                    <label class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 hover:bg-white dark:text-gray-300 dark:hover:bg-dark-800">
+                      <input
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        :checked="highestSchedulingRotationAllGroups"
+                        @change="toggleHighestSchedulingRotationAllGroups"
+                      />
+                      <span>{{ t('admin.accounts.allGroups') }}</span>
+                    </label>
+                    <label v-for="group in groups" :key="group.id" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 hover:bg-white dark:text-gray-300 dark:hover:bg-dark-800">
+                      <input
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        :checked="highestSchedulingRotationForm.group_ids.includes(group.id)"
+                        @change="toggleHighestSchedulingRotationGroup(group.id)"
+                      />
+                      <span class="truncate">{{ group.name }}</span>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+                  <div>
+                    <div class="mb-2 text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t('admin.accounts.highestSchedulingRotation.accountTypes') }}
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                      <label v-for="type in highestSchedulingRotationAccountTypeOptions" :key="type.value" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition hover:border-primary-200 hover:bg-primary-50/60 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10">
+                        <input
+                          type="checkbox"
+                          class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          :checked="highestSchedulingRotationForm.account_types.includes(type.value)"
+                          @change="toggleHighestSchedulingRotationAccountType(type.value)"
+                        />
+                        <span>{{ type.label }}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t('admin.accounts.highestSchedulingRotation.rotationCount') }}
+                    </span>
+                    <input
+                      v-model.number="highestSchedulingRotationForm.rotation_count"
+                      type="number"
+                      min="1"
+                      class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700 dark:text-white"
+                    />
+                  </label>
+                </section>
+              </div>
+
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+                  <div class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.accounts.highestSchedulingRotation.activeCount') }}</div>
+                  <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{{ highestSchedulingRotationActiveCount }}</div>
+                </div>
+                <div class="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+                  <div class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.accounts.highestSchedulingRotation.candidateCount') }}</div>
+                  <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{{ highestSchedulingRotationState?.candidate_count ?? 0 }}</div>
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                {{ t('admin.accounts.highestSchedulingRotation.managedHint') }}
+              </div>
+            </template>
+          </div>
+
+          <div class="flex flex-col-reverse gap-3 border-t border-gray-200 bg-white px-6 py-4 dark:border-dark-700 dark:bg-dark-800 sm:flex-row sm:items-center sm:justify-between">
+            <button class="btn btn-secondary sm:w-auto" :disabled="highestSchedulingRotationLoading || highestSchedulingRotationSaving" @click="reconcileHighestSchedulingRotation">
+              {{ t('admin.accounts.highestSchedulingRotation.reconcile') }}
+            </button>
+            <div class="flex gap-2 sm:justify-end">
+              <button class="btn btn-secondary flex-1 sm:flex-none" @click="closeHighestSchedulingRotation">
+                {{ t('common.cancel') }}
+              </button>
+              <button class="btn btn-primary flex-1 sm:flex-none" :disabled="highestSchedulingRotationLoading || highestSchedulingRotationSaving" @click="saveHighestSchedulingRotation">
+                {{ highestSchedulingRotationSaving ? t('common.saving') : t('common.save') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <TotpStepUpDialog :controller="accountExportStepUp" />
   </AppLayout>
 </template>
@@ -492,6 +665,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
+import type { HighestSchedulingRotationAccountType, HighestSchedulingRotationConfig, HighestSchedulingRotationState } from '@/api/admin/accounts'
 import { useTableLoader } from '@/composables/useTableLoader'
 import { useSwipeSelect, type SwipeSelectVirtualContext } from '@/composables/useSwipeSelect'
 import { useTableSelection } from '@/composables/useTableSelection'
@@ -529,12 +703,14 @@ import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRulesModal.vue'
 import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfilesModal.vue'
+import { fetchAllAccountIds } from '@/utils/accountSelection'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { sanitizeUrl } from '@/utils/url'
 import { getFloatingPanelPosition } from '@/utils/floatingPanel'
+import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
@@ -600,6 +776,16 @@ const showTest = ref(false)
 const showStats = ref(false)
 const showErrorPassthrough = ref(false)
 const showTLSFingerprintProfiles = ref(false)
+const showHighestSchedulingRotation = ref(false)
+const highestSchedulingRotationLoading = ref(false)
+const highestSchedulingRotationSaving = ref(false)
+const highestSchedulingRotationState = ref<HighestSchedulingRotationState | null>(null)
+const highestSchedulingRotationForm = reactive<HighestSchedulingRotationConfig>({
+  enabled: false,
+  group_ids: [],
+  account_types: ['oauth', 'apikey'],
+  rotation_count: 1
+})
 const edAcc = ref<Account | null>(null)
 const tempUnschedAcc = ref<Account | null>(null)
 const deletingAcc = ref<Account | null>(null)
@@ -621,6 +807,11 @@ const upstreamBillingProbeGloballyEnabled = ref<boolean | undefined>(undefined)
 const upstreamBillingNow = ref(Date.now())
 let lastUpstreamBillingSortRefreshMinute = -1
 useIntervalFn(() => { upstreamBillingNow.value = Date.now() }, 60_000)
+
+const highestSchedulingRotationAccountTypeOptions: Array<{ value: HighestSchedulingRotationAccountType; label: string }> = [
+  { value: 'oauth', label: t('admin.accounts.oauthType') },
+  { value: 'apikey', label: t('admin.accounts.apiKey') }
+]
 
 // Account tools dropdown
 const showAccountToolsDropdown = ref(false)
@@ -658,6 +849,7 @@ const ACCOUNT_SORTABLE_KEYS = new Set([
   'name',
   'status',
   'schedulable',
+  'highest_scheduling',
   'priority',
   'rate_multiplier',
   'upstream_billing_rate',
@@ -682,6 +874,49 @@ const loadInitialAccountSortState = (): AccountSortState => {
   }
 }
 const sortState = reactive<AccountSortState>(loadInitialAccountSortState())
+
+const applyHighestSchedulingRotationState = (state: HighestSchedulingRotationState | null) => {
+  highestSchedulingRotationState.value = state
+  if (!state) return
+  highestSchedulingRotationForm.enabled = state.config.enabled
+  highestSchedulingRotationForm.group_ids = [...(state.config.group_ids ?? [])]
+  highestSchedulingRotationForm.account_types = [...(state.config.account_types ?? ['oauth', 'apikey'])]
+  highestSchedulingRotationForm.rotation_count = Math.max(1, Number(state.config.rotation_count) || 1)
+}
+
+const highestSchedulingRotationAllGroups = computed(() => highestSchedulingRotationForm.group_ids.length === 0)
+const highestSchedulingRotationActiveCount = computed(() => highestSchedulingRotationState.value?.active_account_ids?.length ?? 0)
+const highestSchedulingRotationEnabled = computed(() => highestSchedulingRotationState.value?.config.enabled === true)
+
+const highestSchedulingRotationGroupSet = computed(() => new Set(highestSchedulingRotationState.value?.config.group_ids ?? []))
+const highestSchedulingRotationTypeSet = computed(() => new Set(highestSchedulingRotationState.value?.config.account_types ?? []))
+
+const accountGroupIds = (account: Account): number[] => {
+  const ids = new Set<number>()
+  account.group_ids?.forEach(id => ids.add(id))
+  account.groups?.forEach(group => ids.add(group.id))
+  return [...ids]
+}
+
+const isHighestSchedulingRotationManagedAccount = (account: Account) => {
+  if (!highestSchedulingRotationEnabled.value) return false
+  if (!highestSchedulingRotationTypeSet.value.has(account.type as HighestSchedulingRotationAccountType)) return false
+  if (highestSchedulingRotationGroupSet.value.size === 0) return true
+  return accountGroupIds(account).some(id => highestSchedulingRotationGroupSet.value.has(id))
+}
+
+const selectedHasHighestSchedulingRotationManagedAccount = computed(() =>
+  accounts.value.some(account => isSelected(account.id) && isHighestSchedulingRotationManagedAccount(account))
+)
+
+const highestSchedulingToggleTitle = (account: Account) => {
+  if (isHighestSchedulingRotationManagedAccount(account)) {
+    return t('admin.accounts.highestSchedulingRotation.managedToggleHint')
+  }
+  return readHighestSchedulingState(account.extra).enabled
+    ? t('admin.accounts.disableHighestSchedulingAction')
+    : t('admin.accounts.enableHighestSchedulingAction')
+}
 
 // Auto refresh settings
 const showAutoRefreshDropdown = ref(false)
@@ -940,6 +1175,7 @@ const {
 })
 
 const {
+  selectedSet,
   selectedIds: selIds,
   allVisibleSelected,
   isSelected,
@@ -947,15 +1183,35 @@ const {
   select,
   deselect,
   toggle: toggleSel,
-  clear: clearSelection,
+  clear: clearSelectedIds,
   removeMany: removeSelectedAccounts,
   toggleVisible,
-  selectVisible: selectPage,
+  selectVisible: selectCurrentPage,
   batchUpdate
 } = useTableSelection<Account>({
   rows: accounts,
   getId: (account) => account.id
 })
+
+const selectingAllResults = ref(false)
+const selectedAllResultIDs = ref<Set<number> | null>(null)
+const selectionRequestVersion = ref(0)
+const allResultsSelected = computed(() => {
+  const snapshot = selectedAllResultIDs.value
+  if (!snapshot || snapshot.size === 0 || snapshot.size !== selectedSet.value.size) return false
+  return Array.from(snapshot).every(id => selectedSet.value.has(id))
+})
+
+const clearSelection = () => {
+  selectionRequestVersion.value++
+  selectingAllResults.value = false
+  selectedAllResultIDs.value = null
+  clearSelectedIds()
+}
+
+const selectPage = () => {
+  selectCurrentPage()
+}
 
 const swipeVirtualContext: SwipeSelectVirtualContext = {
   getVirtualizer: () => dataTableRef.value?.virtualizer ?? null,
@@ -1024,6 +1280,7 @@ const refreshUpstreamBillingSortedList = async (force = false) => {
 }
 
 const debouncedReload = () => {
+  clearSelection()
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
@@ -1094,7 +1351,8 @@ const isAnyModalOpen = computed(() => {
     showStats.value ||
     showSchedulePanel.value ||
     showErrorPassthrough.value ||
-    showTLSFingerprintProfiles.value
+    showTLSFingerprintProfiles.value ||
+    showHighestSchedulingRotation.value
   )
 })
 
@@ -1203,7 +1461,7 @@ const refreshAccountsIncrementally = async () => {
 }
 
 const handleManualRefresh = async () => {
-  await Promise.all([load(), loadUpstreamBillingProbeGlobalState()])
+  await Promise.all([load(), loadUpstreamBillingProbeGlobalState(), loadHighestSchedulingRotation()])
   // Force usage cells to refetch /usage on explicit user refresh.
   usageManualRefreshToken.value += 1
 }
@@ -1263,6 +1521,90 @@ const openErrorPassthrough = () => {
 const openTLSFingerprintProfiles = () => {
   closeAccountToolsDropdown()
   showTLSFingerprintProfiles.value = true
+}
+
+const loadHighestSchedulingRotation = async () => {
+  highestSchedulingRotationLoading.value = true
+  try {
+    const state = await adminAPI.accounts.getHighestSchedulingRotation()
+    applyHighestSchedulingRotationState(state)
+  } catch (error) {
+    console.error('Failed to load highest scheduling rotation:', error)
+    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.highestSchedulingRotation.loadFailed')))
+  } finally {
+    highestSchedulingRotationLoading.value = false
+  }
+}
+
+const openHighestSchedulingRotation = async () => {
+  showHighestSchedulingRotation.value = true
+  await loadHighestSchedulingRotation()
+}
+
+const closeHighestSchedulingRotation = () => {
+  showHighestSchedulingRotation.value = false
+}
+
+const toggleHighestSchedulingRotationAllGroups = () => {
+  highestSchedulingRotationForm.group_ids = []
+}
+
+const toggleHighestSchedulingRotationGroup = (groupId: number) => {
+  const ids = new Set(highestSchedulingRotationForm.group_ids)
+  if (ids.has(groupId)) ids.delete(groupId)
+  else ids.add(groupId)
+  highestSchedulingRotationForm.group_ids = [...ids].sort((a, b) => a - b)
+}
+
+const toggleHighestSchedulingRotationAccountType = (type: HighestSchedulingRotationAccountType) => {
+  const types = new Set(highestSchedulingRotationForm.account_types)
+  if (types.has(type)) types.delete(type)
+  else types.add(type)
+  highestSchedulingRotationForm.account_types = highestSchedulingRotationAccountTypeOptions
+    .map(option => option.value)
+    .filter(value => types.has(value))
+}
+
+const normalizedHighestSchedulingRotationConfig = (): HighestSchedulingRotationConfig => ({
+  enabled: highestSchedulingRotationForm.enabled,
+  group_ids: [...highestSchedulingRotationForm.group_ids],
+  account_types: highestSchedulingRotationForm.account_types.length > 0
+    ? [...highestSchedulingRotationForm.account_types]
+    : ['oauth', 'apikey'],
+  rotation_count: Math.max(1, Number(highestSchedulingRotationForm.rotation_count) || 1)
+})
+
+const saveHighestSchedulingRotation = async () => {
+  if (highestSchedulingRotationSaving.value) return
+  highestSchedulingRotationSaving.value = true
+  try {
+    const state = await adminAPI.accounts.updateHighestSchedulingRotation(normalizedHighestSchedulingRotationConfig())
+    applyHighestSchedulingRotationState(state)
+    closeHighestSchedulingRotation()
+    appStore.showSuccess(t('admin.accounts.highestSchedulingRotation.saved'))
+    await load()
+  } catch (error) {
+    console.error('Failed to save highest scheduling rotation:', error)
+    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.highestSchedulingRotation.saveFailed')))
+  } finally {
+    highestSchedulingRotationSaving.value = false
+  }
+}
+
+const reconcileHighestSchedulingRotation = async () => {
+  if (highestSchedulingRotationSaving.value) return
+  highestSchedulingRotationSaving.value = true
+  try {
+    const state = await adminAPI.accounts.reconcileHighestSchedulingRotation()
+    applyHighestSchedulingRotationState(state)
+    appStore.showSuccess(t('admin.accounts.highestSchedulingRotation.reconciled'))
+    await load()
+  } catch (error) {
+    console.error('Failed to reconcile highest scheduling rotation:', error)
+    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.highestSchedulingRotation.reconcileFailed')))
+  } finally {
+    highestSchedulingRotationSaving.value = false
+  }
 }
 
 const syncPendingListChanges = async () => {
@@ -1429,6 +1771,7 @@ const allColumns = computed(() => {
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
     { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
+    { key: 'highest_scheduling', label: t('admin.accounts.columns.highestScheduling'), sortable: true },
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
   ]
   if (!authStore.isSimpleMode) {
@@ -1518,7 +1861,27 @@ const toggleSelectAllVisible = (event: Event) => {
   const target = event.target as HTMLInputElement
   toggleVisible(target.checked)
 }
-const handleBulkDelete = async () => { if(!confirm(t('common.confirm'))) return; try { await Promise.all(selIds.value.map(id => adminAPI.accounts.delete(id))); clearSelection(); reload() } catch (error) { console.error('Failed to bulk delete accounts:', error) } }
+const handleBulkDelete = async () => {
+  const accountIds = [...selIds.value]
+  if (!confirm(t('admin.accounts.bulkActions.confirmDelete', { count: accountIds.length }))) return
+  try {
+    const result = await adminAPI.accounts.batchDelete(accountIds)
+    if (result.failed > 0) {
+      appStore.showError(t('admin.accounts.bulkActions.partialSuccess', {
+        success: result.success,
+        failed: result.failed
+      }))
+      setSelectedIds(result.failed_ids?.length ? result.failed_ids : accountIds)
+    } else {
+      appStore.showSuccess(t('admin.accounts.bulkActions.deleteSuccess', { count: result.success }))
+      clearSelection()
+    }
+    await reload()
+  } catch (error) {
+    console.error('Failed to bulk delete accounts:', error)
+    appStore.showError(String(error))
+  }
+}
 const handleBulkResetStatus = async () => {
   if (!confirm(t('common.confirm'))) return
   try {
@@ -1571,7 +1934,7 @@ const handleBulkProbeUpstreamBilling = async () => {
         patched = true
       }
     })
-    if (patched) await refreshUpstreamBillingSortedList(true)
+    if (patched) await refreshAccountsAfterUpstreamBillingProbe()
     const failed = results.filter(result => result.error).length
     if (failed > 0) {
       appStore.showError(t('admin.accounts.upstreamBilling.batchPartial', { success: results.length - failed, failed }))
@@ -1703,6 +2066,10 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
 }
 const handleBulkToggleHighestScheduling = async (enabled: boolean) => {
   const accountIds = [...selIds.value]
+  if (selectedHasHighestSchedulingRotationManagedAccount.value) {
+    appStore.showError(t('admin.accounts.highestSchedulingRotation.managedBulkHint'))
+    return
+  }
   try {
     const result = await adminAPI.accounts.bulkUpdate(accountIds, {
       extra: buildHighestSchedulingExtraPatch(enabled)
@@ -1752,6 +2119,32 @@ const buildBulkEditFilterSnapshot = () => {
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
     sort_by: typeof rawParams.sort_by === 'string' ? rawParams.sort_by : '',
     sort_order: sortOrder
+  }
+}
+
+const handleSelectAllResults = async () => {
+  if (selectingAllResults.value || pagination.total === 0) return
+
+  const requestVersion = ++selectionRequestVersion.value
+  const filters = buildBulkEditFilterSnapshot()
+  selectingAllResults.value = true
+  try {
+    const ids = await fetchAllAccountIds(
+      (page, pageSize, requestFilters) => adminAPI.accounts.list(page, pageSize, requestFilters),
+      filters
+    )
+    if (requestVersion !== selectionRequestVersion.value) return
+
+    setSelectedIds(ids)
+    selectedAllResultIDs.value = new Set(ids)
+  } catch (error) {
+    if (requestVersion !== selectionRequestVersion.value) return
+    console.error('Failed to select all account results:', error)
+    appStore.showError(t('admin.accounts.bulkActions.selectAllFailed'))
+  } finally {
+    if (requestVersion === selectionRequestVersion.value) {
+      selectingAllResults.value = false
+    }
   }
 }
 
@@ -1897,6 +2290,13 @@ const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBilli
     extra: { ...account.extra, upstream_billing_probe: snapshot }
   })
 }
+const refreshAccountsAfterUpstreamBillingProbe = async () => {
+  try {
+    await load()
+  } catch (error) {
+    console.error('Failed to refresh accounts after upstream billing probe:', error)
+  }
+}
 const handleProbeUpstreamBilling = async (account: Account) => {
   if (probingUpstreamBilling.has(account.id)) return
   probingUpstreamBilling.add(account.id)
@@ -1904,7 +2304,7 @@ const handleProbeUpstreamBilling = async (account: Account) => {
     const result = await adminAPI.accounts.probeUpstreamBilling(account.id)
     if (result.snapshot) {
       patchUpstreamBillingSnapshot(account.id, result.snapshot)
-      await refreshUpstreamBillingSortedList(true)
+      await refreshAccountsAfterUpstreamBillingProbe()
     }
   } catch (error) {
     console.error('Failed to probe upstream billing:', error)
@@ -2120,6 +2520,10 @@ const handleToggleSchedulable = async (a: Account) => {
 }
 const handleToggleHighestScheduling = async (a: Account) => {
   if (isSchedulingToggleBusy(a.id)) return
+  if (isHighestSchedulingRotationManagedAccount(a)) {
+    appStore.showError(t('admin.accounts.highestSchedulingRotation.managedToggleHint'))
+    return
+  }
   const nextEnabled = !readHighestSchedulingState(a.extra).enabled
   togglingHighestScheduling.value = a.id
   try {
@@ -2197,6 +2601,7 @@ const handleClickOutside = (event: MouseEvent) => {
 onMounted(async () => {
   load()
   loadUpstreamBillingProbeGlobalState()
+  loadHighestSchedulingRotation()
   try {
     const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()])
     proxies.value = p

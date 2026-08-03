@@ -888,6 +888,20 @@
           />
           <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
         </div>
+        <!-- 上游倍率自动探测：antigravity upstream 也是 API-key 账号 -->
+        <div class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
+            </p>
+          </div>
+          <Toggle
+            v-model="upstreamBillingAutoProbeEnabled"
+            data-testid="upstream-billing-auto-probe-antigravity"
+            :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+          />
+        </div>
       </div>
 
       <!-- Vertex Service Account -->
@@ -1143,8 +1157,8 @@
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
 
+        <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
         <div
-          v-if="form.platform === 'openai'"
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         >
           <div>
@@ -2147,6 +2161,69 @@
         </template>
       </div>
 
+      <div v-if="isOAuthPoolModeConfigVisible" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.poolModeHint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="poolModeEnabled = !poolModeEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              poolModeEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+        <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+          <p class="text-xs text-blue-700 dark:text-blue-400">
+            <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
+            {{ t('admin.accounts.poolModeInfo') }}
+          </p>
+        </div>
+        <div v-if="poolModeEnabled" class="mt-3">
+          <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
+          <input
+            v-model.number="poolModeRetryCount"
+            type="number"
+            min="0"
+            :max="MAX_POOL_MODE_RETRY_COUNT"
+            step="1"
+            class="input"
+          />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{
+              t('admin.accounts.poolModeRetryCountHint', {
+                default: DEFAULT_POOL_MODE_RETRY_COUNT,
+                max: MAX_POOL_MODE_RETRY_COUNT
+              })
+            }}
+          </p>
+        </div>
+        <div v-if="poolModeEnabled" class="mt-3">
+          <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
+          <input
+            v-model="poolModeRetryStatusCodesInput"
+            type="text"
+            class="input"
+            :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
+          />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
+          </p>
+        </div>
+      </div>
+
       <!-- Temp Unschedulable Rules -->
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
@@ -2775,6 +2852,37 @@
               :class="[
                 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
                 openaiPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
+      <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
+      <div
+        v-if="form.platform === 'openai' && form.type === 'oauth'"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="create-openai-flatten-namespaces-toggle"
+            @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
           </button>
@@ -3808,6 +3916,8 @@ const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
 const highestSchedulingEnabled = ref(false)
 const openaiPassthroughEnabled = ref(false)
+// OpenAI Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
+const openaiFlattenNamespacesEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
 const openAILongContextBillingTouched = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
@@ -4114,6 +4224,8 @@ const isOAuthFlow = computed(() => {
   return accountCategory.value === 'oauth-based'
 })
 
+const isOAuthPoolModeConfigVisible = computed(() => isOAuthFlow.value && form.type === 'oauth')
+
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
 
 const isManualInputMethod = computed(() => {
@@ -4261,6 +4373,7 @@ watch(
     }
     if (newPlatform !== 'openai') {
       openaiPassthroughEnabled.value = false
+      openaiFlattenNamespacesEnabled.value = false
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
       openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
@@ -4604,7 +4717,6 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
   try {
     const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
     if (
-      payload.platform === 'openai' &&
       payload.type === 'apikey' &&
       payload.upstream_billing_probe_enabled === true
     ) {
@@ -4687,6 +4799,7 @@ const resetForm = () => {
   autoPauseOnExpired.value = true
   highestSchedulingEnabled.value = false
   openaiPassthroughEnabled.value = false
+  openaiFlattenNamespacesEnabled.value = false
   openAILongContextBillingEnabled.value = false
   openAILongContextBillingTouched.value = false
   openAICompactMode.value = 'auto'
@@ -4770,6 +4883,12 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else {
     delete extra.openai_passthrough
     delete extra.openai_oauth_passthrough
+  }
+  // 缺省即保留 namespace，不写空值，避免 extra 里堆积默认项
+  if (form.type === 'oauth' && openaiFlattenNamespacesEnabled.value) {
+    extra.openai_responses_flatten_namespaces = true
+  } else {
+    delete extra.openai_responses_flatten_namespaces
   }
   extra.openai_long_context_billing_enabled = openAILongContextBillingEnabled.value
 
@@ -4895,6 +5014,23 @@ const normalizePoolModeRetryCount = (value: number) => {
   return normalized
 }
 
+const applyPoolModeConfig = (credentials: Record<string, unknown>) => {
+  if (poolModeEnabled.value) {
+    credentials.pool_mode = true
+    credentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
+    const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
+    if (parsedRetryStatusCodes.length > 0) {
+      credentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
+    } else {
+      delete credentials.pool_mode_retry_status_codes
+    }
+  } else {
+    delete credentials.pool_mode
+    delete credentials.pool_mode_retry_count
+    delete credentials.pool_mode_retry_status_codes
+  }
+}
+
 const applyVertexServiceAccountJson = (value: string) => {
   const raw = value.trim()
   if (!raw) {
@@ -5004,15 +5140,7 @@ const handleSubmit = async () => {
       credentials.model_mapping = modelMapping
     }
 
-    // Pool mode
-    if (poolModeEnabled.value) {
-      credentials.pool_mode = true
-      credentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
-      const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
-      if (parsedRetryStatusCodes.length > 0) {
-        credentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
-      }
-    }
+    applyPoolModeConfig(credentials)
 
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
@@ -5121,15 +5249,7 @@ const handleSubmit = async () => {
     }
   }
 
-  // Add pool mode if enabled
-  if (poolModeEnabled.value) {
-    credentials.pool_mode = true
-    credentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
-    const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
-    if (parsedRetryStatusCodes.length > 0) {
-      credentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
-    }
-  }
+  applyPoolModeConfig(credentials)
 
   // Add custom error codes if enabled
   if (customErrorCodesEnabled.value) {
@@ -5161,8 +5281,7 @@ const handleSubmit = async () => {
     ...form,
     group_ids: form.group_ids,
     extra,
-    upstream_billing_probe_enabled:
-      form.platform === 'openai' ? upstreamBillingAutoProbeEnabled.value : undefined,
+    upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }
@@ -5255,6 +5374,9 @@ const createAccountAndFinish = async (
       finalExtra = quotaExtra
     }
   }
+  if (type === 'oauth') {
+    applyPoolModeConfig(credentials)
+  }
   if (platform === 'openai') {
     if (type === 'apikey') {
       applyOpenAIEndpointCapabilities(credentials)
@@ -5281,6 +5403,9 @@ const createAccountAndFinish = async (
     rate_multiplier: form.rate_multiplier,
     group_ids: form.group_ids,
     expires_at: form.expires_at,
+    // 上游倍率探测对全部 API-key 平台开放（antigravity upstream 走本 helper）；
+    // 非 apikey 类型（bedrock/oauth）不传，后端不动作。
+    upstream_billing_probe_enabled: type === 'apikey' ? upstreamBillingAutoProbeEnabled.value : undefined,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }
@@ -5320,6 +5445,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
 
         const credentials = grokOAuth.buildCredentials(tokenInfo)
         applyGrokOAuthUpstreamConfig(credentials)
+        applyPoolModeConfig(credentials)
         const extra = grokOAuth.buildExtraInfo(tokenInfo)
         const accountName = refreshTokens.length > 1 ? `${form.name || tokenInfo.email || 'Grok OAuth Account'} #${i + 1}` : (form.name || tokenInfo.email || 'Grok OAuth Account')
 
@@ -5390,6 +5516,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
 
   const credentials: Record<string, unknown> = {}
   applyGrokOAuthUpstreamConfig(credentials)
+  applyPoolModeConfig(credentials)
   const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
   if (modelMapping) {
     credentials.model_mapping = modelMapping
@@ -5490,6 +5617,7 @@ const handleOpenAIExchange = async (authCode: string) => {
         credentials.compact_model_mapping = compactModelMapping
       }
     }
+    applyPoolModeConfig(credentials)
 
     // 应用临时不可调度配置
     if (!applyTempUnschedConfig(credentials)) {
@@ -5543,6 +5671,7 @@ const buildOpenAICodexImportCredentialExtras = (): Record<string, unknown> | nul
   if (compactModelMapping) {
     credentials.compact_model_mapping = compactModelMapping
   }
+  applyPoolModeConfig(credentials)
 
   if (!applyTempUnschedConfig(credentials)) {
     return null
@@ -5756,6 +5885,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
         if (clientId) {
           credentials.client_id = clientId
         }
+        applyPoolModeConfig(credentials)
         const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
         const extra = buildHighestSchedulingExtra(buildOpenAIExtra(oauthExtra))
 
@@ -5872,7 +6002,8 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
 
         const credentials = antigravityOAuth.buildCredentials(tokenInfo, refreshTokens[i])
         applyAntigravityProjectID(credentials, antigravityProjectId.value, 'create')
-        
+        applyPoolModeConfig(credentials)
+
         // Generate account name with index for batch
         const accountName = refreshTokens.length > 1 ? `${form.name} #${i + 1}` : form.name
 
@@ -5989,6 +6120,7 @@ const handleAntigravityExchange = async (authCode: string) => {
 
 		const credentials = antigravityOAuth.buildCredentials(tokenInfo)
 		applyAntigravityProjectID(credentials, antigravityProjectId.value, 'create')
+		applyPoolModeConfig(credentials)
 		applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 		// Antigravity 只使用映射模式
 		const antigravityModelMapping = buildModelMappingObject(
@@ -6036,6 +6168,7 @@ const handleGrokExchange = async (authCode: string) => {
 
     const credentials = grokOAuth.buildCredentials(tokenInfo)
     applyGrokOAuthUpstreamConfig(credentials)
+    applyPoolModeConfig(credentials)
     const extra = grokOAuth.buildExtraInfo(tokenInfo)
     await createAccountAndFinish('grok', 'oauth', credentials, extra)
   } catch (error: any) {
@@ -6125,6 +6258,9 @@ const handleAnthropicExchange = async (authCode: string) => {
     }
 
     const credentials: Record<string, unknown> = { ...tokenInfo }
+    if (addMethod.value === 'oauth') {
+      applyPoolModeConfig(credentials)
+    }
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
     await createAccountAndFinish(form.platform, addMethod.value as AccountType, credentials, extra)
   } catch (error: any) {
@@ -6252,6 +6388,9 @@ const handleCookieAuth = async (sessionKey: string) => {
         const accountName = keys.length > 1 ? `${form.name} #${i + 1}` : form.name
 
         const credentials: Record<string, unknown> = { ...tokenInfo }
+        if (addMethod.value === 'oauth') {
+          applyPoolModeConfig(credentials)
+        }
         applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
         if (tempUnschedEnabled.value) {
           credentials.temp_unschedulable_enabled = true

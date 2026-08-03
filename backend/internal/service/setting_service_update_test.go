@@ -186,6 +186,42 @@ type defaultSubGroupReaderStub struct {
 	calls []int64
 }
 
+func TestSettingService_ImagePlaygroundAndVideoJobsFeatureSwitches(t *testing.T) {
+	t.Run("missing values default enabled", func(t *testing.T) {
+		svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{}}, &config.Config{})
+
+		settings, err := svc.GetAllSettings(context.Background())
+		require.NoError(t, err)
+		require.True(t, settings.ImagePlaygroundEnabled)
+		require.True(t, settings.VideoJobsEnabled)
+	})
+
+	t.Run("explicit false is parsed", func(t *testing.T) {
+		svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{
+			SettingKeyImagePlaygroundEnabled: "false",
+			SettingKeyVideoJobsEnabled:       "false",
+		}}, &config.Config{})
+
+		settings, err := svc.GetAllSettings(context.Background())
+		require.NoError(t, err)
+		require.False(t, settings.ImagePlaygroundEnabled)
+		require.False(t, settings.VideoJobsEnabled)
+	})
+
+	t.Run("updates are persisted", func(t *testing.T) {
+		repo := &settingUpdateRepoStub{}
+		svc := NewSettingService(repo, &config.Config{})
+
+		err := svc.UpdateSettings(context.Background(), &SystemSettings{
+			ImagePlaygroundEnabled: false,
+			VideoJobsEnabled:       true,
+		})
+		require.NoError(t, err)
+		require.Equal(t, "false", repo.updates[SettingKeyImagePlaygroundEnabled])
+		require.Equal(t, "true", repo.updates[SettingKeyVideoJobsEnabled])
+	})
+}
+
 func TestSettingService_AffiliateAdminRechargeSetting(t *testing.T) {
 	t.Run("missing value defaults to disabled", func(t *testing.T) {
 		svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{}}, &config.Config{})
@@ -226,6 +262,16 @@ func (s *defaultSubGroupReaderStub) GetByID(ctx context.Context, id int64) (*Gro
 		return g, nil
 	}
 	return nil, ErrGroupNotFound
+}
+
+func TestSettingService_UpdateSettings_PersistsCompactHomeEnabled(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{CompactHomeEnabled: true})
+
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyCompactHomeEnabled])
 }
 
 func TestSettingService_UpdateSettings_DefaultSubscriptions_ValidGroup(t *testing.T) {
@@ -849,4 +895,47 @@ func TestSettingService_UpdateSettings_RejectsInvalidPaymentVisibleMethodSource(
 	require.Error(t, err)
 	require.Equal(t, "INVALID_PAYMENT_VISIBLE_METHOD_SOURCE", infraerrors.Reason(err))
 	require.Nil(t, repo.updates)
+}
+
+func TestSettingService_PasskeySwitchPersistsAndDefaultsToConfigured(t *testing.T) {
+	cfg := &config.Config{WebAuthn: config.WebAuthnConfig{
+		Enabled:   true,
+		RPID:      "sub3.nebula-spaces.com",
+		RPOrigins: []string{"https://sub3.nebula-spaces.com"},
+	}}
+	runtimeRepo := &forwardedIPMigrationRepoStub{values: map[string]string{}}
+	runtimeService := NewSettingService(runtimeRepo, cfg)
+
+	enabled, err := runtimeService.PasskeyEnabled(context.Background())
+	require.NoError(t, err)
+	require.True(t, enabled)
+
+	updateRepo := &settingUpdateRepoStub{}
+	updateService := NewSettingService(updateRepo, cfg)
+	require.NoError(t, updateService.UpdateSettings(context.Background(), &SystemSettings{
+		PasskeyEnabled: false,
+	}))
+	require.Equal(t, "false", updateRepo.updates[SettingKeyPasskeyEnabled])
+
+	runtimeRepo.values[SettingKeyPasskeyEnabled] = "false"
+	enabled, err = runtimeService.PasskeyEnabled(context.Background())
+	require.NoError(t, err)
+	require.False(t, enabled)
+	publicSettings, err := runtimeService.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, publicSettings.PasskeyEnabled)
+}
+
+// 移除 WebAuthn 配置后，残留的 passkey_enabled="true" 不得再让 GetAllSettings
+// 报告开关开启：admin 更新门控以此为准，一旦误报为 true 会拒绝所有设置保存，
+// 而此时前端开关处于禁用态，管理员无法在 UI 里自救。
+func TestSettingService_StalePasskeyTrueWithoutConfigReportsDisabled(t *testing.T) {
+	repo := &settingGetAllRepoStub{values: map[string]string{
+		SettingKeyPasskeyEnabled: "true",
+	}}
+	service := NewSettingService(repo, &config.Config{})
+
+	settings, err := service.GetAllSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, settings.PasskeyEnabled)
 }

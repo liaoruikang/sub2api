@@ -111,11 +111,11 @@ func RegisterAdminRoutes(
 		// 风控中心
 		registerContentModerationRoutes(admin, h)
 
-			// 邮箱验证码校验
-			registerEmailVerificationRoutes(admin, h)
+		// 邮箱验证码校验
+		registerEmailVerificationRoutes(admin, h)
 
-			// 独立提示词输入审计
-			registerPromptAuditRoutes(admin, h)
+		// 独立提示词输入审计
+		registerPromptAuditRoutes(admin, h)
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
@@ -359,6 +359,9 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 	accounts := admin.Group("/accounts")
 	{
 		accounts.GET("", h.Admin.Account.List)
+		accounts.GET("/highest-scheduling-rotation", h.Admin.Account.GetHighestSchedulingRotation)
+		accounts.PUT("/highest-scheduling-rotation", h.Admin.Account.UpdateHighestSchedulingRotation)
+		accounts.POST("/highest-scheduling-rotation/reconcile", h.Admin.Account.ReconcileHighestSchedulingRotation)
 		accounts.GET("/upstream-billing-probe/settings", h.Admin.Account.GetUpstreamBillingProbeSettings)
 		accounts.PUT("/upstream-billing-probe/settings", h.Admin.Account.UpdateUpstreamBillingProbeSettings)
 		accounts.POST("/upstream-billing-probe/batch", h.Admin.Account.ProbeUpstreamBillingBatch)
@@ -407,6 +410,7 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		accounts.POST("/batch-update-credentials", h.Admin.Account.BatchUpdateCredentials)
 		accounts.POST("/batch-refresh-tier", h.Admin.Account.BatchRefreshTier)
 		accounts.POST("/bulk-update", h.Admin.Account.BulkUpdate)
+		accounts.POST("/batch-delete", h.Admin.Account.BatchDelete)
 		accounts.POST("/batch-clear-error", h.Admin.Account.BatchClearError)
 		accounts.POST("/batch-refresh", h.Admin.Account.BatchRefresh)
 

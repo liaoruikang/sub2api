@@ -118,6 +118,18 @@ func TestGetPoolModeRetryStatusCodes(t *testing.T) {
 	}
 }
 
+func TestIsPoolMode_AllowsOAuthAccounts(t *testing.T) {
+	account := &Account{
+		Type:     AccountTypeOAuth,
+		Platform: PlatformOpenAI,
+		Credentials: map[string]any{
+			"pool_mode": true,
+		},
+	}
+
+	require.True(t, account.IsPoolMode())
+}
+
 func TestIsPoolModeRetryableStatus_Account(t *testing.T) {
 	tests := []struct {
 		name       string

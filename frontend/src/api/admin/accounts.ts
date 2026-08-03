@@ -70,6 +70,21 @@ export interface AccountListWithEtagResult {
   data: PaginatedResponse<Account> | null
 }
 
+export type HighestSchedulingRotationAccountType = 'oauth' | 'apikey'
+
+export interface HighestSchedulingRotationConfig {
+  enabled: boolean
+  group_ids: number[]
+  account_types: HighestSchedulingRotationAccountType[]
+  rotation_count: number
+}
+
+export interface HighestSchedulingRotationState {
+  config: HighestSchedulingRotationConfig
+  active_account_ids: number[]
+  candidate_count: number
+}
+
 export async function listWithEtag(
   page: number = 1,
   pageSize: number = 20,
@@ -514,6 +529,26 @@ export async function setSchedulable(id: number, schedulable: boolean): Promise<
   return data
 }
 
+export async function getHighestSchedulingRotation(): Promise<HighestSchedulingRotationState> {
+  const { data } = await apiClient.get<HighestSchedulingRotationState>('/admin/accounts/highest-scheduling-rotation')
+  return data
+}
+
+export async function updateHighestSchedulingRotation(
+  config: HighestSchedulingRotationConfig
+): Promise<HighestSchedulingRotationState> {
+  const { data } = await apiClient.put<HighestSchedulingRotationState>(
+    '/admin/accounts/highest-scheduling-rotation',
+    config
+  )
+  return data
+}
+
+export async function reconcileHighestSchedulingRotation(): Promise<HighestSchedulingRotationState> {
+  const { data } = await apiClient.post<HighestSchedulingRotationState>('/admin/accounts/highest-scheduling-rotation/reconcile')
+  return data
+}
+
 /**
  * Get available models for an account
  * @param id - Account ID
@@ -715,6 +750,8 @@ export interface BatchOperationResult {
   total: number
   success: number
   failed: number
+  success_ids?: number[]
+  failed_ids?: number[]
   errors?: Array<{ account_id: number; error: string }>
   warnings?: Array<{ account_id: number; warning: string }>
 }
@@ -726,6 +763,16 @@ export interface BatchOperationResult {
  */
 export async function revertProxyFallback(id: number): Promise<{ message: string }> {
   const { data } = await apiClient.post<{ message: string }>(`/admin/accounts/${id}/revert-proxy-fallback`)
+  return data
+}
+
+/**
+ * Delete multiple accounts with bounded server-side concurrency.
+ */
+export async function batchDelete(accountIds: number[]): Promise<BatchOperationResult> {
+  const { data } = await apiClient.post<BatchOperationResult>('/admin/accounts/batch-delete', {
+    account_ids: accountIds
+  })
   return data
 }
 
@@ -952,6 +999,9 @@ export const accountsAPI = {
   getTempUnschedulableStatus,
   resetTempUnschedulable,
   setSchedulable,
+  getHighestSchedulingRotation,
+  updateHighestSchedulingRotation,
+  reconcileHighestSchedulingRotation,
   getAvailableModels,
   syncUpstreamModels,
   syncUpstreamModelsPreview,
@@ -968,6 +1018,7 @@ export const accountsAPI = {
   importCodexSession,
   createOpenAICodexPAT,
   getAntigravityDefaultModelMapping,
+  batchDelete,
   batchClearError,
   batchRefresh,
   setPrivacy,

@@ -116,6 +116,22 @@ func (s *RateLimitService) SetAccountRuntimeBlocker(blocker AccountRuntimeBlocke
 	s.runtimeBlocker = blocker
 }
 
+func (s *RateLimitService) setAccountError(ctx context.Context, accountID int64, errorMsg, reason string) error {
+	return s.accountRepo.SetError(ctx, accountID, errorMsg)
+}
+
+func (s *RateLimitService) setAccountRateLimited(ctx context.Context, accountID int64, resetAt time.Time, reason string) error {
+	return s.accountRepo.SetRateLimited(ctx, accountID, resetAt)
+}
+
+func (s *RateLimitService) setAccountOverloaded(ctx context.Context, accountID int64, until time.Time, reason string) error {
+	return s.accountRepo.SetOverloaded(ctx, accountID, until)
+}
+
+func (s *RateLimitService) setAccountTempUnschedulable(ctx context.Context, accountID int64, until time.Time, message, reason string) error {
+	return s.accountRepo.SetTempUnschedulable(ctx, accountID, until, message)
+}
+
 func (s *RateLimitService) IsOpenAIAdvancedSchedulerStickyWeightedEnabled(ctx context.Context) bool {
 	if s == nil || s.settingService == nil {
 		return false
@@ -161,7 +177,7 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 	}
 	if account.IsPoolMode() {
 		// 池模式只跳过默认账号状态处理；管理员显式配置的临时不可调度规则仍应生效。
-		// 401 保留现有认证错误语义，避免改变重复 401 的升级行为。
+		// 401 交给 failover 同账号重试，避免 OAuth 池账号立即进入临时不可调度。
 		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
 			return ErrorPolicyTempUnscheduled
 		}
@@ -180,7 +196,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	customErrorCodesEnabled := account.IsCustomErrorCodesEnabled()
 
 	// 池模式默认不标记本地账号状态；但管理员显式配置的临时不可调度规则优先。
-	// 401 保留现有认证错误语义，不在这里改变池模式的认证处理。
+	// 401 交给 failover 同账号重试，避免 OAuth 池账号立即进入临时不可调度。
 	if account.IsPoolMode() && !customErrorCodesEnabled {
 		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
 			return true
@@ -331,7 +347,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			}
 			until := time.Now().Add(time.Duration(cooldownMinutes) * time.Minute)
 			s.notifyAccountSchedulingBlocked(authAccount, until, "oauth_401")
-			if err := s.accountRepo.SetTempUnschedulable(ctx, authAccount.ID, until, msg); err != nil {
+			if err := s.setAccountTempUnschedulable(ctx, authAccount.ID, until, msg, "rate_limit_oauth_401"); err != nil {
 				slog.Warn("oauth_401_set_temp_unschedulable_failed", "account_id", authAccount.ID, "error", err)
 			}
 			shouldDisable = true
@@ -770,7 +786,7 @@ func (s *RateLimitService) GeminiCooldown(ctx context.Context, account *Account)
 // handleAuthError 处理认证类错误(401/403)，停止账号调度
 func (s *RateLimitService) handleAuthError(ctx context.Context, account *Account, errorMsg string) {
 	s.notifyAccountSchedulingBlocked(account, time.Time{}, "auth_error")
-	if err := s.accountRepo.SetError(ctx, account.ID, errorMsg); err != nil {
+	if err := s.setAccountError(ctx, account.ID, errorMsg, "rate_limit_set_error"); err != nil {
 		slog.Warn("account_set_error_failed", "account_id", account.ID, "error", err)
 		return
 	}
@@ -851,7 +867,7 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 	until := time.Now().Add(time.Duration(openAI403CooldownMinutesDefault) * time.Minute)
 	reason := fmt.Sprintf("OpenAI 403 temporary cooldown (%d/%d): %s", count, openAI403DisableThreshold, msg)
 	s.notifyAccountSchedulingBlocked(account, until, "openai_403_temp")
-	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+	if err := s.setAccountTempUnschedulable(ctx, account.ID, until, reason, "rate_limit_openai_403_temp"); err != nil {
 		slog.Warn("openai_403_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
 		s.handleAuthError(ctx, account, msg)
 		return true
@@ -917,7 +933,7 @@ func (s *RateLimitService) handleAntigravity403(ctx context.Context, account *Ac
 func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *Account, statusCode int, errorMsg string) {
 	msg := "Custom error code " + strconv.Itoa(statusCode) + ": " + errorMsg
 	s.notifyAccountSchedulingBlocked(account, time.Time{}, "custom_error_code")
-	if err := s.accountRepo.SetError(ctx, account.ID, msg); err != nil {
+	if err := s.setAccountError(ctx, account.ID, msg, "rate_limit_custom_error"); err != nil {
 		slog.Warn("account_set_error_failed", "account_id", account.ID, "status_code", statusCode, "error", err)
 		return
 	}
@@ -941,7 +957,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		s.persistOpenAICodexSnapshot(ctx, account, headers)
 		if resetAt := s.calculateOpenAI429ResetTime(headers); resetAt != nil {
 			s.notifyAccountSchedulingBlocked(account, *resetAt, "429")
-			if err := s.accountRepo.SetRateLimited(ctx, account.ID, *resetAt); err != nil {
+			if err := s.setAccountRateLimited(ctx, account.ID, *resetAt, "rate_limit_429_openai_headers"); err != nil {
 				slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 				return
 			}
@@ -953,7 +969,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	// 2. Anthropic 平台：尝试解析 per-window 头（5h / 7d），选择实际触发的窗口
 	if result := calculateAnthropic429ResetTime(headers); result != nil {
 		s.notifyAccountSchedulingBlocked(account, result.resetAt, "429")
-		if err := s.accountRepo.SetRateLimited(ctx, account.ID, result.resetAt); err != nil {
+		if err := s.setAccountRateLimited(ctx, account.ID, result.resetAt, "rate_limit_429_anthropic_headers"); err != nil {
 			slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 			return
 		}
@@ -983,7 +999,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 			if resetAt := parseOpenAIRateLimitResetTime(responseBody); resetAt != nil {
 				resetTime := time.Unix(*resetAt, 0)
 				s.notifyAccountSchedulingBlocked(account, resetTime, "429")
-				if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetTime); err != nil {
+				if err := s.setAccountRateLimited(ctx, account.ID, resetTime, "rate_limit_429_openai_body"); err != nil {
 					slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 					return
 				}
@@ -995,7 +1011,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 			if resetAt := ParseGeminiRateLimitResetTime(responseBody); resetAt != nil {
 				resetTime := time.Unix(*resetAt, 0)
 				s.notifyAccountSchedulingBlocked(account, resetTime, "429")
-				if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetTime); err != nil {
+				if err := s.setAccountRateLimited(ctx, account.ID, resetTime, "rate_limit_429_gemini_body"); err != nil {
 					slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 					return
 				}
@@ -1034,7 +1050,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 
 	// 标记限流状态
 	s.notifyAccountSchedulingBlocked(account, resetAt, "429")
-	if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
+	if err := s.setAccountRateLimited(ctx, account.ID, resetAt, "rate_limit_429_reset_header"); err != nil {
 		slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 		return
 	}
@@ -1059,7 +1075,7 @@ func (s *RateLimitService) apply429FallbackRateLimit(ctx context.Context, accoun
 	resetAt := time.Now().Add(cooldown)
 	slog.Warn("rate_limit_429_fallback_used", "account_id", account.ID, "platform", account.Platform, "reason", reason, "using_default", cooldown.String())
 	s.notifyAccountSchedulingBlocked(account, resetAt, "429_fallback")
-	if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
+	if err := s.setAccountRateLimited(ctx, account.ID, resetAt, "rate_limit_429_fallback"); err != nil {
 		slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 	}
 }
@@ -1249,7 +1265,7 @@ func (s *RateLimitService) persistAnthropicExhaustedWindowLimit(ctx context.Cont
 	}
 
 	s.notifyAccountSchedulingBlocked(account, limit.resetAt, limit.reason)
-	if err := s.accountRepo.SetRateLimited(ctx, account.ID, limit.resetAt); err != nil {
+	if err := s.setAccountRateLimited(ctx, account.ID, limit.resetAt, limit.reason); err != nil {
 		slog.Warn("anthropic_window_rate_limit_set_failed",
 			"account_id", account.ID,
 			"window", limit.window,
@@ -1599,7 +1615,7 @@ func (s *RateLimitService) handle529(ctx context.Context, account *Account) {
 
 	until := time.Now().Add(time.Duration(cooldownMinutes) * time.Minute)
 	s.notifyAccountSchedulingBlocked(account, until, "529")
-	if err := s.accountRepo.SetOverloaded(ctx, account.ID, until); err != nil {
+	if err := s.setAccountOverloaded(ctx, account.ID, until, "rate_limit_529"); err != nil {
 		slog.Warn("overload_set_failed", "account_id", account.ID, "error", err)
 		return
 	}
@@ -2254,7 +2270,7 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
 	}
 
 	s.notifyAccountSchedulingBlocked(account, until, "temp_unschedulable")
-	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+	if err := s.setAccountTempUnschedulable(ctx, account.ID, until, reason, "rate_limit_temp_unschedulable_rule"); err != nil {
 		slog.Warn("temp_unsched_set_failed", "account_id", account.ID, "error", err)
 		return false
 	}
@@ -2359,7 +2375,7 @@ func (s *RateLimitService) triggerStreamTimeoutTempUnsched(ctx context.Context, 
 	}
 
 	s.notifyAccountSchedulingBlocked(account, until, "stream_timeout_temp_unschedulable")
-	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+	if err := s.setAccountTempUnschedulable(ctx, account.ID, until, reason, "rate_limit_stream_timeout_temp"); err != nil {
 		slog.Warn("stream_timeout_set_temp_unsched_failed", "account_id", account.ID, "error", err)
 		return false
 	}
@@ -2386,7 +2402,7 @@ func (s *RateLimitService) triggerStreamTimeoutError(ctx context.Context, accoun
 	errorMsg := "Stream data interval timeout (repeated failures) for model: " + model
 
 	s.notifyAccountSchedulingBlocked(account, time.Time{}, "stream_timeout_error")
-	if err := s.accountRepo.SetError(ctx, account.ID, errorMsg); err != nil {
+	if err := s.setAccountError(ctx, account.ID, errorMsg, "rate_limit_set_error"); err != nil {
 		slog.Warn("stream_timeout_set_error_failed", "account_id", account.ID, "error", err)
 		return false
 	}

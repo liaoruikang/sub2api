@@ -19,6 +19,7 @@ export interface AdminCreatePlanRequest {
   description: string
   price: number
   original_price?: number
+  currency?: string
   validity_days: number
   validity_unit: string
   features: string
@@ -41,6 +42,7 @@ export interface AdminUpdatePlanRequest {
   description?: string
   price?: number
   original_price?: number
+  currency?: string
   validity_days?: number
   validity_unit?: string
   features?: string

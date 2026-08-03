@@ -71,6 +71,11 @@ export interface ImagePlaygroundStreamOptions {
   onImage?: (image: ImagePlaygroundImageResult, event: ImagePlaygroundStreamEvent) => void
 }
 
+export interface ImagePlaygroundAdvancedGenerateInput {
+  body: Record<string, unknown>
+  reference_images: File[]
+}
+
 export async function getImageOptions(): Promise<ImagePlaygroundOptions> {
   const { data } = await apiClient.get<ImagePlaygroundOptions>('/user/images/options')
   return data
@@ -80,11 +85,11 @@ export async function getImageOptions(): Promise<ImagePlaygroundOptions> {
 const IMAGE_GENERATION_TIMEOUT_MS = 0
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
-const appendScalar = (formData: FormData, key: string, value: string | number): void => {
+const appendScalar = (formData: FormData, key: string, value: string | number | boolean): void => {
   formData.append(key, String(value))
 }
 
-const imageGeneratePayload = (input: ImagePlaygroundGenerateInput): Record<string, unknown> => {
+export const imageGeneratePayload = (input: ImagePlaygroundGenerateInput): Record<string, unknown> => {
   const payload: Record<string, unknown> = {
     api_key_id: input.api_key_id,
     model: input.model,
@@ -103,25 +108,41 @@ const imageGeneratePayload = (input: ImagePlaygroundGenerateInput): Record<strin
   return payload
 }
 
+const appendAdvancedBody = (formData: FormData, body: Record<string, unknown>): void => {
+  Object.entries(body).forEach(([key, value]) => {
+    if (key === 'image' || value == null) {
+      return
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      appendScalar(formData, key, value)
+    }
+  })
+}
+
 export async function generateImage(
   input: ImagePlaygroundGenerateInput
 ): Promise<ImagePlaygroundGenerateResponse> {
   if (input.reference_images.length > 0) {
+    return generateImageAdvanced({
+      body: imageGeneratePayload(input),
+      reference_images: input.reference_images,
+    })
+  }
+
+  const { data } = await apiClient.post<ImagePlaygroundGenerateResponse>(
+    '/user/images/generations',
+    imageGeneratePayload(input),
+    { timeout: IMAGE_GENERATION_TIMEOUT_MS }
+  )
+  return data
+}
+
+export async function generateImageAdvanced(
+  input: ImagePlaygroundAdvancedGenerateInput
+): Promise<ImagePlaygroundGenerateResponse> {
+  if (input.reference_images.length > 0) {
     const formData = new FormData()
-
-    appendScalar(formData, 'api_key_id', input.api_key_id)
-    appendScalar(formData, 'model', input.model)
-    appendScalar(formData, 'prompt', input.prompt)
-    appendScalar(formData, 'size', input.size)
-    appendScalar(formData, 'quality', input.quality)
-    appendScalar(formData, 'output_format', input.output_format)
-    appendScalar(formData, 'moderation', input.moderation)
-    appendScalar(formData, 'n', input.n)
-
-    if (typeof input.output_compression === 'number') {
-      appendScalar(formData, 'output_compression', input.output_compression)
-    }
-
+    appendAdvancedBody(formData, input.body)
     input.reference_images.forEach((file) => {
       formData.append('image', file)
     })
@@ -139,7 +160,7 @@ export async function generateImage(
 
   const { data } = await apiClient.post<ImagePlaygroundGenerateResponse>(
     '/user/images/generations',
-    imageGeneratePayload(input),
+    input.body,
     { timeout: IMAGE_GENERATION_TIMEOUT_MS }
   )
   return data
@@ -192,6 +213,31 @@ const parseImageGenerateJSONResponse = async (response: Response): Promise<Image
     throw new Error(String(envelope.message || envelope.detail || 'Image generation failed'))
   }
   return json as ImagePlaygroundGenerateResponse
+}
+
+export const extractImageGenerationErrorMessage = (error: unknown): string => {
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, any>
+    const responseData = record.response?.data
+    if (responseData && typeof responseData === 'object') {
+      if (typeof responseData.error?.message === 'string' && responseData.error.message.trim()) {
+        return responseData.error.message.trim()
+      }
+      if (typeof responseData.message === 'string' && responseData.message.trim()) {
+        return responseData.message.trim()
+      }
+      if (typeof responseData.detail === 'string' && responseData.detail.trim()) {
+        return responseData.detail.trim()
+      }
+    }
+    if (typeof record.error?.message === 'string' && record.error.message.trim()) {
+      return record.error.message.trim()
+    }
+    if (typeof record.message === 'string' && record.message.trim()) {
+      return record.message.trim()
+    }
+  }
+  return ''
 }
 
 const imageStreamErrorMessage = async (response: Response): Promise<string> => {

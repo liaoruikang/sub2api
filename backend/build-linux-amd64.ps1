@@ -19,7 +19,7 @@ try {
         Remove-Item -LiteralPath $outputPath -Force
     }
 
-    go build -tags embed -o sub2api ./cmd/server
+    go build -tags embed -gcflags=all=-d=ssa/nilcheckelim/off -o sub2api ./cmd/server
 
     Write-Host "Built .\sub2api for linux/amd64"
 } finally {
