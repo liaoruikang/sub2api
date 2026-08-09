@@ -156,3 +156,6 @@ output/
 image-generator/.venv/
 image-generator/build/
 image-generator/*.spec
+
+# Vitest / Vite cache at repo root
+.vite/

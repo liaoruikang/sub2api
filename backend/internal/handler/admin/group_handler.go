@@ -110,31 +110,36 @@ type CreateGroupRequest struct {
 	WeeklyLimitUSD                       optionalLimitField `json:"weekly_limit_usd"`
 	MonthlyLimitUSD                      optionalLimitField `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
-	AllowImageGeneration            bool     `json:"allow_image_generation"`
-	AllowBatchImageGeneration       bool     `json:"allow_batch_image_generation"`
-	ImageRateIndependent            bool     `json:"image_rate_independent"`
-	ImageRateMultiplier             *float64 `json:"image_rate_multiplier"`
-	BatchImageDiscountMultiplier    *float64 `json:"batch_image_discount_multiplier"`
-	BatchImageHoldMultiplier        *float64 `json:"batch_image_hold_multiplier"`
-	VideoRateIndependent            bool     `json:"video_rate_independent"`
-	VideoRateMultiplier             *float64 `json:"video_rate_multiplier"`
-	PeakRateEnabled                 bool     `json:"peak_rate_enabled"`
-	PeakStart                       string   `json:"peak_start"`
-	PeakEnd                         string   `json:"peak_end"`
-	PeakRateMultiplier              *float64 `json:"peak_rate_multiplier"`
-	ProfitControlEnabled            bool     `json:"profit_control_enabled"`
-	ProfitMinMargin                 *float64 `json:"profit_min_margin"`
-	ProfitSafetyBuffer              *float64 `json:"profit_safety_buffer"`
-	ImagePrice1K                    *float64 `json:"image_price_1k"`
-	ImagePrice2K                    *float64 `json:"image_price_2k"`
-	ImagePrice4K                    *float64 `json:"image_price_4k"`
-	VideoPrice480P                  *float64 `json:"video_price_480p"`
-	VideoPrice720P                  *float64 `json:"video_price_720p"`
-	VideoPrice1080P                 *float64 `json:"video_price_1080p"`
-	WebSearchPricePerCall           *float64 `json:"web_search_price_per_call"`
-	ClaudeCodeOnly                  bool     `json:"claude_code_only"`
-	FallbackGroupID                 *int64   `json:"fallback_group_id"`
-	FallbackGroupIDOnInvalidRequest *int64   `json:"fallback_group_id_on_invalid_request"`
+	AllowImageGeneration            bool                          `json:"allow_image_generation"`
+	AllowBatchImageGeneration       bool                          `json:"allow_batch_image_generation"`
+	ImageRateIndependent            bool                          `json:"image_rate_independent"`
+	ImageRateMultiplier             *float64                      `json:"image_rate_multiplier"`
+	BatchImageDiscountMultiplier    *float64                      `json:"batch_image_discount_multiplier"`
+	BatchImageHoldMultiplier        *float64                      `json:"batch_image_hold_multiplier"`
+	VideoRateIndependent            bool                          `json:"video_rate_independent"`
+	VideoRateMultiplier             *float64                      `json:"video_rate_multiplier"`
+	PeakRateEnabled                 bool                          `json:"peak_rate_enabled"`
+	PeakStart                       string                        `json:"peak_start"`
+	PeakEnd                         string                        `json:"peak_end"`
+	PeakRateMultiplier              *float64                      `json:"peak_rate_multiplier"`
+	ProfitControlEnabled            bool                          `json:"profit_control_enabled"`
+	ProfitMinMargin                 *float64                      `json:"profit_min_margin"`
+	ProfitSafetyBuffer              *float64                      `json:"profit_safety_buffer"`
+	ImagePrice1K                    *float64                      `json:"image_price_1k"`
+	ImagePrice2K                    *float64                      `json:"image_price_2k"`
+	ImagePrice4K                    *float64                      `json:"image_price_4k"`
+	VideoPrice480P                  *float64                      `json:"video_price_480p"`
+	VideoPrice720P                  *float64                      `json:"video_price_720p"`
+	VideoPrice1080P                 *float64                      `json:"video_price_1080p"`
+	VideoModelPrices                map[string]map[string]float64 `json:"video_model_prices,omitempty"`
+	WebSearchPricePerCall           *float64                      `json:"web_search_price_per_call"`
+	SearchPricePer1k                *float64                      `json:"search_price_per_1k"`
+	AudioRealtimePricePerMin        *float64                      `json:"audio_realtime_price_per_min"`
+	AudioTtsPricePerMillionChars    *float64                      `json:"audio_tts_price_per_million_chars"`
+	AudioSttPricePerHour            *float64                      `json:"audio_stt_price_per_hour"`
+	ClaudeCodeOnly                  bool                          `json:"claude_code_only"`
+	FallbackGroupID                 *int64                        `json:"fallback_group_id"`
+	FallbackGroupIDOnInvalidRequest *int64                        `json:"fallback_group_id_on_invalid_request"`
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
@@ -182,31 +187,36 @@ type UpdateGroupRequest struct {
 	WeeklyLimitUSD                       optionalLimitField `json:"weekly_limit_usd"`
 	MonthlyLimitUSD                      optionalLimitField `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
-	AllowImageGeneration            *bool    `json:"allow_image_generation"`
-	AllowBatchImageGeneration       *bool    `json:"allow_batch_image_generation"`
-	ImageRateIndependent            *bool    `json:"image_rate_independent"`
-	ImageRateMultiplier             *float64 `json:"image_rate_multiplier"`
-	BatchImageDiscountMultiplier    *float64 `json:"batch_image_discount_multiplier"`
-	BatchImageHoldMultiplier        *float64 `json:"batch_image_hold_multiplier"`
-	VideoRateIndependent            *bool    `json:"video_rate_independent"`
-	VideoRateMultiplier             *float64 `json:"video_rate_multiplier"`
-	PeakRateEnabled                 *bool    `json:"peak_rate_enabled"`
-	PeakStart                       *string  `json:"peak_start"`
-	PeakEnd                         *string  `json:"peak_end"`
-	PeakRateMultiplier              *float64 `json:"peak_rate_multiplier"`
-	ProfitControlEnabled            *bool    `json:"profit_control_enabled"`
-	ProfitMinMargin                 *float64 `json:"profit_min_margin"`
-	ProfitSafetyBuffer              *float64 `json:"profit_safety_buffer"`
-	ImagePrice1K                    *float64 `json:"image_price_1k"`
-	ImagePrice2K                    *float64 `json:"image_price_2k"`
-	ImagePrice4K                    *float64 `json:"image_price_4k"`
-	VideoPrice480P                  *float64 `json:"video_price_480p"`
-	VideoPrice720P                  *float64 `json:"video_price_720p"`
-	VideoPrice1080P                 *float64 `json:"video_price_1080p"`
-	WebSearchPricePerCall           *float64 `json:"web_search_price_per_call"`
-	ClaudeCodeOnly                  *bool    `json:"claude_code_only"`
-	FallbackGroupID                 *int64   `json:"fallback_group_id"`
-	FallbackGroupIDOnInvalidRequest *int64   `json:"fallback_group_id_on_invalid_request"`
+	AllowImageGeneration            *bool                         `json:"allow_image_generation"`
+	AllowBatchImageGeneration       *bool                         `json:"allow_batch_image_generation"`
+	ImageRateIndependent            *bool                         `json:"image_rate_independent"`
+	ImageRateMultiplier             *float64                      `json:"image_rate_multiplier"`
+	BatchImageDiscountMultiplier    *float64                      `json:"batch_image_discount_multiplier"`
+	BatchImageHoldMultiplier        *float64                      `json:"batch_image_hold_multiplier"`
+	VideoRateIndependent            *bool                         `json:"video_rate_independent"`
+	VideoRateMultiplier             *float64                      `json:"video_rate_multiplier"`
+	PeakRateEnabled                 *bool                         `json:"peak_rate_enabled"`
+	PeakStart                       *string                       `json:"peak_start"`
+	PeakEnd                         *string                       `json:"peak_end"`
+	PeakRateMultiplier              *float64                      `json:"peak_rate_multiplier"`
+	ProfitControlEnabled            *bool                         `json:"profit_control_enabled"`
+	ProfitMinMargin                 *float64                      `json:"profit_min_margin"`
+	ProfitSafetyBuffer              *float64                      `json:"profit_safety_buffer"`
+	ImagePrice1K                    *float64                      `json:"image_price_1k"`
+	ImagePrice2K                    *float64                      `json:"image_price_2k"`
+	ImagePrice4K                    *float64                      `json:"image_price_4k"`
+	VideoPrice480P                  *float64                      `json:"video_price_480p"`
+	VideoPrice720P                  *float64                      `json:"video_price_720p"`
+	VideoPrice1080P                 *float64                      `json:"video_price_1080p"`
+	VideoModelPrices                map[string]map[string]float64 `json:"video_model_prices,omitempty"`
+	WebSearchPricePerCall           *float64                      `json:"web_search_price_per_call"`
+	SearchPricePer1k                *float64                      `json:"search_price_per_1k"`
+	AudioRealtimePricePerMin        *float64                      `json:"audio_realtime_price_per_min"`
+	AudioTtsPricePerMillionChars    *float64                      `json:"audio_tts_price_per_million_chars"`
+	AudioSttPricePerHour            *float64                      `json:"audio_stt_price_per_hour"`
+	ClaudeCodeOnly                  *bool                         `json:"claude_code_only"`
+	FallbackGroupID                 *int64                        `json:"fallback_group_id"`
+	FallbackGroupIDOnInvalidRequest *int64                        `json:"fallback_group_id_on_invalid_request"`
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled *bool              `json:"model_routing_enabled"`
@@ -509,62 +519,67 @@ func (h *GroupHandler) Create(c *gin.Context) {
 	}
 
 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
-			Name:                                 req.Name,
-			Description:                          req.Description,
-			Platform:                             req.Platform,
-			RateMultiplier:                       req.RateMultiplier,
-			LimitedTimeMultiplierEnabled:         req.LimitedTimeMultiplierEnabled,
-			LimitedTimeMultiplierCron:            req.LimitedTimeMultiplierCron,
-			LimitedTimeMultiplierDurationMinutes: req.LimitedTimeMultiplierDurationMinutes,
-			LimitedTimeMultiplierValue:           req.LimitedTimeMultiplierValue,
-			IsExclusive:                          req.IsExclusive,
-			SubscriptionType:                     req.SubscriptionType,
-			DailyLimitUSD:                        req.DailyLimitUSD.ToServiceInput(),
-			WeeklyLimitUSD:                       req.WeeklyLimitUSD.ToServiceInput(),
-			MonthlyLimitUSD:                      req.MonthlyLimitUSD.ToServiceInput(),
-			AllowImageGeneration:                 req.AllowImageGeneration,
-			AllowBatchImageGeneration:            req.AllowBatchImageGeneration,
-			ImageRateIndependent:                 req.ImageRateIndependent,
-			ImageRateMultiplier:                  req.ImageRateMultiplier,
-			BatchImageDiscountMultiplier:         req.BatchImageDiscountMultiplier,
-			BatchImageHoldMultiplier:             req.BatchImageHoldMultiplier,
-			VideoRateIndependent:                 req.VideoRateIndependent,
-			VideoRateMultiplier:                  req.VideoRateMultiplier,
-			PeakRateEnabled:                      req.PeakRateEnabled,
-			PeakStart:                            req.PeakStart,
-			PeakEnd:                              req.PeakEnd,
-			PeakRateMultiplier:                   req.PeakRateMultiplier,
-			ProfitControlEnabled:                 req.ProfitControlEnabled,
-			ProfitMinMargin:                      req.ProfitMinMargin,
-			ProfitSafetyBuffer:                   req.ProfitSafetyBuffer,
-			ImagePrice1K:                         req.ImagePrice1K,
-			ImagePrice2K:                         req.ImagePrice2K,
-			ImagePrice4K:                         req.ImagePrice4K,
-			VideoPrice480P:                       req.VideoPrice480P,
-			VideoPrice720P:                       req.VideoPrice720P,
-			VideoPrice1080P:                      req.VideoPrice1080P,
-			WebSearchPricePerCall:                req.WebSearchPricePerCall,
-			ClaudeCodeOnly:                       req.ClaudeCodeOnly,
-			FallbackGroupID:                      req.FallbackGroupID,
-			FallbackGroupIDOnInvalidRequest:      req.FallbackGroupIDOnInvalidRequest,
-			ModelRouting:                         req.ModelRouting,
-			ModelRoutingEnabled:                  req.ModelRoutingEnabled,
-			MCPXMLInject:                         req.MCPXMLInject,
-			SupportedModelScopes:                 req.SupportedModelScopes,
-			AllowMessagesDispatch:                req.AllowMessagesDispatch,
-			AllowLive:                            req.AllowLive,
-			RequireOAuthOnly:                     req.RequireOAuthOnly,
-			RequirePrivacySet:                    req.RequirePrivacySet,
-			DefaultMappedModel:                   req.DefaultMappedModel,
-			MessagesDispatchModelConfig:          req.MessagesDispatchModelConfig,
-			ModelsListConfig:                     req.ModelsListConfig,
-			RPMLimit:                             req.RPMLimit,
-			LimitedTimeRPMLimit:                  req.LimitedTimeRPMLimit,
-			LimitedTimeUserConcurrencyLimit:      req.LimitedTimeUserConcurrencyLimit,
-			UserConcurrencyLimit:                 req.UserConcurrencyLimit,
-			MaxReasoningEffort:                   req.MaxReasoningEffort,
-			ReasoningEffortMappings:              req.ReasoningEffortMappings,
-			CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
+		Name:                                 req.Name,
+		Description:                          req.Description,
+		Platform:                             req.Platform,
+		RateMultiplier:                       req.RateMultiplier,
+		LimitedTimeMultiplierEnabled:         req.LimitedTimeMultiplierEnabled,
+		LimitedTimeMultiplierCron:            req.LimitedTimeMultiplierCron,
+		LimitedTimeMultiplierDurationMinutes: req.LimitedTimeMultiplierDurationMinutes,
+		LimitedTimeMultiplierValue:           req.LimitedTimeMultiplierValue,
+		IsExclusive:                          req.IsExclusive,
+		SubscriptionType:                     req.SubscriptionType,
+		DailyLimitUSD:                        req.DailyLimitUSD.ToServiceInput(),
+		WeeklyLimitUSD:                       req.WeeklyLimitUSD.ToServiceInput(),
+		MonthlyLimitUSD:                      req.MonthlyLimitUSD.ToServiceInput(),
+		AllowImageGeneration:                 req.AllowImageGeneration,
+		AllowBatchImageGeneration:            req.AllowBatchImageGeneration,
+		ImageRateIndependent:                 req.ImageRateIndependent,
+		ImageRateMultiplier:                  req.ImageRateMultiplier,
+		BatchImageDiscountMultiplier:         req.BatchImageDiscountMultiplier,
+		BatchImageHoldMultiplier:             req.BatchImageHoldMultiplier,
+		VideoRateIndependent:                 req.VideoRateIndependent,
+		VideoRateMultiplier:                  req.VideoRateMultiplier,
+		PeakRateEnabled:                      req.PeakRateEnabled,
+		PeakStart:                            req.PeakStart,
+		PeakEnd:                              req.PeakEnd,
+		PeakRateMultiplier:                   req.PeakRateMultiplier,
+		ProfitControlEnabled:                 req.ProfitControlEnabled,
+		ProfitMinMargin:                      req.ProfitMinMargin,
+		ProfitSafetyBuffer:                   req.ProfitSafetyBuffer,
+		ImagePrice1K:                         req.ImagePrice1K,
+		ImagePrice2K:                         req.ImagePrice2K,
+		ImagePrice4K:                         req.ImagePrice4K,
+		VideoPrice480P:                       req.VideoPrice480P,
+		VideoPrice720P:                       req.VideoPrice720P,
+		VideoPrice1080P:                      req.VideoPrice1080P,
+		WebSearchPricePerCall:                req.WebSearchPricePerCall,
+		ClaudeCodeOnly:                       req.ClaudeCodeOnly,
+		FallbackGroupID:                      req.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:      req.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                         req.ModelRouting,
+		ModelRoutingEnabled:                  req.ModelRoutingEnabled,
+		MCPXMLInject:                         req.MCPXMLInject,
+		SupportedModelScopes:                 req.SupportedModelScopes,
+		AllowMessagesDispatch:                req.AllowMessagesDispatch,
+		AllowLive:                            req.AllowLive,
+		RequireOAuthOnly:                     req.RequireOAuthOnly,
+		RequirePrivacySet:                    req.RequirePrivacySet,
+		DefaultMappedModel:                   req.DefaultMappedModel,
+		MessagesDispatchModelConfig:          req.MessagesDispatchModelConfig,
+		ModelsListConfig:                     req.ModelsListConfig,
+		RPMLimit:                             req.RPMLimit,
+		LimitedTimeRPMLimit:                  req.LimitedTimeRPMLimit,
+		LimitedTimeUserConcurrencyLimit:      req.LimitedTimeUserConcurrencyLimit,
+		UserConcurrencyLimit:                 req.UserConcurrencyLimit,
+		MaxReasoningEffort:                   req.MaxReasoningEffort,
+		ReasoningEffortMappings:              req.ReasoningEffortMappings,
+		CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
+		VideoModelPrices:                     req.VideoModelPrices,
+		SearchPricePer1k:                     req.SearchPricePer1k,
+		AudioRealtimePricePerMin:             req.AudioRealtimePricePerMin,
+		AudioTTSPricePerMillionChars:         req.AudioTtsPricePerMillionChars,
+		AudioSTTPricePerHour:                 req.AudioSttPricePerHour,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -637,63 +652,68 @@ func (h *GroupHandler) Update(c *gin.Context) {
 	}
 
 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
-			Name:                                 req.Name,
-			Description:                          req.Description,
-			Platform:                             req.Platform,
-			RateMultiplier:                       req.RateMultiplier,
-			LimitedTimeMultiplierEnabled:         req.LimitedTimeMultiplierEnabled,
-			LimitedTimeMultiplierCron:            req.LimitedTimeMultiplierCron,
-			LimitedTimeMultiplierDurationMinutes: req.LimitedTimeMultiplierDurationMinutes,
-			LimitedTimeMultiplierValue:           req.LimitedTimeMultiplierValue,
-			IsExclusive:                          req.IsExclusive,
-			Status:                               req.Status,
-			SubscriptionType:                     req.SubscriptionType,
-			DailyLimitUSD:                        req.DailyLimitUSD.ToServiceInput(),
-			WeeklyLimitUSD:                       req.WeeklyLimitUSD.ToServiceInput(),
-			MonthlyLimitUSD:                      req.MonthlyLimitUSD.ToServiceInput(),
-			AllowImageGeneration:                 req.AllowImageGeneration,
-			AllowBatchImageGeneration:            req.AllowBatchImageGeneration,
-			ImageRateIndependent:                 req.ImageRateIndependent,
-			ImageRateMultiplier:                  req.ImageRateMultiplier,
-			BatchImageDiscountMultiplier:         req.BatchImageDiscountMultiplier,
-			BatchImageHoldMultiplier:             req.BatchImageHoldMultiplier,
-			VideoRateIndependent:                 req.VideoRateIndependent,
-			VideoRateMultiplier:                  req.VideoRateMultiplier,
-			PeakRateEnabled:                      req.PeakRateEnabled,
-			PeakStart:                            req.PeakStart,
-			PeakEnd:                              req.PeakEnd,
-			PeakRateMultiplier:                   req.PeakRateMultiplier,
-			ProfitControlEnabled:                 req.ProfitControlEnabled,
-			ProfitMinMargin:                      req.ProfitMinMargin,
-			ProfitSafetyBuffer:                   req.ProfitSafetyBuffer,
-			ImagePrice1K:                         req.ImagePrice1K,
-			ImagePrice2K:                         req.ImagePrice2K,
-			ImagePrice4K:                         req.ImagePrice4K,
-			VideoPrice480P:                       req.VideoPrice480P,
-			VideoPrice720P:                       req.VideoPrice720P,
-			VideoPrice1080P:                      req.VideoPrice1080P,
-			WebSearchPricePerCall:                req.WebSearchPricePerCall,
-			ClaudeCodeOnly:                       req.ClaudeCodeOnly,
-			FallbackGroupID:                      req.FallbackGroupID,
-			FallbackGroupIDOnInvalidRequest:      req.FallbackGroupIDOnInvalidRequest,
-			ModelRouting:                         req.ModelRouting,
-			ModelRoutingEnabled:                  req.ModelRoutingEnabled,
-			MCPXMLInject:                         req.MCPXMLInject,
-			SupportedModelScopes:                 req.SupportedModelScopes,
-			AllowMessagesDispatch:                req.AllowMessagesDispatch,
-			AllowLive:                            req.AllowLive,
-			RequireOAuthOnly:                     req.RequireOAuthOnly,
-			RequirePrivacySet:                    req.RequirePrivacySet,
-			DefaultMappedModel:                   req.DefaultMappedModel,
-			MessagesDispatchModelConfig:          req.MessagesDispatchModelConfig,
-			ModelsListConfig:                     req.ModelsListConfig,
-			RPMLimit:                             req.RPMLimit,
-			LimitedTimeRPMLimit:                  req.LimitedTimeRPMLimit,
-			LimitedTimeUserConcurrencyLimit:      req.LimitedTimeUserConcurrencyLimit,
-			UserConcurrencyLimit:                 req.UserConcurrencyLimit,
-			MaxReasoningEffort:                   req.MaxReasoningEffort,
-			ReasoningEffortMappings:              req.ReasoningEffortMappings,
-			CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
+		Name:                                 req.Name,
+		Description:                          req.Description,
+		Platform:                             req.Platform,
+		RateMultiplier:                       req.RateMultiplier,
+		LimitedTimeMultiplierEnabled:         req.LimitedTimeMultiplierEnabled,
+		LimitedTimeMultiplierCron:            req.LimitedTimeMultiplierCron,
+		LimitedTimeMultiplierDurationMinutes: req.LimitedTimeMultiplierDurationMinutes,
+		LimitedTimeMultiplierValue:           req.LimitedTimeMultiplierValue,
+		IsExclusive:                          req.IsExclusive,
+		Status:                               req.Status,
+		SubscriptionType:                     req.SubscriptionType,
+		DailyLimitUSD:                        req.DailyLimitUSD.ToServiceInput(),
+		WeeklyLimitUSD:                       req.WeeklyLimitUSD.ToServiceInput(),
+		MonthlyLimitUSD:                      req.MonthlyLimitUSD.ToServiceInput(),
+		AllowImageGeneration:                 req.AllowImageGeneration,
+		AllowBatchImageGeneration:            req.AllowBatchImageGeneration,
+		ImageRateIndependent:                 req.ImageRateIndependent,
+		ImageRateMultiplier:                  req.ImageRateMultiplier,
+		BatchImageDiscountMultiplier:         req.BatchImageDiscountMultiplier,
+		BatchImageHoldMultiplier:             req.BatchImageHoldMultiplier,
+		VideoRateIndependent:                 req.VideoRateIndependent,
+		VideoRateMultiplier:                  req.VideoRateMultiplier,
+		PeakRateEnabled:                      req.PeakRateEnabled,
+		PeakStart:                            req.PeakStart,
+		PeakEnd:                              req.PeakEnd,
+		PeakRateMultiplier:                   req.PeakRateMultiplier,
+		ProfitControlEnabled:                 req.ProfitControlEnabled,
+		ProfitMinMargin:                      req.ProfitMinMargin,
+		ProfitSafetyBuffer:                   req.ProfitSafetyBuffer,
+		ImagePrice1K:                         req.ImagePrice1K,
+		ImagePrice2K:                         req.ImagePrice2K,
+		ImagePrice4K:                         req.ImagePrice4K,
+		VideoPrice480P:                       req.VideoPrice480P,
+		VideoPrice720P:                       req.VideoPrice720P,
+		VideoPrice1080P:                      req.VideoPrice1080P,
+		WebSearchPricePerCall:                req.WebSearchPricePerCall,
+		ClaudeCodeOnly:                       req.ClaudeCodeOnly,
+		FallbackGroupID:                      req.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:      req.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                         req.ModelRouting,
+		ModelRoutingEnabled:                  req.ModelRoutingEnabled,
+		MCPXMLInject:                         req.MCPXMLInject,
+		SupportedModelScopes:                 req.SupportedModelScopes,
+		AllowMessagesDispatch:                req.AllowMessagesDispatch,
+		AllowLive:                            req.AllowLive,
+		RequireOAuthOnly:                     req.RequireOAuthOnly,
+		RequirePrivacySet:                    req.RequirePrivacySet,
+		DefaultMappedModel:                   req.DefaultMappedModel,
+		MessagesDispatchModelConfig:          req.MessagesDispatchModelConfig,
+		ModelsListConfig:                     req.ModelsListConfig,
+		RPMLimit:                             req.RPMLimit,
+		LimitedTimeRPMLimit:                  req.LimitedTimeRPMLimit,
+		LimitedTimeUserConcurrencyLimit:      req.LimitedTimeUserConcurrencyLimit,
+		UserConcurrencyLimit:                 req.UserConcurrencyLimit,
+		MaxReasoningEffort:                   req.MaxReasoningEffort,
+		ReasoningEffortMappings:              req.ReasoningEffortMappings,
+		CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
+		VideoModelPrices:                     req.VideoModelPrices,
+		SearchPricePer1k:                     req.SearchPricePer1k,
+		AudioRealtimePricePerMin:             req.AudioRealtimePricePerMin,
+		AudioTTSPricePerMillionChars:         req.AudioTtsPricePerMillionChars,
+		AudioSTTPricePerHour:                 req.AudioSttPricePerHour,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

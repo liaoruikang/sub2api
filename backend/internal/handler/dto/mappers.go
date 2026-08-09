@@ -222,6 +222,11 @@ func groupFromServiceBase(g *service.Group) Group {
 		ReasoningEffortMappings:              g.ReasoningEffortMappings,
 		CreatedAt:                            g.CreatedAt,
 		UpdatedAt:                            g.UpdatedAt,
+		VideoModelPrices:                     g.VideoModelPrices,
+		SearchPricePer1k:                     g.SearchPricePer1k,
+		AudioRealtimePricePerMin:             g.AudioRealtimePricePerMin,
+		AudioTtsPricePerMillionChars:         g.AudioTTSPricePerMillionChars,
+		AudioSttPricePerHour:                 g.AudioSTTPricePerHour,
 	}
 }
 
@@ -712,6 +717,8 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	return &AdminUsageLog{
 		UsageLog:              usageLog,
 		UpstreamModel:         l.UpstreamModel,
+		UpstreamResponseModel: l.UpstreamResponseModel,
+		UpstreamModelMismatch: l.UpstreamModelMismatch,
 		ChannelID:             l.ChannelID,
 		ModelMappingChain:     l.ModelMappingChain,
 		BillingTier:           l.BillingTier,
