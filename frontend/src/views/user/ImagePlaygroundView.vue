@@ -412,9 +412,21 @@
 
               <div class="flex min-h-0 flex-1 flex-col">
                 <div class="mb-2 flex items-center justify-between gap-3">
-                  <label for="image-advanced-body" class="input-label">
-                    {{ t('imagePlayground.advancedBodyLabel') }}
-                  </label>
+                  <div class="flex min-w-0 items-center justify-between gap-3">
+                    <label for="image-advanced-body" class="input-label">
+                      {{ t('imagePlayground.advancedBodyLabel') }}
+                    </label>
+                    <button
+                      type="button"
+                      data-test="image-advanced-details"
+                      class="btn btn-secondary btn-sm shrink-0"
+                      aria-haspopup="dialog"
+                      :aria-expanded="advancedDetailsOpen ? 'true' : 'false'"
+                      @click="advancedDetailsOpen = true"
+                    >
+                      {{ t('imagePlayground.advancedResultTitle') }}
+                    </button>
+                  </div>
                   <button
                     type="button"
                     class="btn btn-secondary btn-sm"
@@ -445,31 +457,6 @@
             </div>
           </div>
 
-          <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-600 dark:bg-dark-800">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t('imagePlayground.advancedResultTitle') }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                {{ t('imagePlayground.advancedResultDescription') }}
-              </p>
-            </div>
-
-            <div class="mt-4 space-y-4">
-              <div>
-                <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('imagePlayground.advancedLastRequestLabel') }}
-                </p>
-                <pre class="max-h-80 overflow-auto rounded-xl bg-gray-950 p-4 text-xs leading-5 text-gray-100"><code>{{ prettyAdvancedRequest }}</code></pre>
-              </div>
-              <div>
-                <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('imagePlayground.advancedLastResponseLabel') }}
-                </p>
-                <pre class="max-h-80 overflow-auto rounded-xl bg-gray-950 p-4 text-xs leading-5 text-gray-100"><code>{{ prettyAdvancedResponse }}</code></pre>
-              </div>
-            </div>
-          </div>
         </section>
 
         <aside
@@ -718,6 +705,40 @@
         </aside>
       </div>
     </div>
+
+    <BaseDialog
+      :show="advancedDetailsOpen"
+      :title="t('imagePlayground.advancedResultTitle')"
+      width="extra-wide"
+      @close="advancedDetailsOpen = false"
+    >
+      <div class="space-y-5">
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+          {{ t('imagePlayground.advancedResultDescription') }}
+        </p>
+
+        <div class="grid gap-5 lg:grid-cols-2">
+          <section>
+            <h4 class="text-sm font-medium text-gray-900 dark:text-white">
+              {{ t('imagePlayground.advancedLastRequestLabel') }}
+            </h4>
+            <pre
+              data-test="image-advanced-request-details"
+              class="mt-2 h-[min(42vh,28rem)] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-gray-950 p-4 text-xs leading-5 text-gray-100"
+            ><code>{{ prettyAdvancedRequest }}</code></pre>
+          </section>
+          <section>
+            <h4 class="text-sm font-medium text-gray-900 dark:text-white">
+              {{ t('imagePlayground.advancedLastResponseLabel') }}
+            </h4>
+            <pre
+              data-test="image-advanced-response-details"
+              class="mt-2 h-[min(42vh,28rem)] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-gray-950 p-4 text-xs leading-5 text-gray-100"
+            ><code>{{ prettyAdvancedResponse }}</code></pre>
+          </section>
+        </div>
+      </div>
+    </BaseDialog>
 
     <div
       v-if="sizePickerOpen"
@@ -1027,6 +1048,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   extractImageGenerationErrorMessage,
@@ -1186,6 +1208,7 @@ const pendingReuseModel = ref<string | null>(null)
 const imagePreview = ref<ImagePreviewState | null>(null)
 const streamEnabled = ref(false)
 const advancedEnabled = ref(readAdvancedModeEnabled())
+const advancedDetailsOpen = ref(false)
 const advancedRequestPath = ref('/v1/images/generations')
 const advancedRequestBodyText = ref('{}')
 const advancedRequestError = ref('')
@@ -1462,6 +1485,10 @@ watch(selectedKeyId, (nextKeyId) => {
 watch(advancedEnabled, (enabled) => {
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(ADVANCED_MODE_STORAGE_KEY, String(enabled))
+  }
+
+  if (!enabled) {
+    advancedDetailsOpen.value = false
   }
 
   if (enabled && !advancedRequestDirty.value) {

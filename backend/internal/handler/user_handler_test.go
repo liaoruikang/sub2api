@@ -205,6 +205,9 @@ func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 			Username: "identity-user",
 			Role:     service.RoleUser,
 			Status:   service.StatusActive,
+			Tags: []service.UserTag{
+				{ID: 9, Name: "内部"},
+			},
 		},
 		identities: []service.UserAuthIdentityRecord{
 			{
@@ -240,6 +243,10 @@ func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 	var resp struct {
 		Code int `json:"code"`
 		Data struct {
+			Tags []struct {
+				ID   int64  `json:"id"`
+				Name string `json:"name"`
+			} `json:"tags"`
 			Identities struct {
 				Email struct {
 					Bound       bool   `json:"bound"`
@@ -278,6 +285,10 @@ func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 	require.Equal(t, "OIDC Display", resp.Data.Identities.OIDC.DisplayName)
 	require.Equal(t, "https://issuer.example.com", resp.Data.Identities.OIDC.ProviderKey)
 	require.False(t, resp.Data.Identities.WeChat.Bound)
+
+	require.Len(t, resp.Data.Tags, 1)
+	require.Equal(t, int64(9), resp.Data.Tags[0].ID)
+	require.Equal(t, "内部", resp.Data.Tags[0].Name)
 	require.True(t, resp.Data.Identities.WeChat.CanBind)
 	require.Contains(t, resp.Data.Identities.WeChat.BindStartPath, "/api/v1/auth/oauth/wechat/bind/start")
 }

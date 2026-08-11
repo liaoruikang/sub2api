@@ -31,6 +31,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
         if (key === 'profile.accountBalance') return 'Account Balance'
         if (key === 'profile.concurrencyLimit') return 'Concurrency Limit'
         if (key === 'profile.memberSince') return 'Member Since'
+        if (key === 'profile.tags') return 'User Tags'
         if (key === 'profile.administrator') return 'Administrator'
         if (key === 'profile.user') return 'User'
         if (key === 'profile.authBindings.providers.email') return 'Email'
@@ -87,6 +88,44 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).toContain('User')
     expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+  })
+
+  it('renders assigned user tags in the overview hero', () => {
+    const wrapper = mount(ProfileInfoCard, {
+      props: {
+        user: createUser({
+          tags: [
+            { id: 7, name: 'VIP', created_at: '', updated_at: '' },
+            { id: 8, name: '美西', created_at: '', updated_at: '' },
+          ],
+        }),
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    const tags = wrapper.get('[data-testid="profile-overview-tags"]')
+    expect(tags.text()).toContain('User Tags')
+    expect(tags.text()).toContain('VIP')
+    expect(tags.text()).toContain('美西')
+  })
+
+  it('does not render an empty tag section when the user has no tags', () => {
+    const wrapper = mount(ProfileInfoCard, {
+      props: {
+        user: createUser({ tags: [] }),
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="profile-overview-tags"]').exists()).toBe(false)
   })
 
   it('renders third-party source hints from profile sources', () => {

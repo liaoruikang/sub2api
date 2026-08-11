@@ -294,6 +294,7 @@ type CreateGroupInput struct {
 	ProfitSafetyBuffer   *float64
 	// 从指定分组复制账号（创建分组后在同一事务内绑定）
 	CopyAccountsFromGroupIDs []int64
+	TagIDs                   []int64
 }
 
 type UpdateGroupInput struct {
@@ -377,6 +378,8 @@ type UpdateGroupInput struct {
 	ProfitSafetyBuffer   *float64
 	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
 	CopyAccountsFromGroupIDs []int64
+	// TagIDs 为 nil 表示不修改，空数组表示清空标签关联。
+	TagIDs *[]int64
 }
 
 type CreateAccountInput struct {
@@ -688,6 +691,7 @@ type adminServiceImpl struct {
 	affiliateService     adminRechargeAffiliateAccruer
 	compositeRouteRepo   CompositeModelRouteRepository
 	compositeResolver    *CompositeRouteResolver
+	userTagRepo          UserTagRepository
 }
 
 type adminRechargeAffiliateAccruer interface {
@@ -750,6 +754,14 @@ func NewAdminService(
 	}
 }
 
+// SetAdminServiceUserTagRepository wires optional tag persistence into the admin service.
+// Keeping this setter preserves existing constructor call sites and test doubles.
+func SetAdminServiceUserTagRepository(adminService AdminService, repo UserTagRepository) {
+	if impl, ok := adminService.(*adminServiceImpl); ok {
+		impl.userTagRepo = repo
+	}
+}
+
 func ProvideAdminService(
 	userRepo UserRepository,
 	groupRepo AdminGroupRepository,
@@ -773,9 +785,10 @@ func ProvideAdminService(
 	compositeRouteRepo CompositeModelRouteRepository,
 	compositeResolver *CompositeRouteResolver,
 	rotationReconciler HighestSchedulingRotationReconciler,
+	userTagRepo UserTagRepository,
 ) AdminService {
 	InjectHighestSchedulingRotationReconciler(accountRepo, rotationReconciler)
-	return NewAdminService(
+	adminService := NewAdminService(
 		userRepo,
 		groupRepo,
 		accountRepo,
@@ -798,4 +811,6 @@ func ProvideAdminService(
 		compositeRouteRepo,
 		compositeResolver,
 	)
+	SetAdminServiceUserTagRepository(adminService, userTagRepo)
+	return adminService
 }

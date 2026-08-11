@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -156,5 +157,149 @@ func TestSortOpenAICompactRetryCandidates_HighestBeatsPriorityWithinStaleTier(t 
 	ordered := sortOpenAICompactRetryCandidates(pool)
 	if len(ordered) != 2 || ordered[0].account.ID != highest.ID {
 		t.Fatalf("expected highest stale compact retry candidate first, got order=%v", []int64{ordered[0].account.ID, ordered[1].account.ID})
+	}
+}
+
+type highestSchedulingRotationSettingRepoStub struct {
+	values map[string]string
+}
+
+func (s *highestSchedulingRotationSettingRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
+	value, err := s.GetValue(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	return &Setting{Key: key, Value: value}, nil
+}
+
+func (s *highestSchedulingRotationSettingRepoStub) GetValue(ctx context.Context, key string) (string, error) {
+	if s == nil || s.values == nil {
+		return "", ErrSettingNotFound
+	}
+	value, ok := s.values[key]
+	if !ok {
+		return "", ErrSettingNotFound
+	}
+	return value, nil
+}
+
+func (s *highestSchedulingRotationSettingRepoStub) Set(ctx context.Context, key, value string) error {
+	if s.values == nil {
+		s.values = make(map[string]string)
+	}
+	s.values[key] = value
+	return nil
+}
+
+func (s *highestSchedulingRotationSettingRepoStub) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
+	out := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value, ok := s.values[key]; ok {
+			out[key] = value
+		}
+	}
+	return out, nil
+}
+
+func (s *highestSchedulingRotationSettingRepoStub) SetMultiple(ctx context.Context, settings map[string]string) error {
+	if s.values == nil {
+		s.values = make(map[string]string)
+	}
+	for key, value := range settings {
+		s.values[key] = value
+	}
+	return nil
+}
+
+func (s *highestSchedulingRotationSettingRepoStub) GetAll(ctx context.Context) (map[string]string, error) {
+	out := make(map[string]string, len(s.values))
+	for key, value := range s.values {
+		out[key] = value
+	}
+	return out, nil
+}
+
+func (s *highestSchedulingRotationSettingRepoStub) Delete(ctx context.Context, key string) error {
+	delete(s.values, key)
+	return nil
+}
+
+type highestSchedulingRotationAccountRepoStub struct {
+	accounts         []Account
+	updateExtraCalls int
+}
+
+func (r *highestSchedulingRotationAccountRepoStub) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
+	out := make([]Account, 0, len(r.accounts))
+	for _, account := range r.accounts {
+		if platform != "" && account.Platform != platform {
+			continue
+		}
+		if accountType != "" && account.Type != accountType {
+			continue
+		}
+		if status != "" && account.Status != status {
+			continue
+		}
+		if groupID > 0 && !highestSchedulingRotationTestAccountInGroup(account, groupID) {
+			continue
+		}
+		out = append(out, account)
+	}
+	return out, nil
+}
+
+func (r *highestSchedulingRotationAccountRepoStub) UpdateExtra(ctx context.Context, id int64, updates map[string]any) error {
+	r.updateExtraCalls++
+	for i := range r.accounts {
+		if r.accounts[i].ID != id {
+			continue
+		}
+		if r.accounts[i].Extra == nil {
+			r.accounts[i].Extra = map[string]any{}
+		}
+		for key, value := range updates {
+			r.accounts[i].Extra[key] = value
+		}
+		return nil
+	}
+	return ErrAccountNotFound
+}
+
+func highestSchedulingRotationTestAccountInGroup(account Account, groupID int64) bool {
+	for _, id := range account.GroupIDs {
+		if id == groupID {
+			return true
+		}
+	}
+	for _, group := range account.AccountGroups {
+		if group.GroupID == groupID {
+			return true
+		}
+	}
+	return false
+}
+
+func TestReconcileHighestSchedulingRotation_DisabledConfigDoesNotClearManualHighestScheduling(t *testing.T) {
+	repo := &highestSchedulingRotationAccountRepoStub{
+		accounts: []Account{
+			*highestSchedulingTestAccount(1, 1, nil, true),
+			*highestSchedulingTestAccount(2, 1, nil, nil),
+		},
+	}
+	settings := &highestSchedulingRotationSettingRepoStub{values: map[string]string{
+		SettingKeyHighestSchedulingRotationConfig: `{"enabled":false,"group_ids":[],"account_types":["apikey"],"rotation_count":1}`,
+	}}
+	core := &highestSchedulingRotationCore{accountRepo: repo, settingRepo: settings}
+
+	state, err := core.ReconcileHighestSchedulingRotation(context.Background(), "account_update")
+	if err != nil {
+		t.Fatalf("reconcile disabled rotation: %v", err)
+	}
+	if repo.updateExtraCalls != 0 {
+		t.Fatalf("disabled rotation must not update account extras, got calls=%d", repo.updateExtraCalls)
+	}
+	if len(state.ActiveAccountIDs) != 1 || state.ActiveAccountIDs[0] != 1 {
+		t.Fatalf("disabled rotation must keep manually configured highest scheduling account, got active IDs=%v", state.ActiveAccountIDs)
 	}
 }

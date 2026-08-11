@@ -252,6 +252,12 @@
               {{ t('admin.users.bulkLimits.action', { count: selectedCount }) }}
             </button>
 
+            <!-- User Tag Management Button -->
+            <button @click="showTagManagementModal = true" class="btn btn-secondary flex-1 md:flex-initial">
+              <Icon name="users" size="md" class="mr-2" />
+              {{ t('admin.users.manageTags') }}
+            </button>
+
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
             <button @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
               <Icon name="plus" size="md" class="mr-2" />
@@ -392,6 +398,17 @@
                 v-if="getUserGroups(row).exclusive.length === 0 && getUserGroups(row).publicGroups.length === 0"
                 class="text-xs text-gray-400 dark:text-dark-500"
               >-</span>
+            </div>
+            <span v-else class="text-xs text-gray-400 dark:text-dark-500">-</span>
+          </template>
+
+          <template #cell-tags="{ row }">
+            <div v-if="row.tags && row.tags.length > 0" class="flex max-w-xs flex-wrap gap-1">
+              <span
+                v-for="tag in row.tags"
+                :key="tag.id"
+                class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+              >{{ tag.name }}</span>
             </div>
             <span v-else class="text-xs text-gray-400 dark:text-dark-500">-</span>
           </template>
@@ -768,6 +785,7 @@
     <UserBalanceHistoryModal :show="showBalanceHistoryModal" :user="balanceHistoryUser" @close="closeBalanceHistoryModal" @deposit="handleDepositFromHistory" @withdraw="handleWithdrawFromHistory" />
     <GroupReplaceModal :show="showGroupReplaceModal" :user="groupReplaceUser" :old-group="groupReplaceOldGroup" :all-groups="allGroups" @close="closeGroupReplaceModal" @success="loadUsers" />
     <UserAttributesConfigModal :show="showAttributesModal" @close="handleAttributesModalClose" />
+    <UserTagManagementModal :show="showTagManagementModal" @close="showTagManagementModal = false" @success="loadUsers" />
   </AppLayout>
 </template>
 
@@ -797,6 +815,7 @@ import GroupBadge from '@/components/common/GroupBadge.vue'
 import Select from '@/components/common/Select.vue'
 import { buildApiKeyGroupFilterOptions } from './apiKeyGroupFilterOptions'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
+import UserTagManagementModal from '@/components/admin/user/UserTagManagementModal.vue'
 import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
 import PlatformUsageBreakdown from '@/components/user/PlatformUsageBreakdown.vue'
 import PlatformCostCell from '@/components/user/PlatformCostCell.vue'
@@ -869,6 +888,7 @@ const allColumns = computed<Column[]>(() => [
   ...attributeColumns.value,
   { key: 'role', label: t('admin.users.columns.role'), sortable: true },
   { key: 'groups', label: t('admin.users.columns.groups'), sortable: false },
+  { key: 'tags', label: t('admin.users.columns.tags'), sortable: false },
   { key: 'subscriptions', label: t('admin.users.columns.subscriptions'), sortable: false },
   { key: 'balance', label: t('admin.users.columns.balance'), sortable: true },
   { key: 'balance_platform_quota', label: t('admin.users.columns.balancePlatformQuota'), sortable: false },
@@ -1071,7 +1091,11 @@ const getUserGroups = (user: AdminUser) => {
   for (const g of allGroups.value) {
     if (g.status !== 'active' || g.subscription_type !== 'standard') continue
     if (g.is_exclusive) {
-      if (user.allowed_groups?.includes(g.id)) {
+      const manuallyAllowed = user.allowed_groups?.includes(g.id) ?? false
+      const tagAllowed = (user.tags || []).some((userTag) =>
+        (g.tags || []).some((groupTag) => groupTag.id === userTag.id)
+      )
+      if (manuallyAllowed || tagAllowed) {
         exclusive.push(g)
       }
     } else {
@@ -1324,6 +1348,7 @@ const showBulkEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const showApiKeysModal = ref(false)
 const showAttributesModal = ref(false)
+const showTagManagementModal = ref(false)
 const showPlatformQuotaModal = ref(false)
 const editingUser = ref<AdminUser | null>(null)
 const deletingUser = ref<AdminUser | null>(null)

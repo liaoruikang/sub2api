@@ -2724,7 +2724,6 @@
         v-if="!authStore.isSimpleMode"
         v-model="form.group_ids"
         :groups="groups"
-        :platform="account?.platform"
         :mixed-scheduling="mixedScheduling"
         data-tour="account-form-groups"
       />

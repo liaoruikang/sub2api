@@ -22,6 +22,7 @@ func UserFromServiceShallow(u *service.User) *User {
 		Concurrency:                u.Concurrency,
 		Status:                     u.Status,
 		AllowedGroups:              u.AllowedGroups,
+		Tags:                       userTagsFromService(u.Tags),
 		LastActiveAt:               u.LastActiveAt,
 		CreatedAt:                  u.CreatedAt,
 		UpdatedAt:                  u.UpdatedAt,
@@ -85,6 +86,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		Key:                k.Key,
 		Name:               k.Name,
 		GroupID:            k.GroupID,
+		GroupIDs:           apiKeyGroupIDsFromService(k),
 		Status:             k.Status,
 		IPWhitelist:        k.IPWhitelist,
 		IPBlacklist:        k.IPBlacklist,
@@ -107,6 +109,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		Window7dStart:      k.Window7dStart,
 		User:               UserFromServiceShallow(k.User),
 		Group:              GroupFromServiceShallow(k.Group),
+		Groups:             apiKeyGroupsFromService(k),
 	}
 	if k.Window5hStart != nil && !service.IsWindowExpired(k.Window5hStart, service.RateLimitWindow5h) {
 		t := k.Window5hStart.Add(service.RateLimitWindow5h)
@@ -121,6 +124,36 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		out.Reset7dAt = &t
 	}
 	return out
+}
+
+func apiKeyGroupIDsFromService(k *service.APIKey) []int64 {
+	if k == nil {
+		return nil
+	}
+	if len(k.GroupIDs) > 0 {
+		return k.GroupIDs
+	}
+	if k.GroupID != nil {
+		return []int64{*k.GroupID}
+	}
+	return []int64{}
+}
+
+func apiKeyGroupsFromService(k *service.APIKey) []*Group {
+	if k == nil {
+		return nil
+	}
+	if len(k.Groups) > 0 {
+		out := make([]*Group, 0, len(k.Groups))
+		for _, g := range k.Groups {
+			out = append(out, GroupFromServiceShallow(g))
+		}
+		return out
+	}
+	if k.Group != nil {
+		return []*Group{GroupFromServiceShallow(k.Group)}
+	}
+	return nil
 }
 
 func GroupFromServiceShallow(g *service.Group) *Group {
@@ -222,12 +255,30 @@ func groupFromServiceBase(g *service.Group) Group {
 		ReasoningEffortMappings:              g.ReasoningEffortMappings,
 		CreatedAt:                            g.CreatedAt,
 		UpdatedAt:                            g.UpdatedAt,
+		TagIDs:                               append([]int64(nil), g.TagIDs...),
+		Tags:                                 userTagsFromService(g.Tags),
 		VideoModelPrices:                     g.VideoModelPrices,
 		SearchPricePer1k:                     g.SearchPricePer1k,
 		AudioRealtimePricePerMin:             g.AudioRealtimePricePerMin,
 		AudioTtsPricePerMillionChars:         g.AudioTTSPricePerMillionChars,
 		AudioSttPricePerHour:                 g.AudioSTTPricePerHour,
 	}
+}
+
+func userTagsFromService(tags []service.UserTag) []UserTag {
+	if len(tags) == 0 {
+		return nil
+	}
+	out := make([]UserTag, 0, len(tags))
+	for _, tag := range tags {
+		out = append(out, UserTag{
+			ID:        tag.ID,
+			Name:      tag.Name,
+			CreatedAt: tag.CreatedAt,
+			UpdatedAt: tag.UpdatedAt,
+		})
+	}
+	return out
 }
 
 func AccountFromServiceShallow(a *service.Account) *Account {

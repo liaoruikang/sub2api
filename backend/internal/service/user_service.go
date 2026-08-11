@@ -69,6 +69,7 @@ type UserListFilters struct {
 	Status    string // User status filter
 	Role      string // User role filter
 	Search    string // Search in email, username
+	UserTagID int64  // Filter users assigned to this tag
 	GroupName string // Filter by allowed group name (fuzzy match)
 	// APIKeyGroupID filters users who own at least one non-soft-deleted API key
 	// bound to this group (api_keys.group_id). 0 = no filter. Covers all three
@@ -290,6 +291,7 @@ type ChangePasswordRequest struct {
 // UserService 用户服务
 type UserService struct {
 	userRepo             UserRepository
+	userTagRepo          UserTagRepository
 	settingRepo          SettingRepository
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	billingCache         BillingCache
@@ -305,6 +307,10 @@ func NewUserService(userRepo UserRepository, settingRepo SettingRepository, auth
 		authCacheInvalidator: authCacheInvalidator,
 		billingCache:         billingCache,
 	}
+}
+
+func (s *UserService) SetUserTagRepository(repo UserTagRepository) {
+	s.userTagRepo = repo
 }
 
 // GetFirstAdmin 获取首个管理员用户（用于 Admin API Key 认证）
@@ -326,6 +332,7 @@ func (s *UserService) GetProfile(ctx context.Context, userID int64) (*User, erro
 	if err := s.hydrateUserAvatar(ctx, user); err != nil {
 		return nil, fmt.Errorf("get user avatar: %w", err)
 	}
+	s.hydrateUserTags(ctx, user)
 	return user, nil
 }
 
@@ -1058,6 +1065,15 @@ func (s *UserService) GetByID(ctx context.Context, id int64) (*User, error) {
 	return user, nil
 }
 
+func (s *UserService) GetCurrentUser(ctx context.Context, id int64) (*User, error) {
+	user, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.hydrateUserTags(ctx, user)
+	return user, nil
+}
+
 func normalizeLoadedUserTokenVersion(user *User) {
 	if user == nil || user.TokenVersionResolved {
 		return
@@ -1137,6 +1153,19 @@ func (s *UserService) hydrateUserAvatar(ctx context.Context, user *User) error {
 	}
 	applyUserAvatar(user, avatar)
 	return nil
+}
+
+func (s *UserService) hydrateUserTags(ctx context.Context, user *User) {
+	if s == nil || s.userTagRepo == nil || user == nil || user.ID == 0 {
+		return
+	}
+
+	tags, err := s.userTagRepo.GetByUserID(ctx, user.ID)
+	if err != nil {
+		slog.Warn("failed to load user tags", "user_id", user.ID, "error", err)
+		return
+	}
+	user.Tags = tags
 }
 
 // List 获取用户列表（管理员功能）

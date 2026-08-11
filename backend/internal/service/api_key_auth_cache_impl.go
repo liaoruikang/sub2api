@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 24 // v24: include limited-time/concurrency and group profit control snapshot fields
+const apiKeyAuthSnapshotVersion = 26 // v26: include tag-derived standard exclusive groups
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -282,6 +282,9 @@ func (s *APIKeyService) loadAuthCacheEntry(ctx context.Context, key, cacheKey st
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
 	apiKey.Key = key
+	if err := s.loadTagDerivedGroups(ctx, apiKey); err != nil {
+		return nil, err
+	}
 	snapshot := s.snapshotFromAPIKey(ctx, apiKey)
 	if snapshot == nil {
 		return nil, fmt.Errorf("get api key: %w", ErrAPIKeyNotFound)
@@ -340,6 +343,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		APIKeyID:    apiKey.ID,
 		UserID:      apiKey.UserID,
 		GroupID:     apiKey.GroupID,
+		GroupIDs:    append([]int64(nil), apiKey.GroupIDs...),
 		Name:        apiKey.Name,
 		Status:      apiKey.Status,
 		IPWhitelist: apiKey.IPWhitelist,
@@ -356,7 +360,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			Role:                       apiKey.User.Role,
 			Balance:                    apiKey.User.Balance,
 			Concurrency:                apiKey.User.Concurrency,
-			AllowedGroups:              apiKey.User.AllowedGroups,
+			AllowedGroups:              append([]int64(nil), apiKey.User.AllowedGroups...),
+			TagDerivedGroups:           append([]int64(nil), apiKey.User.TagDerivedGroups...),
 			Email:                      apiKey.User.Email,
 			Username:                   apiKey.User.Username,
 			BalanceNotifyEnabled:       apiKey.User.BalanceNotifyEnabled,
@@ -443,17 +448,177 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			AudioSTTPricePerHour:                 apiKey.Group.AudioSTTPricePerHour,
 		}
 	}
+
+	for _, group := range apiKey.Groups {
+		if group == nil {
+			continue
+		}
+		snapshot.Groups = append(snapshot.Groups, apiKeyAuthGroupSnapshotFromGroup(group))
+	}
+	if len(snapshot.Groups) == 0 && snapshot.Group != nil {
+		snapshot.Groups = []*APIKeyAuthGroupSnapshot{snapshot.Group}
+	}
+
+	if len(snapshot.GroupIDs) == 0 && snapshot.GroupID != nil && *snapshot.GroupID > 0 {
+		snapshot.GroupIDs = []int64{*snapshot.GroupID}
+	}
+	if snapshot.Group == nil && len(snapshot.Groups) > 0 {
+		snapshot.Group = snapshot.Groups[0]
+	}
+	if snapshot.GroupID == nil && len(snapshot.GroupIDs) > 0 {
+		groupID := snapshot.GroupIDs[0]
+		snapshot.GroupID = &groupID
+	}
 	return snapshot
+}
+
+func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
+	if group == nil {
+		return nil
+	}
+	return &APIKeyAuthGroupSnapshot{
+		ID:                                   group.ID,
+		Name:                                 group.Name,
+		Platform:                             group.Platform,
+		IsExclusive:                          group.IsExclusive,
+		Status:                               group.Status,
+		SubscriptionType:                     group.SubscriptionType,
+		RateMultiplier:                       group.RateMultiplier,
+		LimitedTimeMultiplierEnabled:         group.LimitedTimeMultiplierEnabled,
+		LimitedTimeMultiplierCron:            group.LimitedTimeMultiplierCron,
+		LimitedTimeMultiplierDurationMinutes: group.LimitedTimeMultiplierDurationMinutes,
+		LimitedTimeMultiplierValue:           group.LimitedTimeMultiplierValue,
+		DailyLimitUSD:                        group.DailyLimitUSD,
+		WeeklyLimitUSD:                       group.WeeklyLimitUSD,
+		MonthlyLimitUSD:                      group.MonthlyLimitUSD,
+		AllowImageGeneration:                 group.AllowImageGeneration,
+		AllowBatchImageGeneration:            group.AllowBatchImageGeneration,
+		ImageRateIndependent:                 group.ImageRateIndependent,
+		ImageRateMultiplier:                  group.ImageRateMultiplier,
+		ImagePrice1K:                         group.ImagePrice1K,
+		ImagePrice2K:                         group.ImagePrice2K,
+		ImagePrice4K:                         group.ImagePrice4K,
+		BatchImageDiscountMultiplier:         group.BatchImageDiscountMultiplier,
+		BatchImageHoldMultiplier:             group.BatchImageHoldMultiplier,
+		VideoRateIndependent:                 group.VideoRateIndependent,
+		VideoRateMultiplier:                  group.VideoRateMultiplier,
+		VideoPrice480P:                       group.VideoPrice480P,
+		VideoPrice720P:                       group.VideoPrice720P,
+		VideoPrice1080P:                      group.VideoPrice1080P,
+		WebSearchPricePerCall:                group.WebSearchPricePerCall,
+		ClaudeCodeOnly:                       group.ClaudeCodeOnly,
+		FallbackGroupID:                      group.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:      group.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                         group.ModelRouting,
+		ModelRoutingEnabled:                  group.ModelRoutingEnabled,
+		MCPXMLInject:                         group.MCPXMLInject,
+		SupportedModelScopes:                 group.SupportedModelScopes,
+		AllowMessagesDispatch:                group.AllowMessagesDispatch,
+		AllowLive:                            group.AllowLive,
+		RequireOAuthOnly:                     group.RequireOAuthOnly,
+		RequirePrivacySet:                    group.RequirePrivacySet,
+		DefaultMappedModel:                   group.DefaultMappedModel,
+		MessagesDispatchModelConfig:          group.MessagesDispatchModelConfig,
+		ModelsListConfig:                     group.ModelsListConfig,
+		RPMLimit:                             group.RPMLimit,
+		LimitedTimeRPMLimit:                  group.LimitedTimeRPMLimit,
+		LimitedTimeUserConcurrencyLimit:      group.LimitedTimeUserConcurrencyLimit,
+		UserConcurrencyLimit:                 group.UserConcurrencyLimit,
+		MaxReasoningEffort:                   group.MaxReasoningEffort,
+		ReasoningEffortMappings:              group.ReasoningEffortMappings,
+		PeakRateEnabled:                      group.PeakRateEnabled,
+		PeakStart:                            group.PeakStart,
+		PeakEnd:                              group.PeakEnd,
+		PeakRateMultiplier:                   group.PeakRateMultiplier,
+		ProfitControlEnabled:                 group.ProfitControlEnabled,
+		ProfitMinMargin:                      group.ProfitMinMargin,
+		ProfitSafetyBuffer:                   group.ProfitSafetyBuffer,
+	}
+}
+
+func apiKeyAuthGroupFromSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
+	if snapshot == nil {
+		return nil
+	}
+	return &Group{
+		ID:                                   snapshot.ID,
+		Hydrated:                             true,
+		Name:                                 snapshot.Name,
+		Platform:                             snapshot.Platform,
+		IsExclusive:                          snapshot.IsExclusive,
+		Status:                               snapshot.Status,
+		SubscriptionType:                     snapshot.SubscriptionType,
+		RateMultiplier:                       snapshot.RateMultiplier,
+		LimitedTimeMultiplierEnabled:         snapshot.LimitedTimeMultiplierEnabled,
+		LimitedTimeMultiplierCron:            snapshot.LimitedTimeMultiplierCron,
+		LimitedTimeMultiplierDurationMinutes: snapshot.LimitedTimeMultiplierDurationMinutes,
+		LimitedTimeMultiplierValue:           snapshot.LimitedTimeMultiplierValue,
+		DailyLimitUSD:                        snapshot.DailyLimitUSD,
+		WeeklyLimitUSD:                       snapshot.WeeklyLimitUSD,
+		MonthlyLimitUSD:                      snapshot.MonthlyLimitUSD,
+		AllowImageGeneration:                 snapshot.AllowImageGeneration,
+		AllowBatchImageGeneration:            snapshot.AllowBatchImageGeneration,
+		ImageRateIndependent:                 snapshot.ImageRateIndependent,
+		ImageRateMultiplier:                  snapshot.ImageRateMultiplier,
+		ImagePrice1K:                         snapshot.ImagePrice1K,
+		ImagePrice2K:                         snapshot.ImagePrice2K,
+		ImagePrice4K:                         snapshot.ImagePrice4K,
+		BatchImageDiscountMultiplier:         snapshot.BatchImageDiscountMultiplier,
+		BatchImageHoldMultiplier:             snapshot.BatchImageHoldMultiplier,
+		VideoRateIndependent:                 snapshot.VideoRateIndependent,
+		VideoRateMultiplier:                  snapshot.VideoRateMultiplier,
+		VideoPrice480P:                       snapshot.VideoPrice480P,
+		VideoPrice720P:                       snapshot.VideoPrice720P,
+		VideoPrice1080P:                      snapshot.VideoPrice1080P,
+		WebSearchPricePerCall:                snapshot.WebSearchPricePerCall,
+		ClaudeCodeOnly:                       snapshot.ClaudeCodeOnly,
+		FallbackGroupID:                      snapshot.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:      snapshot.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                         snapshot.ModelRouting,
+		ModelRoutingEnabled:                  snapshot.ModelRoutingEnabled,
+		MCPXMLInject:                         snapshot.MCPXMLInject,
+		SupportedModelScopes:                 snapshot.SupportedModelScopes,
+		AllowMessagesDispatch:                snapshot.AllowMessagesDispatch,
+		AllowLive:                            snapshot.AllowLive,
+		RequireOAuthOnly:                     snapshot.RequireOAuthOnly,
+		RequirePrivacySet:                    snapshot.RequirePrivacySet,
+		DefaultMappedModel:                   snapshot.DefaultMappedModel,
+		MessagesDispatchModelConfig:          snapshot.MessagesDispatchModelConfig,
+		ModelsListConfig:                     snapshot.ModelsListConfig,
+		RPMLimit:                             snapshot.RPMLimit,
+		LimitedTimeRPMLimit:                  snapshot.LimitedTimeRPMLimit,
+		LimitedTimeUserConcurrencyLimit:      snapshot.LimitedTimeUserConcurrencyLimit,
+		UserConcurrencyLimit:                 snapshot.UserConcurrencyLimit,
+		MaxReasoningEffort:                   snapshot.MaxReasoningEffort,
+		ReasoningEffortMappings:              snapshot.ReasoningEffortMappings,
+		PeakRateEnabled:                      snapshot.PeakRateEnabled,
+		PeakStart:                            snapshot.PeakStart,
+		PeakEnd:                              snapshot.PeakEnd,
+		PeakRateMultiplier:                   snapshot.PeakRateMultiplier,
+		ProfitControlEnabled:                 snapshot.ProfitControlEnabled,
+		ProfitMinMargin:                      snapshot.ProfitMinMargin,
+		ProfitSafetyBuffer:                   snapshot.ProfitSafetyBuffer,
+	}
 }
 
 func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapshot) *APIKey {
 	if snapshot == nil {
 		return nil
 	}
+	groupIDs := append([]int64(nil), snapshot.GroupIDs...)
+	if len(groupIDs) == 0 && snapshot.GroupID != nil && *snapshot.GroupID > 0 {
+		groupIDs = []int64{*snapshot.GroupID}
+	}
+	if snapshot.GroupID == nil && len(groupIDs) > 0 {
+		groupID := groupIDs[0]
+		snapshot.GroupID = &groupID
+	}
+
 	apiKey := &APIKey{
 		ID:          snapshot.APIKeyID,
 		UserID:      snapshot.UserID,
 		GroupID:     snapshot.GroupID,
+		GroupIDs:    groupIDs,
 		Key:         key,
 		Name:        snapshot.Name,
 		Status:      snapshot.Status,
@@ -471,7 +636,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			Role:                            snapshot.User.Role,
 			Balance:                         snapshot.User.Balance,
 			Concurrency:                     snapshot.User.Concurrency,
-			AllowedGroups:                   snapshot.User.AllowedGroups,
+			AllowedGroups:                   append([]int64(nil), snapshot.User.AllowedGroups...),
+			TagDerivedGroups:                append([]int64(nil), snapshot.User.TagDerivedGroups...),
 			Email:                           snapshot.User.Email,
 			Username:                        snapshot.User.Username,
 			BalanceNotifyEnabled:            snapshot.User.BalanceNotifyEnabled,
@@ -549,6 +715,19 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			AudioTTSPricePerMillionChars:         snapshot.Group.AudioTTSPricePerMillionChars,
 			AudioSTTPricePerHour:                 snapshot.Group.AudioSTTPricePerHour,
 		}
+	}
+	groupSnapshots := snapshot.Groups
+	if len(groupSnapshots) == 0 && snapshot.Group != nil {
+		groupSnapshots = []*APIKeyAuthGroupSnapshot{snapshot.Group}
+	}
+	for _, groupSnapshot := range groupSnapshots {
+		if groupSnapshot == nil {
+			continue
+		}
+		apiKey.Groups = append(apiKey.Groups, apiKeyAuthGroupFromSnapshot(groupSnapshot))
+	}
+	if apiKey.Group == nil && len(apiKey.Groups) > 0 {
+		apiKey.Group = apiKey.Groups[0]
 	}
 	s.compileAPIKeyIPRules(apiKey)
 	return apiKey

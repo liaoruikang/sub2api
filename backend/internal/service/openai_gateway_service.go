@@ -255,9 +255,9 @@ type OpenAIForwardResult struct {
 	ServiceTier *string
 	// ReasoningEffort is extracted from request body (reasoning.effort) or derived from model suffix.
 	// Stored for usage records display; nil means not provided / not applicable.
-	ReasoningEffort       *string
-	Stream                bool
-	OpenAIWSMode          bool
+	ReasoningEffort *string
+	Stream          bool
+	OpenAIWSMode    bool
 	// UpstreamTerminalEvent is the normalized terminal event observed on an
 	// upstream Responses WebSocket turn. Empty preserves legacy/non-WS success.
 	UpstreamTerminalEvent string
@@ -541,6 +541,41 @@ func NewOpenAIGatewayService(
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
+}
+
+// ResolveActiveSubscription returns the active subscription for a target group.
+func (s *OpenAIGatewayService) ResolveActiveSubscription(ctx context.Context, userID, groupID int64) (*UserSubscription, error) {
+	if s == nil || s.userSubRepo == nil {
+		return nil, ErrSubscriptionNotFound
+	}
+	return s.userSubRepo.GetActiveByUserIDAndGroupID(ctx, userID, groupID)
+}
+
+// IsSingleAntigravityAccountGroup checks whether a group has exactly one
+// schedulable Antigravity account for single-account retry handling.
+func (s *OpenAIGatewayService) IsSingleAntigravityAccountGroup(ctx context.Context, groupID *int64) bool {
+	if s == nil {
+		return false
+	}
+	accounts, err := s.listSchedulableAccounts(ctx, groupID, PlatformAntigravity)
+	if err != nil {
+		return false
+	}
+	return len(accounts) == 1
+}
+
+// TempUnscheduleRetryableError temporarily removes retryable accounts from
+// scheduling after same-account pool-mode retries are exhausted.
+func (s *OpenAIGatewayService) TempUnscheduleRetryableError(ctx context.Context, accountID int64, failoverErr *UpstreamFailoverError) {
+	if s == nil || failoverErr == nil || !failoverErr.RetryableOnSameAccount || failoverErr.RequestScopedTransient {
+		return
+	}
+	switch failoverErr.StatusCode {
+	case http.StatusBadRequest:
+		tempUnscheduleGoogleConfigError(ctx, s.accountRepo, accountID, "[openai-handler]")
+	case http.StatusBadGateway:
+		tempUnscheduleEmptyResponse(ctx, s.accountRepo, accountID, "[openai-handler]")
+	}
 }
 
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）

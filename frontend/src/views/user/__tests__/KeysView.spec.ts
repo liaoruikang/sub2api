@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { defineComponent, nextTick } from 'vue'
 
 import type { ApiKey } from '@/types'
 import KeysView from '../KeysView.vue'
@@ -11,6 +11,7 @@ const {
   getDashboardApiKeysUsage,
   getAvailableGroups,
   getUserGroupRates,
+  updateKey,
   showError,
   showSuccess,
   copyToClipboard,
@@ -22,6 +23,7 @@ const {
   getDashboardApiKeysUsage: vi.fn(),
   getAvailableGroups: vi.fn(),
   getUserGroupRates: vi.fn(),
+  updateKey: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
   copyToClipboard: vi.fn(),
@@ -48,6 +50,15 @@ const messages: Record<string, string> = {
   'keys.lastUsedIP': 'Last Used IP',
   'keys.rateLimitColumn': 'Rate Limit',
   'keys.searchPlaceholder': 'Search name or key...',
+  'keys.selectGroup': 'Select groups',
+  'keys.groupOrderHint': 'Groups are tried in numbered order',
+  'keys.dragGroup': 'Drag to reorder groups',
+  'keys.removeGroup': 'Remove group',
+  'keys.noGroupFound': 'No groups found',
+  'keys.saving': 'Saving',
+  'common.cancel': 'Cancel',
+  'common.save': 'Save',
+  'common.selectedCount': '({count} selected)',
   'keys.status.active': 'Active',
   'keys.status.expired': 'Expired',
   'keys.status.inactive': 'Inactive',
@@ -59,7 +70,7 @@ vi.mock('@/api', () => ({
   keysAPI: {
     list: listKeys,
     create: vi.fn(),
-    update: vi.fn(),
+    update: updateKey,
     delete: vi.fn(),
     toggleStatus: vi.fn(),
   },
@@ -170,6 +181,9 @@ const DataTableStub = {
           <slot name="cell-id" :value="row.id" :row="row" />
         </div>
         <slot name="cell-name" :value="row.name" :row="row" />
+        <div data-test="group-cell">
+          <slot name="cell-group" :row="row" />
+        </div>
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
         </div>
@@ -234,6 +248,16 @@ const mountView = async () => {
         GroupBadge: true,
         GroupOptionItem: true,
         Teleport: true,
+        VueDraggable: defineComponent({
+          props: { modelValue: { type: Array, required: true } },
+          emits: ['update:modelValue', 'end'],
+          template: `
+            <div data-test="inline-selected-draggable">
+              <slot />
+              <button data-test="simulate-inline-drag" @click="$emit('update:modelValue', [1, 2])" />
+            </div>
+          `
+        }),
       },
     },
   })
@@ -265,6 +289,7 @@ describe('user KeysView column settings', () => {
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
     getUserGroupRates.mockReset()
+    updateKey.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
     copyToClipboard.mockReset()
@@ -282,6 +307,11 @@ describe('user KeysView column settings', () => {
     getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
     getAvailableGroups.mockResolvedValue([])
     getUserGroupRates.mockResolvedValue({})
+    updateKey.mockImplementation(async (_id: number, payload: { group_ids: number[] }) => ({
+      ...createApiKey(),
+      group_ids: payload.group_ids,
+      group_id: payload.group_ids[0] ?? null
+    }))
     isCurrentStep.mockReturnValue(false)
   })
 
@@ -401,6 +431,33 @@ describe('user KeysView column settings', () => {
       (column) => column.key === 'current_concurrency'
     )
     expect(currentConcurrencyColumn?.sortable).toBe(true)
+  })
+
+  it('saves the ordered group draft from inline editing', async () => {
+    getAvailableGroups.mockResolvedValue([
+      { id: 1, name: 'Group 1', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1 },
+      { id: 2, name: 'Group 2', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1 }
+    ])
+    listKeys.mockResolvedValueOnce({
+      items: [{ ...createApiKey(), group_id: 1, group_ids: [1] }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="group-cell"] button').trigger('click')
+    expect(wrapper.find('[data-test="inline-group-editor"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="inline-group-options-trigger"]').attributes('aria-expanded')).toBe('true')
+    const checkboxes = wrapper.findAll('[data-test="inline-group-editor"] input[type="checkbox"]')
+    expect(checkboxes).toHaveLength(2)
+    await checkboxes[1].setValue(true)
+    await wrapper.get('[data-test="simulate-inline-drag"]').trigger('click')
+    await wrapper.get('[data-test="inline-group-editor"] button.btn-primary').trigger('click')
+    await flushPromises()
+
+    expect(updateKey).toHaveBeenCalledWith(1, { group_ids: [1, 2] })
   })
 
   it('keeps filters and selected page size when sorting by current concurrency', async () => {

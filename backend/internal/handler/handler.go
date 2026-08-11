@@ -28,6 +28,7 @@ type AdminHandlers struct {
 	Subscription           *admin.SubscriptionHandler
 	Usage                  *admin.UsageHandler
 	UserAttribute          *admin.UserAttributeHandler
+	UserTag                *admin.UserTagHandler
 	ErrorPassthrough       *admin.ErrorPassthroughHandler
 	TLSFingerprintProfile  *admin.TLSFingerprintProfileHandler
 	APIKey                 *admin.AdminAPIKeyHandler

@@ -124,6 +124,27 @@
               <div class="text-xs capitalize text-gray-500 dark:text-dark-400">
                 {{ user.role }}
               </div>
+              <div
+                v-if="user.tags?.length"
+                data-testid="header-user-tags"
+                class="mt-0.5 flex max-w-44 items-center gap-1 overflow-hidden whitespace-nowrap"
+                :aria-label="t('profile.tags')"
+              >
+                <span
+                  v-for="tag in headerVisibleTags"
+                  :key="tag.id"
+                  :title="tag.name"
+                  class="inline-block max-w-20 shrink-0 truncate rounded-full bg-primary-100 px-1.5 py-px text-[10px] font-medium leading-3 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+                >
+                  {{ tag.name }}
+                </span>
+                <span
+                  v-if="headerHiddenTagCount > 0"
+                  class="shrink-0 text-[10px] font-medium leading-3 text-primary-600 dark:text-primary-400"
+                >
+                  +{{ headerHiddenTagCount }}
+                </span>
+              </div>
             </div>
             <Icon name="chevronDown" size="sm" class="hidden text-gray-400 md:block" />
           </button>
@@ -137,6 +158,21 @@
                   {{ displayName }}
                 </div>
                 <div class="text-xs text-gray-500 dark:text-dark-400">{{ user.email }}</div>
+                <div
+                  v-if="user.tags?.length"
+                  data-testid="header-user-dropdown-tags"
+                  class="mt-2 flex flex-wrap gap-1"
+                  :aria-label="t('profile.tags')"
+                >
+                  <span
+                    v-for="tag in user.tags"
+                    :key="tag.id"
+                    :title="tag.name"
+                    class="inline-flex max-w-full rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+                  >
+                    <span class="truncate">{{ tag.name }}</span>
+                  </span>
+                </div>
               </div>
 
               <!-- Balance (mobile only) -->
@@ -273,6 +309,8 @@ const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
 
 const user = computed(() => authStore.user)
+const headerVisibleTags = computed(() => user.value?.tags?.slice(0, 2) ?? [])
+const headerHiddenTagCount = computed(() => Math.max(0, (user.value?.tags?.length ?? 0) - headerVisibleTags.value.length))
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)

@@ -15,6 +15,44 @@ func ptrString[T ~string](v T) *string {
 	return &s
 }
 
+type adminServiceUserTagRepositoryStub struct {
+	UserTagRepository
+}
+
+func TestProvideAdminServiceInjectsUserTagRepository(t *testing.T) {
+	tagRepo := &adminServiceUserTagRepositoryStub{}
+
+	adminService := ProvideAdminService(
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		tagRepo,
+	)
+
+	impl, ok := adminService.(*adminServiceImpl)
+	require.True(t, ok)
+	require.Same(t, tagRepo, impl.userTagRepo)
+}
+
 // groupRepoStubForAdmin 用于测试 AdminService 的 GroupRepository Stub
 type groupRepoStubForAdmin struct {
 	created  *Group // 记录 Create 调用的参数

@@ -139,6 +139,8 @@ type Group struct {
 	AccountCount            int64
 	ActiveAccountCount      int64
 	RateLimitedAccountCount int64
+	TagIDs                  []int64
+	Tags                    []UserTag
 }
 
 func (g *Group) IsActive() bool {

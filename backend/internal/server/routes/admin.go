@@ -91,6 +91,9 @@ func RegisterAdminRoutes(
 		// 用户属性管理
 		registerUserAttributeRoutes(admin, h)
 
+		// 用户标签管理
+		registerUserTagRoutes(admin, h)
+
 		// 错误透传规则管理
 		registerErrorPassthroughRoutes(admin, h)
 
@@ -701,6 +704,23 @@ func registerUserAttributeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		attrs.PUT("/:id", h.Admin.UserAttribute.UpdateDefinition)
 		attrs.DELETE("/:id", h.Admin.UserAttribute.DeleteDefinition)
 	}
+}
+
+func registerUserTagRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	tags := admin.Group("/tags")
+	{
+		tags.GET("", h.Admin.UserTag.List)
+		tags.POST("", h.Admin.UserTag.Create)
+		tags.GET("/:id/users", h.Admin.UserTag.GetTagUsers)
+		tags.POST("/:id/users", h.Admin.UserTag.AddUsersToTag)
+		tags.PUT("/:id", h.Admin.UserTag.Update)
+		tags.DELETE("/:id", h.Admin.UserTag.Delete)
+	}
+
+	admin.GET("/users/:id/tags", h.Admin.UserTag.GetUserTags)
+	admin.PUT("/users/:id/tags", h.Admin.UserTag.UpdateUserTags)
+	admin.GET("/groups/:id/tags", h.Admin.UserTag.GetGroupTags)
+	admin.PUT("/groups/:id/tags", h.Admin.UserTag.UpdateGroupTags)
 }
 
 func registerScheduledTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

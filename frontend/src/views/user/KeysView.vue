@@ -138,47 +138,47 @@
               <button
                 :ref="(el) => setGroupButtonRef(row.id, el)"
                 @click="openGroupSelector(row)"
-                class="-mx-2 -my-1 flex cursor-pointer flex-col items-start gap-1 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
+                class="group/dropdown -mx-2 -my-1 flex max-w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/40 dark:hover:bg-dark-700"
                 :title="t('keys.clickToChangeGroup')"
               >
-                <span class="flex items-center gap-2">
-                  <GroupBadge
-                    v-if="row.group"
-                    :name="row.group.name"
-                    :platform="row.group.platform"
-                    :subscription-type="row.group.subscription_type"
-                    :rate-multiplier="row.group.rate_multiplier"
-                    :user-rate-multiplier="userGroupRates[row.group.id]"
-                    :limited-time-multiplier-value="row.group.limited_time_multiplier_value"
-                    :limited-time-multiplier-active="isLimitedTimeMultiplierActive(row.group)"
-                    :peak-rate-enabled="row.group.peak_rate_enabled"
-                    :peak-start="row.group.peak_start"
-                    :peak-end="row.group.peak_end"
-                    :peak-rate-multiplier="row.group.peak_rate_multiplier"
-                  />
-                  <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
-                    t('keys.noGroup')
-                  }}</span>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
-                  <svg
-                    class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    stroke-width="2"
+                <div v-if="getApiKeyGroups(row).length > 0" class="flex max-h-28 min-w-0 flex-1 flex-col gap-1 overflow-y-auto">
+                  <div
+                    v-for="(entry, index) in getApiKeyGroups(row)"
+                    :key="`${row.id}-${entry.id}`"
+                    class="flex min-w-0 items-center gap-1.5"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"
-                    />
-                  </svg>
-                </span>
-                <span
-                  v-if="row.group && formatLimitedTimeMultiplier(row.group)"
-                  class="text-xs font-medium text-amber-600 dark:text-amber-400"
-                >
-                  {{ formatLimitedTimeMultiplier(row.group) }}
+                    <span class="w-4 shrink-0 text-center text-xs font-semibold tabular-nums text-gray-400">{{ index + 1 }}</span>
+                    <div v-if="entry.group" class="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
+                      <GroupBadge
+                        :name="entry.group.name"
+                        :platform="entry.group.platform"
+                        :subscription-type="entry.group.subscription_type"
+                        :rate-multiplier="entry.group.rate_multiplier"
+                        :user-rate-multiplier="userGroupRates[entry.id]"
+                        :limited-time-multiplier-value="entry.group.limited_time_multiplier_value"
+                        :limited-time-multiplier-active="isLimitedTimeMultiplierActive(entry.group, now, userGroupRates[entry.id])"
+                        class="min-w-0 max-w-full"
+                      />
+                      <GroupAuthorizationBadge
+                        :is-exclusive="entry.group.is_exclusive"
+                        :authorization-tag-names="entry.group.tags?.map((tag) => tag.name) ?? []"
+                        :authorization-tag-count="entry.group.tags?.length ?? entry.group.tag_ids?.length ?? 0"
+                      />
+                      <span
+                        v-if="formatLimitedTimeMultiplier(entry.group, t, now, userGroupRates[entry.id])"
+                        class="max-w-full truncate text-[10px] leading-tight text-amber-600 dark:text-amber-400"
+                        :title="formatLimitedTimeMultiplier(entry.group, t, now, userGroupRates[entry.id]) || undefined"
+                      >
+                        {{ formatLimitedTimeMultiplier(entry.group, t, now, userGroupRates[entry.id]) }}
+                      </span>
+                    </div>
+                    <span v-else class="pt-1 text-xs text-gray-500 dark:text-gray-400">#{{ entry.id }}</span>
+                  </div>
+                </div>
+                <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{ t('keys.noGroup') }}</span>
+                <span class="flex shrink-0 items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                  <span class="hidden sm:inline">{{ t('keys.selectGroup') }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400 transition-transform group-hover/dropdown:text-primary-500" />
                 </span>
               </button>
             </div>
@@ -475,51 +475,17 @@
         </div>
 
         <div>
-          <label class="input-label">{{ t('keys.groupLabel') }}</label>
-          <Select
-            v-model="formData.group_id"
-            :options="groupOptions"
-            :placeholder="t('keys.selectGroup')"
+          <GroupSelector
+            v-model="formData.group_ids"
+            :groups="groups"
+            :user-group-rates="userGroupRates"
+            :current="now"
+            :ordered="true"
             :searchable="true"
-            :search-placeholder="t('keys.searchGroup')"
+            :collapsible="true"
+            :default-open="true"
             data-tour="key-form-group"
-          >
-            <template #selected="{ option }">
-              <GroupBadge
-                v-if="option"
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                :limited-time-multiplier-value="(option as unknown as GroupOption).limitedTimeMultiplierValue"
-                :limited-time-multiplier-active="(option as unknown as GroupOption).limitedTimeMultiplierActive"
-                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                :peak-start="(option as unknown as GroupOption).peakStart"
-                :peak-end="(option as unknown as GroupOption).peakEnd"
-                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-              />
-              <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
-            </template>
-            <template #option="{ option, selected }">
-              <GroupOptionItem
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                :peak-start="(option as unknown as GroupOption).peakStart"
-                :peak-end="(option as unknown as GroupOption).peakEnd"
-                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                :description="(option as unknown as GroupOption).description"
-                :limited-time-multiplier="(option as unknown as GroupOption).limitedTimeMultiplier"
-                :limited-time-multiplier-value="(option as unknown as GroupOption).limitedTimeMultiplierValue"
-                :limited-time-multiplier-active="(option as unknown as GroupOption).limitedTimeMultiplierActive"
-                :selected="selected"
-              />
-            </template>
-          </Select>
+          />
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1008,8 +974,8 @@
       :show="showUseKeyModal"
       :api-key="selectedKey?.key || ''"
       :base-url="publicSettings?.api_base_url || ''"
-      :platform="selectedKey?.group?.platform || null"
-      :allow-messages-dispatch="selectedKey?.group?.allow_messages_dispatch || false"
+      :platform="selectedKey?.groups?.[0]?.platform || selectedKey?.group?.platform || null"
+      :allow-messages-dispatch="selectedKey?.groups?.[0]?.allow_messages_dispatch || selectedKey?.group?.allow_messages_dispatch || false"
       @close="closeUseKeyModal"
     />
 
@@ -1065,7 +1031,8 @@
       <div
         v-if="groupSelectorKeyId !== null && dropdownPosition"
         ref="dropdownRef"
-        class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-max max-w-[calc(100vw-16px)] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 duration-200 sm:min-w-[380px] dark:bg-dark-800 dark:ring-white/10"
+        data-test="inline-group-editor"
+        class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-[min(24rem,calc(100vw-1rem))] max-h-[min(32rem,calc(100vh-1rem))] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl shadow-black/10 duration-200 dark:border-dark-600 dark:bg-dark-800 dark:shadow-black/30"
         style="pointer-events: auto !important;"
         :style="{
           top: dropdownPosition.top !== undefined ? dropdownPosition.top + 'px' : undefined,
@@ -1073,61 +1040,140 @@
           left: dropdownPosition.left + 'px'
         }"
       >
-        <!-- Search box -->
-        <div class="border-b border-gray-100 p-2 dark:border-dark-700">
-          <div class="relative">
-            <svg class="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              v-model="groupSearchQuery"
-              type="text"
-              class="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-primary-300 focus:ring-1 focus:ring-primary-300 dark:border-dark-600 dark:bg-dark-700 dark:text-white dark:placeholder-gray-500 dark:focus:border-primary-600 dark:focus:ring-primary-600"
-              :placeholder="t('keys.searchGroup')"
-              @click.stop
-            />
+        <div class="border-b border-gray-200 bg-gray-50/80 p-3 dark:border-dark-600 dark:bg-dark-800/80">
+          <div class="text-xs font-medium text-gray-600 dark:text-gray-300">
+            {{ t('keys.groupOrderHint') }}
           </div>
-        </div>
-        <!-- Group list -->
-        <div class="max-h-80 overflow-y-auto p-1.5">
-          <button
-            v-for="option in filteredGroupOptions"
-            :key="option.value ?? 'null'"
-            @click="changeGroup(selectedKeyForGroup!, option.value)"
-            :class="[
-              'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors',
-              'border-b border-gray-100 last:border-0 dark:border-dark-700',
-              selectedKeyForGroup?.group_id === option.value ||
-              (!selectedKeyForGroup?.group_id && option.value === null)
-                ? 'bg-primary-50 dark:bg-primary-900/20'
-                : 'hover:bg-gray-100 dark:hover:bg-dark-700'
-            ]"
-            :title="option.description || undefined"
+          <VueDraggable
+            v-if="groupDraftIds.length > 0"
+            v-model="groupDraftIds"
+            :animation="200"
+            handle=".drag-handle"
+            class="mt-2 space-y-1"
           >
-            <GroupOptionItem
-              :name="option.label"
-              :platform="option.platform"
-              :subscription-type="option.subscriptionType"
-              :rate-multiplier="option.rate"
-              :user-rate-multiplier="option.userRate"
-              :peak-rate-enabled="option.peakRateEnabled"
-              :peak-start="option.peakStart"
-              :peak-end="option.peakEnd"
-              :peak-rate-multiplier="option.peakRateMultiplier"
-              :description="option.description"
-              :limited-time-multiplier="option.limitedTimeMultiplier"
-              :limited-time-multiplier-value="option.limitedTimeMultiplierValue"
-              :limited-time-multiplier-active="option.limitedTimeMultiplierActive"
-              :selected="
-                selectedKeyForGroup?.group_id === option.value ||
-                (!selectedKeyForGroup?.group_id && option.value === null)
-              "
+            <div
+              v-for="(groupId, index) in groupDraftIds"
+              :key="groupId"
+              class="flex min-h-10 items-center gap-1.5 rounded-lg border border-primary-100 bg-white px-2 py-1.5 shadow-sm dark:border-primary-900/50 dark:bg-dark-700"
+            >
+              <div
+                class="drag-handle flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-gray-400 hover:text-gray-700 active:cursor-grabbing dark:text-dark-300 dark:hover:text-gray-200"
+                :title="t('keys.dragGroup')"
+              >
+                <Icon name="menu" size="sm" />
+              </div>
+              <span class="w-4 text-center text-xs text-gray-400">{{ index + 1 }}</span>
+              <GroupOptionItem
+                v-if="groupById(groupId)"
+                :name="groupById(groupId)!.name"
+                :platform="groupById(groupId)!.platform"
+                :subscription-type="groupById(groupId)!.subscription_type"
+                :is-exclusive="groupById(groupId)!.is_exclusive"
+                :authorization-tag-names="groupById(groupId)!.tags?.map((tag) => tag.name) ?? []"
+                :authorization-tag-count="groupById(groupId)!.tags?.length ?? groupById(groupId)!.tag_ids?.length ?? 0"
+                :rate-multiplier="groupById(groupId)!.rate_multiplier"
+                :peak-rate-enabled="groupById(groupId)!.peak_rate_enabled"
+                :peak-start="groupById(groupId)!.peak_start"
+                :peak-end="groupById(groupId)!.peak_end"
+                :peak-rate-multiplier="groupById(groupId)!.peak_rate_multiplier"
+                :description="groupById(groupId)!.description"
+                :limited-time-multiplier="formatLimitedTimeMultiplier(groupById(groupId)!, t, now, userGroupRates[groupId])"
+                :limited-time-multiplier-value="groupById(groupId)!.limited_time_multiplier_value"
+                :limited-time-multiplier-active="isLimitedTimeMultiplierActive(groupById(groupId)!, now, userGroupRates[groupId])"
+                :user-rate-multiplier="userGroupRates[groupId]"
+                :show-checkmark="false"
+                class="min-w-0 flex-1"
+              />
+              <span v-else class="min-w-0 flex-1 truncate text-xs text-gray-500">#{{ groupId }}</span>
+              <button type="button" class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 dark:hover:bg-red-900/20" :title="t('keys.removeGroup')" @click.stop="removeDraftGroup(groupId)">
+                <Icon name="x" size="xs" />
+              </button>
+            </div>
+          </VueDraggable>
+        </div>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500/30 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:bg-dark-700"
+          data-test="inline-group-options-trigger"
+          :aria-expanded="groupOptionsOpen"
+          aria-haspopup="listbox"
+          @click.stop="groupOptionsOpen = !groupOptionsOpen"
+        >
+          <span class="min-w-0 flex-1 truncate">{{ t('keys.selectGroup') }}</span>
+          <span class="flex shrink-0 items-center gap-2 text-xs text-gray-400 dark:text-dark-400">
+            {{ t('common.selectedCount', { count: groupDraftIds.length }) }}
+            <Icon
+              name="chevronDown"
+              size="sm"
+              :class="['transition-transform duration-200', groupOptionsOpen && 'rotate-180']"
             />
-          </button>
-          <!-- Empty state when search has no results -->
+          </span>
+        </button>
+        <div
+          v-if="groupOptionsOpen"
+          class="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-dark-600 dark:bg-dark-800"
+        >
+          <Icon name="search" size="sm" class="shrink-0 text-gray-400" />
+          <input
+            v-model="groupSearchText"
+            type="text"
+            :placeholder="t('common.searchPlaceholder')"
+            class="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder:text-dark-400"
+            @click.stop
+          />
+        </div>
+        <div
+          v-if="groupOptionsOpen"
+          class="max-h-64 overflow-y-auto bg-white p-2 dark:bg-dark-800"
+          role="listbox"
+        >
+          <label
+            v-for="group in filteredGroupOptions"
+            :key="group.id"
+            :class="[
+              'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+              groupDraftIds.includes(group.id)
+                ? 'border-primary-200 bg-primary-50/70 dark:border-primary-800 dark:bg-primary-900/20'
+                : 'border-transparent hover:border-gray-200 hover:bg-gray-50 dark:hover:border-dark-600 dark:hover:bg-dark-700'
+            ]"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              :checked="groupDraftIds.includes(group.id)"
+              class="h-3.5 w-3.5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+              @change="toggleDraftGroup(group.id, ($event.target as HTMLInputElement).checked)"
+            />
+            <GroupOptionItem
+              :name="group.name"
+              :platform="group.platform"
+              :subscription-type="group.subscription_type"
+              :is-exclusive="group.is_exclusive"
+              :authorization-tag-names="group.tags?.map((tag) => tag.name) ?? []"
+              :authorization-tag-count="group.tags?.length ?? group.tag_ids?.length ?? 0"
+              :rate-multiplier="group.rate_multiplier"
+              :peak-rate-enabled="group.peak_rate_enabled"
+              :peak-start="group.peak_start"
+              :peak-end="group.peak_end"
+              :peak-rate-multiplier="group.peak_rate_multiplier"
+              :description="group.description"
+              :limited-time-multiplier="formatLimitedTimeMultiplier(group, t, now, userGroupRates[group.id])"
+              :limited-time-multiplier-value="group.limited_time_multiplier_value"
+              :limited-time-multiplier-active="isLimitedTimeMultiplierActive(group, now, userGroupRates[group.id])"
+              :user-rate-multiplier="userGroupRates[group.id]"
+              :selected="groupDraftIds.includes(group.id)"
+              class="min-w-0 flex-1"
+            />
+          </label>
           <div v-if="filteredGroupOptions.length === 0" class="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
             {{ t('keys.noGroupFound') }}
           </div>
+        </div>
+        <div class="flex justify-end gap-2 border-t border-gray-200 bg-gray-50/80 p-3 dark:border-dark-600 dark:bg-dark-800/80">
+          <button type="button" class="btn btn-secondary px-3 py-1.5 text-xs" @click.stop="closeGroupSelector()">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn btn-primary px-3 py-1.5 text-xs" :disabled="groupSavePending" @click.stop="saveGroupDraft">
+            {{ groupSavePending ? t('keys.saving') : t('common.save') }}
+          </button>
         </div>
       </div>
     </Teleport>
@@ -1136,6 +1182,7 @@
 
 <script setup lang="ts">
 	import { ref, reactive, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+	import { VueDraggable } from 'vue-draggable-plus'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
@@ -1157,12 +1204,19 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
+	import GroupAuthorizationBadge from '@/components/common/GroupAuthorizationBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-	import type { ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform, UpdateApiKeyRequest } from '@/types'
+	import GroupSelector from '@/components/common/GroupSelector.vue'
+	import type { ApiKey, Group, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { getApiKeyGroupIds, type ResolvedApiKeyGroup } from '@/utils/apiKeyGroups'
+import {
+  formatLimitedTimeMultiplier,
+  isLimitedTimeMultiplierActive
+} from '@/utils/limitedTimeMultiplier'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -1173,23 +1227,6 @@ const formatDateTimeLocal = (isoDate: string): string => {
   const date = new Date(isoDate)
   const pad = (n: number) => n.toString().padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-interface GroupOption {
-  value: number
-  label: string
-  description: string | null
-  rate: number
-  userRate: number | null
-  peakRateEnabled: boolean
-  peakStart: string
-  peakEnd: string
-  peakRateMultiplier: number
-  subscriptionType: SubscriptionType
-  platform: GroupPlatform
-  limitedTimeMultiplier: string | null
-  limitedTimeMultiplierValue: number | null
-  limitedTimeMultiplierActive: boolean
 }
 
 const appStore = useAppStore()
@@ -1327,6 +1364,10 @@ const pendingCcsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
+const groupDraftIds = ref<number[]>([])
+const groupOptionsOpen = ref(false)
+const groupSearchText = ref('')
+const groupSavePending = ref(false)
 const publicSettings = ref<PublicSettings | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 const columnDropdownRef = ref<HTMLElement | null>(null)
@@ -1350,7 +1391,7 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
 
 const formData = ref({
   name: '',
-  group_id: null as number | null,
+  group_ids: [] as number[],
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -1428,132 +1469,22 @@ const onStatusFilterChange = (value: string | number | boolean | null) => {
   onFilterChange()
 }
 
-// Convert groups to Select options format with rate multiplier and subscription type
-const parseLimitedTimeCron = (cron: string | null | undefined) => {
-  const parts = String(cron || '').trim().split(/\s+/)
-  if (parts.length !== 5) {
-    return { frequency: 'daily' as const, weekday: 1, monthDay: 1, hour: 9, minute: 0 }
-  }
+const getApiKeyGroups = (key: ApiKey): ResolvedApiKeyGroup[] =>
+  getApiKeyGroupIds(key)
+    .map((id) => ({ id, group: groupById(id) }))
+    .filter((entry): entry is ResolvedApiKeyGroup & { group: Group } => Boolean(entry.group))
 
-  const [minutePart, hourPart, dayPart, monthPart, weekdayPart] = parts
-  const minute = Number(minutePart)
-  const hour = Number(hourPart)
-  const isValidMinute = Number.isInteger(minute) && minute >= 0 && minute <= 59
-  const isValidHour = Number.isInteger(hour) && hour >= 0 && hour <= 23
-  const base = { hour: isValidHour ? hour : 9, minute: isValidMinute ? minute : 0 }
+const getAvailableApiKeyGroupIds = (key: ApiKey): number[] =>
+  getApiKeyGroups(key).map((entry) => entry.id)
 
-  if (monthPart === '*' && dayPart === '*' && weekdayPart === '*') {
-    return { frequency: 'daily' as const, weekday: 1, monthDay: 1, ...base }
-  }
+const groupById = (groupId: number) => groups.value.find((group) => group.id === groupId)
 
-  const weekday = Number(weekdayPart)
-  if (monthPart === '*' && dayPart === '*' && Number.isInteger(weekday) && weekday >= 0 && weekday <= 6) {
-    return { frequency: 'weekly' as const, weekday, monthDay: 1, ...base }
-  }
-
-  const monthDay = Number(dayPart)
-  if (monthPart === '*' && weekdayPart === '*' && Number.isInteger(monthDay) && monthDay >= 1 && monthDay <= 31) {
-    return { frequency: 'monthly' as const, weekday: 1, monthDay, ...base }
-  }
-
-  return { frequency: 'daily' as const, weekday: 1, monthDay: 1, ...base }
-}
-
-const formatTimeOfDay = (hour: number, minute: number) => {
-  const normalizedHour = Math.min(23, Math.max(0, Math.floor(Number(hour) || 0)))
-  const normalizedMinute = Math.min(59, Math.max(0, Math.floor(Number(minute) || 0)))
-  return `${normalizedHour}:${String(normalizedMinute).padStart(2, '0')}`
-}
-
-const isLimitedTimeMultiplierActive = (group: Group) => {
-  if (
-    group.subscription_type === 'subscription' ||
-    !group.limited_time_multiplier_enabled ||
-    !group.limited_time_multiplier_cron ||
-    !group.limited_time_multiplier_duration_minutes
-  ) {
-    return false
-  }
-
-  const cron = parseLimitedTimeCron(group.limited_time_multiplier_cron)
-  const durationMinutes = Math.max(0, Math.floor(Number(group.limited_time_multiplier_duration_minutes) || 0))
-  const current = now.value
-  if (cron.frequency === 'weekly' && current.getDay() !== cron.weekday) return false
-  if (cron.frequency === 'monthly' && current.getDate() !== cron.monthDay) return false
-
-  const startTotalMinutes = cron.hour * 60 + cron.minute
-  const currentTotalMinutes = current.getHours() * 60 + current.getMinutes()
-  const endTotalMinutes = startTotalMinutes + durationMinutes
-  if (endTotalMinutes <= 24 * 60) {
-    return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes
-  }
-  return currentTotalMinutes >= startTotalMinutes || currentTotalMinutes < endTotalMinutes % (24 * 60)
-}
-
-const formatLimitedTimeMultiplier = (group: Group) => {
-  if (
-    group.subscription_type === 'subscription' ||
-    !group.limited_time_multiplier_enabled ||
-    !group.limited_time_multiplier_cron ||
-    !group.limited_time_multiplier_duration_minutes
-  ) {
-    return null
-  }
-
-  const cron = parseLimitedTimeCron(group.limited_time_multiplier_cron)
-  const durationMinutes = Math.max(0, Math.floor(Number(group.limited_time_multiplier_duration_minutes) || 0))
-  const startTotalMinutes = cron.hour * 60 + cron.minute
-  const endTotalMinutes = startTotalMinutes + durationMinutes
-  const endHour = Math.floor((endTotalMinutes % (24 * 60)) / 60)
-  const endMinute = endTotalMinutes % 60
-  const timeRange = `${formatTimeOfDay(cron.hour, cron.minute)}-${formatTimeOfDay(endHour, endMinute)}`
-  let schedule = t('admin.groups.limitedTimeMultiplier.schedule.daily')
-
-  if (cron.frequency === 'weekly') {
-    const weekday = t(`admin.groups.limitedTimeMultiplier.weekdays.${['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][cron.weekday]}`)
-    schedule = t('admin.groups.limitedTimeMultiplier.schedule.weekly', { weekday })
-  } else if (cron.frequency === 'monthly') {
-    schedule = t('admin.groups.limitedTimeMultiplier.schedule.monthly', { day: cron.monthDay })
-  }
-
-  return t('admin.groups.limitedTimeMultiplier.tableBadge', {
-    value: group.limited_time_multiplier_value,
-    schedule,
-    timeRange,
-    active: isLimitedTimeMultiplierActive(group)
-      ? t('admin.groups.limitedTimeMultiplier.activeBadge')
-      : ''
-  })
-}
-
-const groupOptions = computed(() =>
-  groups.value.map((group) => ({
-    value: group.id,
-    label: group.name,
-    description: group.description,
-    rate: group.rate_multiplier,
-    userRate: userGroupRates.value[group.id] ?? null,
-    peakRateEnabled: group.peak_rate_enabled,
-    peakStart: group.peak_start,
-    peakEnd: group.peak_end,
-    peakRateMultiplier: group.peak_rate_multiplier,
-    subscriptionType: group.subscription_type,
-    platform: group.platform,
-    limitedTimeMultiplier: formatLimitedTimeMultiplier(group),
-    limitedTimeMultiplierValue: group.limited_time_multiplier_value ?? null,
-    limitedTimeMultiplierActive: isLimitedTimeMultiplierActive(group)
-  }))
-)
-
-// Group dropdown search
-const groupSearchQuery = ref('')
 const filteredGroupOptions = computed(() => {
-  const query = groupSearchQuery.value.trim().toLowerCase()
-  if (!query) return groupOptions.value
-  return groupOptions.value.filter((opt) => {
-    return opt.label.toLowerCase().includes(query) ||
-      (opt.description && opt.description.toLowerCase().includes(query))
-  })
+  const query = groupSearchText.value.trim().toLowerCase()
+  if (!query) return groups.value
+  return groups.value.filter((group) =>
+    group.name.toLowerCase().includes(query) || group.description?.toLowerCase().includes(query)
+  )
 })
 
 const copyToClipboard = async (text: string, keyId: number) => {
@@ -1684,7 +1615,7 @@ const editKey = (key: ApiKey) => {
   const hasExpiration = !!key.expires_at
   formData.value = {
     name: key.name,
-    group_id: key.group_id,
+    group_ids: getAvailableApiKeyGroupIds(key),
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -1719,8 +1650,7 @@ const toggleKeyStatus = async (key: ApiKey) => {
 
 const openGroupSelector = (key: ApiKey) => {
   if (groupSelectorKeyId.value === key.id) {
-    groupSelectorKeyId.value = null
-    dropdownPosition.value = null
+    closeGroupSelector()
   } else {
     const buttonEl = groupButtonRefs.value.get(key.id)
     if (buttonEl) {
@@ -1747,32 +1677,50 @@ const openGroupSelector = (key: ApiKey) => {
       }
     }
     groupSelectorKeyId.value = key.id
-    groupSearchQuery.value = ''
+    groupDraftIds.value = getAvailableApiKeyGroupIds(key)
+    groupOptionsOpen.value = true
+    groupSearchText.value = ''
   }
 }
 
-const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
-  groupSelectorKeyId.value = null
-  dropdownPosition.value = null
-  if (key.group_id === newGroupId) return
+const toggleDraftGroup = (groupId: number, checked: boolean) => {
+  groupDraftIds.value = checked
+    ? [...groupDraftIds.value, groupId]
+    : groupDraftIds.value.filter((id) => id !== groupId)
+}
 
+const removeDraftGroup = (groupId: number) => {
+  groupDraftIds.value = groupDraftIds.value.filter((id) => id !== groupId)
+}
+
+const saveGroupDraft = async () => {
+  const key = selectedKeyForGroup.value
+  if (!key || groupSavePending.value) return
+  groupSavePending.value = true
   try {
-    await keysAPI.update(key.id, { group_id: newGroupId })
+    const updated = await keysAPI.update(key.id, { group_ids: [...groupDraftIds.value] })
+    const index = apiKeys.value.findIndex((item) => item.id === key.id)
+    if (index !== -1) apiKeys.value[index] = updated
     appStore.showSuccess(t('keys.groupChangedSuccess'))
-    loadApiKeys()
+    closeGroupSelector()
   } catch (error) {
     appStore.showError(t('keys.failedToChangeGroup'))
+  } finally {
+    groupSavePending.value = false
   }
 }
 
-const closeGroupSelector = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
+const closeGroupSelector = (event?: MouseEvent) => {
+  const target = event?.target as HTMLElement | undefined
   // Check if click is inside the dropdown or the trigger button
-  if (!target.closest('.group\\/dropdown') && !dropdownRef.value?.contains(target)) {
+  if (!target || (!target.closest('.group\\/dropdown') && !dropdownRef.value?.contains(target))) {
     groupSelectorKeyId.value = null
     dropdownPosition.value = null
+    groupDraftIds.value = []
+    groupOptionsOpen.value = false
+    groupSearchText.value = ''
   }
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
+  if (columnDropdownRef.value && target && !columnDropdownRef.value.contains(target)) {
     showColumnDropdown.value = false
   }
 }
@@ -1783,8 +1731,8 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
-  // Validate group_id is required
-  if (formData.value.group_id === null) {
+  // A key must have a primary group when it is created; editing may explicitly clear all groups.
+  if (!showEditModal.value && formData.value.group_ids.length === 0) {
     appStore.showError(t('keys.groupRequired'))
     return
   }
@@ -1841,7 +1789,7 @@ const handleSubmit = async () => {
     if (showEditModal.value && selectedKey.value) {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
-        group_id: formData.value.group_id,
+        group_ids: [...formData.value.group_ids],
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota: quota,
@@ -1859,13 +1807,14 @@ const handleSubmit = async () => {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
       await keysAPI.create(
         formData.value.name,
-        formData.value.group_id,
+        undefined,
         customKey,
         ipWhitelist,
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        [...formData.value.group_ids]
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1910,7 +1859,7 @@ const closeModals = () => {
   selectedKey.value = null
   formData.value = {
     name: '',
-    group_id: null,
+    group_ids: [],
     status: 'active',
     use_custom_key: false,
     custom_key: '',
@@ -1991,7 +1940,7 @@ const resetRateLimitUsage = async () => {
 }
 
 const importToCcswitch = (row: ApiKey) => {
-  const platform = row.group?.platform || 'anthropic'
+  const platform = row.groups?.[0]?.platform || row.group?.platform || 'anthropic'
 
   // For antigravity platform, show client selection dialog
   if (platform === 'antigravity') {
@@ -2006,7 +1955,7 @@ const importToCcswitch = (row: ApiKey) => {
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
-  const platform = row.group?.platform || 'anthropic'
+  const platform = row.groups?.[0]?.platform || row.group?.platform || 'anthropic'
 
   const usageScript = `({
     request: {

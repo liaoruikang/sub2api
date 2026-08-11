@@ -127,7 +127,7 @@ func observeOpenAISSEBody(observer *upstreamResponseModelObserver, body string) 
 }
 
 func firstValidTrimmedGJSONModel(payload []byte, paths ...string) string {
-	if len(payload) == 0 {
+	if len(payload) == 0 || !gjson.ValidBytes(payload) {
 		return ""
 	}
 	for _, path := range paths {
@@ -136,12 +136,6 @@ func firstValidTrimmedGJSONModel(payload []byte, paths ...string) string {
 			continue
 		}
 		if model := strings.TrimSpace(value.String()); model != "" {
-			// Validate only after finding a candidate. This avoids a full validation
-			// pass on the common model-free delta path while still rejecting malformed
-			// payloads that appear to declare a model.
-			if !gjson.ValidBytes(payload) {
-				return ""
-			}
 			return model
 		}
 	}

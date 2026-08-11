@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
@@ -24,8 +25,13 @@ func NewAdminAPIKeyHandler(adminService service.AdminService) *AdminAPIKeyHandle
 
 // AdminUpdateAPIKeyGroupRequest represents the request to update an API key.
 type AdminUpdateAPIKeyGroupRequest struct {
-	GroupID             *int64 `json:"group_id"`               // nil=不修改, 0=解绑, >0=绑定到目标分组
-	ResetRateLimitUsage *bool  `json:"reset_rate_limit_usage"` // true=重置 5h/1d/7d 限速用量
+	GroupID             *int64   `json:"group_id"`               // nil=不修改, 0=解绑, >0=绑定到目标分组
+	GroupIDs            *[]int64 `json:"group_ids"`              // nil=不修改, 空数组=解绑，非空数组按顺序绑定
+	ResetRateLimitUsage *bool    `json:"reset_rate_limit_usage"` // true=重置 5h/1d/7d 限速用量
+}
+
+type adminAPIKeyGroupsUpdater interface {
+	AdminUpdateAPIKeyGroups(ctx context.Context, keyID int64, groupIDs *[]int64, legacyGroupID *int64) (*service.AdminUpdateAPIKeyGroupIDResult, error)
 }
 
 // UpdateGroup handles updating an API key's admin-managed fields.
@@ -52,12 +58,17 @@ func (h *AdminAPIKeyHandler) UpdateGroup(c *gin.Context) {
 		}
 	}
 
-	result, err := h.adminService.AdminUpdateAPIKeyGroupID(c.Request.Context(), keyID, req.GroupID)
+	var result *service.AdminUpdateAPIKeyGroupIDResult
+	if updater, ok := h.adminService.(adminAPIKeyGroupsUpdater); ok {
+		result, err = updater.AdminUpdateAPIKeyGroups(c.Request.Context(), keyID, req.GroupIDs, req.GroupID)
+	} else {
+		result, err = h.adminService.AdminUpdateAPIKeyGroupID(c.Request.Context(), keyID, req.GroupID)
+	}
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	if resetKey != nil && req.GroupID == nil {
+	if resetKey != nil && req.GroupIDs == nil && req.GroupID == nil {
 		result.APIKey = resetKey
 	}
 

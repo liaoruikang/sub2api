@@ -9,6 +9,9 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
+// APIKeyGroup is the predicate function for apikeygroup builders.
+type APIKeyGroup func(*sql.Selector)
+
 // Account is the predicate function for account builders.
 type Account func(*sql.Selector)
 
@@ -59,6 +62,9 @@ type GrokVideoJob func(*sql.Selector)
 
 // Group is the predicate function for group builders.
 type Group func(*sql.Selector)
+
+// GroupUserTag is the predicate function for groupusertag builders.
+type GroupUserTag func(*sql.Selector)
 
 // IdempotencyRecord is the predicate function for idempotencyrecord builders.
 type IdempotencyRecord func(*sql.Selector)
@@ -125,3 +131,9 @@ type UserPlatformQuota func(*sql.Selector)
 
 // UserSubscription is the predicate function for usersubscription builders.
 type UserSubscription func(*sql.Selector)
+
+// UserTag is the predicate function for usertag builders.
+type UserTag func(*sql.Selector)
+
+// UserTagAssignment is the predicate function for usertagassignment builders.
+type UserTagAssignment func(*sql.Selector)

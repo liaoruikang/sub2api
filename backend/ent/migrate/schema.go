@@ -93,6 +93,45 @@ var (
 			},
 		},
 	}
+	// APIKeyGroupsColumns holds the columns for the "api_key_groups" table.
+	APIKeyGroupsColumns = []*schema.Column{
+		{Name: "position", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "api_key_id", Type: field.TypeInt64},
+		{Name: "group_id", Type: field.TypeInt64},
+	}
+	// APIKeyGroupsTable holds the schema information for the "api_key_groups" table.
+	APIKeyGroupsTable = &schema.Table{
+		Name:       "api_key_groups",
+		Columns:    APIKeyGroupsColumns,
+		PrimaryKey: []*schema.Column{APIKeyGroupsColumns[2], APIKeyGroupsColumns[3]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "api_key_groups_api_keys_api_key",
+				Columns:    []*schema.Column{APIKeyGroupsColumns[2]},
+				RefColumns: []*schema.Column{APIKeysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_groups_groups_group",
+				Columns:    []*schema.Column{APIKeyGroupsColumns[3]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "apikeygroup_api_key_id_position",
+				Unique:  true,
+				Columns: []*schema.Column{APIKeyGroupsColumns[2], APIKeyGroupsColumns[0]},
+			},
+			{
+				Name:    "apikeygroup_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyGroupsColumns[3]},
+			},
+		},
+	}
 	// AccountsColumns holds the columns for the "accounts" table.
 	AccountsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1058,6 +1097,39 @@ var (
 				Annotation: &entsql.IndexAnnotation{
 					Where: "duplicate_operation_id IS NOT NULL AND deleted_at IS NULL",
 				},
+			},
+		},
+	}
+	// GroupUserTagsColumns holds the columns for the "group_user_tags" table.
+	GroupUserTagsColumns = []*schema.Column{
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "tag_id", Type: field.TypeInt64},
+	}
+	// GroupUserTagsTable holds the schema information for the "group_user_tags" table.
+	GroupUserTagsTable = &schema.Table{
+		Name:       "group_user_tags",
+		Columns:    GroupUserTagsColumns,
+		PrimaryKey: []*schema.Column{GroupUserTagsColumns[1], GroupUserTagsColumns[2]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_user_tags_groups_group",
+				Columns:    []*schema.Column{GroupUserTagsColumns[1]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "group_user_tags_user_tags_tag",
+				Columns:    []*schema.Column{GroupUserTagsColumns[2]},
+				RefColumns: []*schema.Column{UserTagsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupusertag_tag_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupUserTagsColumns[2]},
 			},
 		},
 	}
@@ -2143,9 +2215,69 @@ var (
 			},
 		},
 	}
+	// UserTagsColumns holds the columns for the "user_tags" table.
+	UserTagsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "name", Type: field.TypeString, Size: 100},
+	}
+	// UserTagsTable holds the schema information for the "user_tags" table.
+	UserTagsTable = &schema.Table{
+		Name:       "user_tags",
+		Columns:    UserTagsColumns,
+		PrimaryKey: []*schema.Column{UserTagsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "usertag_name",
+				Unique:  false,
+				Columns: []*schema.Column{UserTagsColumns[4]},
+			},
+			{
+				Name:    "usertag_deleted_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserTagsColumns[3]},
+			},
+		},
+	}
+	// UserTagAssignmentsColumns holds the columns for the "user_tag_assignments" table.
+	UserTagAssignmentsColumns = []*schema.Column{
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "tag_id", Type: field.TypeInt64},
+	}
+	// UserTagAssignmentsTable holds the schema information for the "user_tag_assignments" table.
+	UserTagAssignmentsTable = &schema.Table{
+		Name:       "user_tag_assignments",
+		Columns:    UserTagAssignmentsColumns,
+		PrimaryKey: []*schema.Column{UserTagAssignmentsColumns[1], UserTagAssignmentsColumns[2]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_tag_assignments_users_user",
+				Columns:    []*schema.Column{UserTagAssignmentsColumns[1]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "user_tag_assignments_user_tags_tag",
+				Columns:    []*schema.Column{UserTagAssignmentsColumns[2]},
+				RefColumns: []*schema.Column{UserTagsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "usertagassignment_tag_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserTagAssignmentsColumns[2]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
+		APIKeyGroupsTable,
 		AccountsTable,
 		AccountGroupsTable,
 		AnnouncementsTable,
@@ -2163,6 +2295,7 @@ var (
 		ErrorPassthroughRulesTable,
 		GrokVideoJobsTable,
 		GroupsTable,
+		GroupUserTagsTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
 		PaymentAuditLogsTable,
@@ -2185,6 +2318,8 @@ var (
 		UserAttributeValuesTable,
 		UserPlatformQuotasTable,
 		UserSubscriptionsTable,
+		UserTagsTable,
+		UserTagAssignmentsTable,
 	}
 )
 
@@ -2193,6 +2328,11 @@ func init() {
 	APIKeysTable.ForeignKeys[1].RefTable = UsersTable
 	APIKeysTable.Annotation = &entsql.Annotation{
 		Table: "api_keys",
+	}
+	APIKeyGroupsTable.ForeignKeys[0].RefTable = APIKeysTable
+	APIKeyGroupsTable.ForeignKeys[1].RefTable = GroupsTable
+	APIKeyGroupsTable.Annotation = &entsql.Annotation{
+		Table: "api_key_groups",
 	}
 	AccountsTable.ForeignKeys[0].RefTable = ProxiesTable
 	AccountsTable.ForeignKeys[1].RefTable = AccountsTable
@@ -2256,6 +2396,11 @@ func init() {
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",
+	}
+	GroupUserTagsTable.ForeignKeys[0].RefTable = GroupsTable
+	GroupUserTagsTable.ForeignKeys[1].RefTable = UserTagsTable
+	GroupUserTagsTable.Annotation = &entsql.Annotation{
+		Table: "group_user_tags",
 	}
 	IdempotencyRecordsTable.Annotation = &entsql.Annotation{
 		Table: "idempotency_records",
@@ -2344,5 +2489,13 @@ func init() {
 	UserSubscriptionsTable.ForeignKeys[2].RefTable = UsersTable
 	UserSubscriptionsTable.Annotation = &entsql.Annotation{
 		Table: "user_subscriptions",
+	}
+	UserTagsTable.Annotation = &entsql.Annotation{
+		Table: "user_tags",
+	}
+	UserTagAssignmentsTable.ForeignKeys[0].RefTable = UsersTable
+	UserTagAssignmentsTable.ForeignKeys[1].RefTable = UserTagsTable
+	UserTagAssignmentsTable.Annotation = &entsql.Annotation{
+		Table: "user_tag_assignments",
 	}
 }

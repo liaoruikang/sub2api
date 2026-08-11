@@ -26,26 +26,106 @@ func (s *adminServiceImpl) ListGroups(ctx context.Context, page, pageSize int, p
 	if err != nil {
 		return nil, 0, err
 	}
+	if err := s.enrichGroupsWithTags(ctx, groups); err != nil {
+		return nil, 0, err
+	}
 	return groups, result.Total, nil
 }
 
 func (s *adminServiceImpl) GetAllGroups(ctx context.Context) ([]Group, error) {
-	return s.groupRepo.ListActive(ctx)
+	groups, err := s.groupRepo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return groups, s.enrichGroupsWithTags(ctx, groups)
 }
 
 func (s *adminServiceImpl) GetAllGroupsByPlatform(ctx context.Context, platform string) ([]Group, error) {
-	return s.groupRepo.ListActiveByPlatform(ctx, platform)
+	groups, err := s.groupRepo.ListActiveByPlatform(ctx, platform)
+	if err != nil {
+		return nil, err
+	}
+	return groups, s.enrichGroupsWithTags(ctx, groups)
 }
 
 func (s *adminServiceImpl) GetAllGroupsIncludingInactive(ctx context.Context) ([]Group, error) {
 	// ListWithFilters with empty status = no status filter, so active + disabled groups are returned.
 	// PageSize 10000 is intentionally large; group count is O(dozens) in practice.
 	groups, _, err := s.groupRepo.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 10000}, "", "", "", nil)
-	return groups, err
+	if err != nil {
+		return nil, err
+	}
+	return groups, s.enrichGroupsWithTags(ctx, groups)
 }
 
 func (s *adminServiceImpl) GetGroup(ctx context.Context, id int64) (*Group, error) {
-	return s.groupRepo.GetByID(ctx, id)
+	group, err := s.groupRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.enrichGroupWithTags(ctx, group); err != nil {
+		return nil, err
+	}
+	return group, nil
+}
+
+func (s *adminServiceImpl) enrichGroupsWithTags(ctx context.Context, groups []Group) error {
+	if s.userTagRepo == nil {
+		return nil
+	}
+	for i := range groups {
+		if err := s.enrichGroupWithTags(ctx, &groups[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *adminServiceImpl) enrichGroupWithTags(ctx context.Context, group *Group) error {
+	if s.userTagRepo == nil || group == nil {
+		return nil
+	}
+	tags, err := s.userTagRepo.GetByGroupID(ctx, group.ID)
+	if err != nil {
+		return fmt.Errorf("get group tags: %w", err)
+	}
+	group.Tags = tags
+	group.TagIDs = make([]int64, 0, len(tags))
+	for _, tag := range tags {
+		group.TagIDs = append(group.TagIDs, tag.ID)
+	}
+	return nil
+}
+
+func (s *adminServiceImpl) replaceGroupTags(ctx context.Context, group *Group, tagIDs []int64) error {
+	if s.userTagRepo == nil {
+		if len(tagIDs) > 0 {
+			return ErrGroupTagNotPermitted
+		}
+		return nil
+	}
+	if !group.IsActive() || !group.IsExclusive || group.IsSubscriptionType() {
+		if len(tagIDs) > 0 {
+			return ErrGroupTagNotPermitted
+		}
+		if err := s.userTagRepo.ReplaceGroupTags(ctx, group.ID, nil); err != nil {
+			return err
+		}
+		group.TagIDs = nil
+		group.Tags = nil
+		return nil
+	}
+	normalized, err := normalizeUserTagIDs(tagIDs)
+	if err != nil {
+		return err
+	}
+	if _, err := s.userTagRepo.GetByIDs(ctx, normalized); err != nil {
+		return err
+	}
+	if err := s.userTagRepo.ReplaceGroupTags(ctx, group.ID, normalized); err != nil {
+		return err
+	}
+	return s.enrichGroupWithTags(ctx, group)
 }
 
 func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id int64, platform string) ([]string, error) {
@@ -463,6 +543,18 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		}
 	}
 
+	if len(input.TagIDs) > 0 {
+		if !input.IsExclusive || subscriptionType == SubscriptionTypeSubscription {
+			return nil, ErrGroupTagNotPermitted
+		}
+		if s.userTagRepo == nil {
+			return nil, ErrGroupTagNotPermitted
+		}
+		if _, err := s.userTagRepo.GetByIDs(ctx, input.TagIDs); err != nil {
+			return nil, err
+		}
+	}
+
 	group := &Group{
 		Name:                                 input.Name,
 		Description:                          input.Description,
@@ -533,6 +625,11 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	sanitizeGroupReasoningEffortPolicy(group)
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
+	}
+	if len(input.TagIDs) > 0 {
+		if err := s.replaceGroupTags(ctx, group, input.TagIDs); err != nil {
+			return nil, err
+		}
 	}
 
 	// require_oauth_only: 过滤掉 apikey 类型账号
@@ -981,6 +1078,16 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		return nil, err
 	}
 
+	if input.TagIDs != nil || !group.IsExclusive || group.IsSubscriptionType() {
+		tagIDs := []int64(nil)
+		if input.TagIDs != nil {
+			tagIDs = *input.TagIDs
+		}
+		if err := s.replaceGroupTags(ctx, group, tagIDs); err != nil {
+			return nil, err
+		}
+	}
+
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, id)
 	}
@@ -1198,107 +1305,111 @@ func (s *adminServiceImpl) UpdateGroupSortOrders(ctx context.Context, updates []
 	return s.groupRepo.UpdateSortOrders(ctx, updates)
 }
 
-// AdminUpdateAPIKeyGroupID 管理员修改 API Key 分组绑定
-// groupID: nil=不修改, 指向0=解绑, 指向正整数=绑定到目标分组
+// AdminUpdateAPIKeyGroupID 管理员修改 API Key 主分组绑定。
+// 保留该方法供旧调用方使用，groupID 为 nil 表示不修改，0 表示解绑。
 func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID int64, groupID *int64) (*AdminUpdateAPIKeyGroupIDResult, error) {
+	return s.adminUpdateAPIKeyGroups(ctx, keyID, nil, groupID)
+}
+
+// AdminUpdateAPIKeyGroups 管理员按顺序替换 API Key 的分组绑定。
+// groupIDs 为 nil 且 legacyGroupID 为 nil 表示不修改；显式空 groupIDs 表示解绑。
+func (s *adminServiceImpl) AdminUpdateAPIKeyGroups(ctx context.Context, keyID int64, groupIDs *[]int64, legacyGroupID *int64) (*AdminUpdateAPIKeyGroupIDResult, error) {
+	return s.adminUpdateAPIKeyGroups(ctx, keyID, groupIDs, legacyGroupID)
+}
+
+func (s *adminServiceImpl) adminUpdateAPIKeyGroups(ctx context.Context, keyID int64, groupIDs *[]int64, legacyGroupID *int64) (*AdminUpdateAPIKeyGroupIDResult, error) {
 	apiKey, err := s.apiKeyRepo.GetByID(ctx, keyID)
 	if err != nil {
 		return nil, err
 	}
-
-	if groupID == nil {
-		// nil 表示不修改，直接返回
+	if groupIDs == nil && legacyGroupID == nil {
 		return &AdminUpdateAPIKeyGroupIDResult{APIKey: apiKey}, nil
 	}
 
-	if *groupID < 0 {
-		return nil, infraerrors.BadRequest("INVALID_GROUP_ID", "group_id must be non-negative")
+	normalizedIDs, err := normalizeAPIKeyRequestGroupIDs(groupIDs, legacyGroupID, true)
+	if err != nil {
+		return nil, err
 	}
-
-	result := &AdminUpdateAPIKeyGroupIDResult{}
-
-	if *groupID == 0 {
-		// 0 表示解绑分组（不修改 user_allowed_groups，避免影响用户其他 Key）
-		apiKey.GroupID = nil
-		apiKey.Group = nil
-	} else {
-		// 验证目标分组存在且状态为 active
-		group, err := s.groupRepo.GetByID(ctx, *groupID)
+	groups := make([]*Group, 0, len(normalizedIDs))
+	for _, groupID := range normalizedIDs {
+		group, err := s.groupRepo.GetByID(ctx, groupID)
 		if err != nil {
 			return nil, err
 		}
 		if group.Status != StatusActive {
 			return nil, infraerrors.BadRequest("GROUP_NOT_ACTIVE", "target group is not active")
 		}
-		// 订阅类型分组：用户须持有该分组的有效订阅才可绑定
 		if group.IsSubscriptionType() {
 			if s.userSubRepo == nil {
 				return nil, infraerrors.InternalServer("SUBSCRIPTION_REPOSITORY_UNAVAILABLE", "subscription repository is not configured")
 			}
-			if _, err := s.userSubRepo.GetActiveByUserIDAndGroupID(ctx, apiKey.UserID, *groupID); err != nil {
+			if _, err := s.userSubRepo.GetActiveByUserIDAndGroupID(ctx, apiKey.UserID, groupID); err != nil {
 				if errors.Is(err, ErrSubscriptionNotFound) {
 					return nil, infraerrors.BadRequest("SUBSCRIPTION_REQUIRED", "user does not have an active subscription for this group")
 				}
 				return nil, err
 			}
 		}
+		if len(groups) > 0 {
+			if group.Platform != groups[0].Platform {
+				return nil, ErrAPIKeyGroupPlatformMismatch
+			}
+			if group.SubscriptionType != groups[0].SubscriptionType {
+				return nil, ErrAPIKeyGroupSubscriptionMismatch
+			}
+		}
+		groups = append(groups, group)
+	}
 
-		gid := *groupID
+	apiKey.GroupIDs = normalizedIDs
+	apiKey.Groups = groups
+	if len(groups) == 0 {
+		apiKey.GroupID = nil
+		apiKey.Group = nil
+	} else {
+		gid := normalizedIDs[0]
 		apiKey.GroupID = &gid
-		apiKey.Group = group
+		apiKey.Group = groups[0]
+	}
 
-		// 专属标准分组：使用事务保证「添加分组权限」与「更新 API Key」的原子性
-		if group.IsExclusive && !group.IsSubscriptionType() {
-			opCtx := ctx
-			var tx *dbent.Tx
-			if s.entClient == nil {
-				logger.LegacyPrintf("service.admin", "Warning: entClient is nil, skipping transaction protection for exclusive group binding")
-			} else {
-				var txErr error
-				tx, txErr = s.entClient.Tx(ctx)
-				if txErr != nil {
-					return nil, fmt.Errorf("begin transaction: %w", txErr)
-				}
-				defer func() { _ = tx.Rollback() }()
-				opCtx = dbent.NewTxContext(ctx, tx)
+	result := &AdminUpdateAPIKeyGroupIDResult{}
+	opCtx := ctx
+	var tx *dbent.Tx
+	for _, group := range groups {
+		if !group.IsExclusive || group.IsSubscriptionType() {
+			continue
+		}
+		if tx == nil && s.entClient != nil {
+			var txErr error
+			tx, txErr = s.entClient.Tx(ctx)
+			if txErr != nil {
+				return nil, fmt.Errorf("begin transaction: %w", txErr)
 			}
-
-			if addErr := s.userRepo.AddGroupToAllowedGroups(opCtx, apiKey.UserID, gid); addErr != nil {
-				return nil, fmt.Errorf("add group to user allowed groups: %w", addErr)
-			}
-			if err := s.apiKeyRepo.Update(opCtx, apiKey, APIKeyUpdateFields{GroupID: true}); err != nil {
-				return nil, fmt.Errorf("update api key: %w", err)
-			}
-			if tx != nil {
-				if err := tx.Commit(); err != nil {
-					return nil, fmt.Errorf("commit transaction: %w", err)
-				}
-			}
-
+			defer func() { _ = tx.Rollback() }()
+			opCtx = dbent.NewTxContext(ctx, tx)
+		}
+		if err := s.userRepo.AddGroupToAllowedGroups(opCtx, apiKey.UserID, group.ID); err != nil {
+			return nil, fmt.Errorf("add group to user allowed groups: %w", err)
+		}
+		if !result.AutoGrantedGroupAccess {
+			gid := group.ID
 			result.AutoGrantedGroupAccess = true
 			result.GrantedGroupID = &gid
 			result.GrantedGroupName = group.Name
-
-			// 失效认证缓存（在事务提交后执行）
-			if s.authCacheInvalidator != nil {
-				s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, apiKey.Key)
-			}
-
-			result.APIKey = apiKey
-			return result, nil
 		}
 	}
 
-	// 非专属分组 / 解绑：无需事务，单步更新即可
-	if err := s.apiKeyRepo.Update(ctx, apiKey, APIKeyUpdateFields{GroupID: true}); err != nil {
+	if err := s.apiKeyRepo.Update(opCtx, apiKey, APIKeyUpdateFields{GroupID: true}); err != nil {
 		return nil, fmt.Errorf("update api key: %w", err)
 	}
-
-	// 失效认证缓存
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit transaction: %w", err)
+		}
+	}
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 	}
-
 	result.APIKey = apiKey
 	return result, nil
 }

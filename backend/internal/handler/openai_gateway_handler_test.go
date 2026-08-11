@@ -667,6 +667,71 @@ func TestResolveOpenAIMessagesDispatchMappedModel(t *testing.T) {
 	})
 }
 
+func TestOpenAIGatewayMessagesOrderedGroupsDoNotUseEntryGate(t *testing.T) {
+	groupIDs := []int64{16, 25, 26}
+	groups := []*service.Group{
+		{ID: 16, Platform: service.PlatformOpenAI, AllowMessagesDispatch: true},
+		{ID: 25, Platform: service.PlatformOpenAI, AllowMessagesDispatch: false},
+		{ID: 26, Platform: service.PlatformOpenAI, AllowMessagesDispatch: true},
+	}
+	apiKey := &service.APIKey{
+		GroupID:  &groupIDs[0],
+		GroupIDs: append([]int64(nil), groupIDs...),
+		Groups:   groups,
+		Group:    groups[0],
+	}
+
+	ordered, err := resolveOrderedOpenAIGatewayGroups(apiKey)
+	require.NoError(t, err)
+	require.Len(t, ordered, 3)
+	require.Equal(t, []int64{16, 25, 26}, []int64{ordered[0].ID, ordered[1].ID, ordered[2].ID})
+	require.True(t, allowOpenAICompatibleMessagesDispatch(&service.APIKey{Group: ordered[0]}))
+	require.False(t, allowOpenAICompatibleMessagesDispatch(&service.APIKey{Group: ordered[1]}))
+	require.True(t, allowOpenAICompatibleMessagesDispatch(&service.APIKey{Group: ordered[2]}))
+
+	// The entry gate must not reject an API key that has more than one configured group.
+	require.True(t, len(apiKey.GroupIDs) > 1)
+}
+
+func TestOpenAIGatewayMessagesOrderedGroupsRequireMaterializedGroups(t *testing.T) {
+	firstID, secondID := int64(16), int64(25)
+	_, err := resolveOrderedOpenAIGatewayGroups(&service.APIKey{
+		GroupID:  &firstID,
+		GroupIDs: []int64{firstID, secondID},
+		Groups:   []*service.Group{{ID: firstID, Platform: service.PlatformOpenAI}},
+	})
+	require.Error(t, err)
+	require.ErrorIs(t, err, service.ErrGroupNotFound)
+	require.Contains(t, err.Error(), "group 25 is not materialized")
+}
+
+func TestOpenAIGatewayMessagesMultiGroupDoesNotUseEntryDispatchGate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hi"}]}`))
+	groupIDs := []int64{16, 25, 26}
+	groups := []*service.Group{
+		{ID: 16, Platform: service.PlatformOpenAI, AllowMessagesDispatch: true},
+		{ID: 25, Platform: service.PlatformOpenAI, AllowMessagesDispatch: false},
+		{ID: 26, Platform: service.PlatformOpenAI, AllowMessagesDispatch: true},
+	}
+	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
+		ID:       5103,
+		GroupID:  &groupIDs[0],
+		GroupIDs: groupIDs,
+		Groups:   groups,
+		Group:    groups[0],
+		User:     &service.User{ID: 6103},
+	})
+	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6103, Concurrency: 1})
+
+	(&OpenAIGatewayHandler{}).Messages(c)
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
+}
+
 func TestOpenAIGatewayMessagesDispatchGateAllowsGrokGroups(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

@@ -21,6 +21,18 @@ func (f APIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyMutation", m)
 }
 
+// The APIKeyGroupFunc type is an adapter to allow the use of ordinary
+// function as APIKeyGroup mutator.
+type APIKeyGroupFunc func(context.Context, *ent.APIKeyGroupMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f APIKeyGroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.APIKeyGroupMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyGroupMutation", m)
+}
+
 // The AccountFunc type is an adapter to allow the use of ordinary
 // function as Account mutator.
 type AccountFunc func(context.Context, *ent.AccountMutation) (ent.Value, error)
@@ -223,6 +235,18 @@ func (f GroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupMutation", m)
+}
+
+// The GroupUserTagFunc type is an adapter to allow the use of ordinary
+// function as GroupUserTag mutator.
+type GroupUserTagFunc func(context.Context, *ent.GroupUserTagMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupUserTagFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupUserTagMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupUserTagMutation", m)
 }
 
 // The IdempotencyRecordFunc type is an adapter to allow the use of ordinary
@@ -487,6 +511,30 @@ func (f UserSubscriptionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.V
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserSubscriptionMutation", m)
+}
+
+// The UserTagFunc type is an adapter to allow the use of ordinary
+// function as UserTag mutator.
+type UserTagFunc func(context.Context, *ent.UserTagMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserTagFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserTagMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserTagMutation", m)
+}
+
+// The UserTagAssignmentFunc type is an adapter to allow the use of ordinary
+// function as UserTagAssignment mutator.
+type UserTagAssignmentFunc func(context.Context, *ent.UserTagAssignmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserTagAssignmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserTagAssignmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserTagAssignmentMutation", m)
 }
 
 // Condition is a hook condition function.

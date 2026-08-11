@@ -168,6 +168,7 @@ type CreateGroupRequest struct {
 	ReasoningEffortMappings []service.ReasoningEffortMapping `json:"reasoning_effort_mappings"`
 	// 从指定分组复制账号（创建后自动绑定）
 	CopyAccountsFromGroupIDs []int64 `json:"copy_accounts_from_group_ids"`
+	TagIDs                   []int64 `json:"tag_ids"`
 }
 
 // UpdateGroupRequest represents update group request
@@ -244,7 +245,8 @@ type UpdateGroupRequest struct {
 	// nil 不修改，空数组清空，非空数组替换。
 	ReasoningEffortMappings *[]service.ReasoningEffortMapping `json:"reasoning_effort_mappings"`
 	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
-	CopyAccountsFromGroupIDs []int64 `json:"copy_accounts_from_group_ids"`
+	CopyAccountsFromGroupIDs []int64  `json:"copy_accounts_from_group_ids"`
+	TagIDs                   *[]int64 `json:"tag_ids"`
 }
 
 type CompositeRouteRequest struct {
@@ -575,6 +577,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		MaxReasoningEffort:                   req.MaxReasoningEffort,
 		ReasoningEffortMappings:              req.ReasoningEffortMappings,
 		CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
+		TagIDs:                               req.TagIDs,
 		VideoModelPrices:                     req.VideoModelPrices,
 		SearchPricePer1k:                     req.SearchPricePer1k,
 		AudioRealtimePricePerMin:             req.AudioRealtimePricePerMin,
@@ -709,6 +712,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		MaxReasoningEffort:                   req.MaxReasoningEffort,
 		ReasoningEffortMappings:              req.ReasoningEffortMappings,
 		CopyAccountsFromGroupIDs:             req.CopyAccountsFromGroupIDs,
+		TagIDs:                               req.TagIDs,
 		VideoModelPrices:                     req.VideoModelPrices,
 		SearchPricePer1k:                     req.SearchPricePer1k,
 		AudioRealtimePricePerMin:             req.AudioRealtimePricePerMin,

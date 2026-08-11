@@ -61,7 +61,24 @@ func (s *adminServiceImpl) ListUsers(ctx context.Context, page, pageSize int, fi
 			s.loadUserGroupRatesOneByOne(ctx, users)
 		}
 	}
+	if s.userTagRepo != nil {
+		s.loadUserTags(ctx, users)
+	}
 	return users, result.Total, nil
+}
+
+func (s *adminServiceImpl) loadUserTags(ctx context.Context, users []User) {
+	if s.userTagRepo == nil {
+		return
+	}
+	for i := range users {
+		tags, err := s.userTagRepo.GetByUserID(ctx, users[i].ID)
+		if err != nil {
+			logger.LegacyPrintf("service.admin", "failed to load user tags: user_id=%d err=%v", users[i].ID, err)
+			continue
+		}
+		users[i].Tags = tags
+	}
 }
 
 func (s *adminServiceImpl) loadUserGroupRatesOneByOne(ctx context.Context, users []User) {
@@ -98,11 +115,31 @@ func (s *adminServiceImpl) GetUser(ctx context.Context, id int64) (*User, error)
 			user.GroupRates = rates
 		}
 	}
+	if s.userTagRepo != nil {
+		tags, err := s.userTagRepo.GetByUserID(ctx, id)
+		if err != nil {
+			logger.LegacyPrintf("service.admin", "failed to load user tags: user_id=%d err=%v", id, err)
+		} else {
+			user.Tags = tags
+		}
+	}
 	return user, nil
 }
 
 func (s *adminServiceImpl) GetUserIncludeDeleted(ctx context.Context, id int64) (*User, error) {
-	return s.userRepo.GetByIDIncludeDeleted(ctx, id)
+	user, err := s.userRepo.GetByIDIncludeDeleted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if s.userTagRepo != nil {
+		tags, tagErr := s.userTagRepo.GetByUserID(ctx, id)
+		if tagErr != nil {
+			logger.LegacyPrintf("service.admin", "failed to load user tags: user_id=%d err=%v", id, tagErr)
+		} else {
+			user.Tags = tags
+		}
+	}
+	return user, nil
 }
 
 // normalizeUserRole 校验并归一化角色输入。

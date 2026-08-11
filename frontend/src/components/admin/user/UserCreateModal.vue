@@ -54,6 +54,15 @@
         />
         <p class="input-hint">{{ t('admin.users.form.rpmLimitHint') }}</p>
       </div>
+      <div>
+        <label class="input-label">{{ t('admin.users.tags') }}</label>
+        <UserTagMultiSelect
+          v-model="form.tag_ids"
+          :options="availableTags"
+          :placeholder="t('admin.users.tagsPlaceholder')"
+          :empty-text="t('admin.users.noTags')"
+        />
+      </div>
     </form>
     <template #footer>
       <div class="flex justify-end gap-3">
@@ -72,17 +81,20 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
+import type { UserTag } from '@/types'
 import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
+import UserTagMultiSelect from '@/components/admin/user/UserTagMultiSelect.vue'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
 const appStore = useAppStore()
 
-const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: 1, rpm_limit: 0 })
+const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: 1, rpm_limit: 0, tag_ids: [] as number[] })
+const availableTags = ref<UserTag[]>([])
 
 const stepUp = useStepUp()
 const loading = ref(false)
@@ -91,14 +103,17 @@ const submit = async () => {
   if (loading.value) return
   loading.value = true
   try {
-    const { balance: rawBalance, ...rest } = { ...form }
+    const { balance: rawBalance, tag_ids: selectedTagIDs, ...rest } = { ...form }
     const balance = String(rawBalance).trim()
     const payload: typeof rest & { balance?: number } = { ...rest }
     if (balance !== '') {
       payload.balance = Number(balance)
     }
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
-    await stepUp.run(() => adminAPI.users.create(payload))
+    const createdUser = await stepUp.run(() => adminAPI.users.create(payload))
+    if (selectedTagIDs.length > 0) {
+      await adminAPI.tags.updateUserTags(createdUser.id, selectedTagIDs)
+    }
     appStore.showSuccess(t('admin.users.userCreated'))
     emit('success'); emit('close')
   } catch (e: any) {
@@ -116,7 +131,13 @@ const submit = async () => {
   } finally { loading.value = false }
 }
 
-watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0 }) })
+watch(() => props.show, (v) => {
+  if (!v) return
+  Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0, tag_ids: [] })
+  void adminAPI.tags.list().then((tags) => { availableTags.value = tags }).catch(() => {
+    appStore.showError(t('admin.users.failedToLoadTags'))
+  })
+})
 
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'

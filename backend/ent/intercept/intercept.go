@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygroup"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -26,6 +27,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/grokvideojob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupusertag"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
@@ -49,6 +51,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/ent/usertag"
+	"github.com/Wei-Shaw/sub2api/ent/usertagassignment"
 )
 
 // The Query interface represents an operation that queries a graph.
@@ -132,6 +136,33 @@ func (f TraverseAPIKey) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.APIKeyQuery", q)
+}
+
+// The APIKeyGroupFunc type is an adapter to allow the use of ordinary function as a Querier.
+type APIKeyGroupFunc func(context.Context, *ent.APIKeyGroupQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f APIKeyGroupFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.APIKeyGroupQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.APIKeyGroupQuery", q)
+}
+
+// The TraverseAPIKeyGroup type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAPIKeyGroup func(context.Context, *ent.APIKeyGroupQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAPIKeyGroup) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAPIKeyGroup) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.APIKeyGroupQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.APIKeyGroupQuery", q)
 }
 
 // The AccountFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -591,6 +622,33 @@ func (f TraverseGroup) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.GroupQuery", q)
+}
+
+// The GroupUserTagFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupUserTagFunc func(context.Context, *ent.GroupUserTagQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupUserTagFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupUserTagQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupUserTagQuery", q)
+}
+
+// The TraverseGroupUserTag type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupUserTag func(context.Context, *ent.GroupUserTagQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupUserTag) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupUserTag) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupUserTagQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupUserTagQuery", q)
 }
 
 // The IdempotencyRecordFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1187,11 +1245,67 @@ func (f TraverseUserSubscription) Traverse(ctx context.Context, q ent.Query) err
 	return fmt.Errorf("unexpected query type %T. expect *ent.UserSubscriptionQuery", q)
 }
 
+// The UserTagFunc type is an adapter to allow the use of ordinary function as a Querier.
+type UserTagFunc func(context.Context, *ent.UserTagQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f UserTagFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.UserTagQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.UserTagQuery", q)
+}
+
+// The TraverseUserTag type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseUserTag func(context.Context, *ent.UserTagQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseUserTag) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseUserTag) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.UserTagQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.UserTagQuery", q)
+}
+
+// The UserTagAssignmentFunc type is an adapter to allow the use of ordinary function as a Querier.
+type UserTagAssignmentFunc func(context.Context, *ent.UserTagAssignmentQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f UserTagAssignmentFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.UserTagAssignmentQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.UserTagAssignmentQuery", q)
+}
+
+// The TraverseUserTagAssignment type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseUserTagAssignment func(context.Context, *ent.UserTagAssignmentQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseUserTagAssignment) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseUserTagAssignment) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.UserTagAssignmentQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.UserTagAssignmentQuery", q)
+}
+
 // NewQuery returns the generic Query interface for the given typed query.
 func NewQuery(q ent.Query) (Query, error) {
 	switch q := q.(type) {
 	case *ent.APIKeyQuery:
 		return &query[*ent.APIKeyQuery, predicate.APIKey, apikey.OrderOption]{typ: ent.TypeAPIKey, tq: q}, nil
+	case *ent.APIKeyGroupQuery:
+		return &query[*ent.APIKeyGroupQuery, predicate.APIKeyGroup, apikeygroup.OrderOption]{typ: ent.TypeAPIKeyGroup, tq: q}, nil
 	case *ent.AccountQuery:
 		return &query[*ent.AccountQuery, predicate.Account, account.OrderOption]{typ: ent.TypeAccount, tq: q}, nil
 	case *ent.AccountGroupQuery:
@@ -1226,6 +1340,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.GrokVideoJobQuery, predicate.GrokVideoJob, grokvideojob.OrderOption]{typ: ent.TypeGrokVideoJob, tq: q}, nil
 	case *ent.GroupQuery:
 		return &query[*ent.GroupQuery, predicate.Group, group.OrderOption]{typ: ent.TypeGroup, tq: q}, nil
+	case *ent.GroupUserTagQuery:
+		return &query[*ent.GroupUserTagQuery, predicate.GroupUserTag, groupusertag.OrderOption]{typ: ent.TypeGroupUserTag, tq: q}, nil
 	case *ent.IdempotencyRecordQuery:
 		return &query[*ent.IdempotencyRecordQuery, predicate.IdempotencyRecord, idempotencyrecord.OrderOption]{typ: ent.TypeIdempotencyRecord, tq: q}, nil
 	case *ent.IdentityAdoptionDecisionQuery:
@@ -1270,6 +1386,10 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.UserPlatformQuotaQuery, predicate.UserPlatformQuota, userplatformquota.OrderOption]{typ: ent.TypeUserPlatformQuota, tq: q}, nil
 	case *ent.UserSubscriptionQuery:
 		return &query[*ent.UserSubscriptionQuery, predicate.UserSubscription, usersubscription.OrderOption]{typ: ent.TypeUserSubscription, tq: q}, nil
+	case *ent.UserTagQuery:
+		return &query[*ent.UserTagQuery, predicate.UserTag, usertag.OrderOption]{typ: ent.TypeUserTag, tq: q}, nil
+	case *ent.UserTagAssignmentQuery:
+		return &query[*ent.UserTagAssignmentQuery, predicate.UserTagAssignment, usertagassignment.OrderOption]{typ: ent.TypeUserTagAssignment, tq: q}, nil
 	default:
 		return nil, fmt.Errorf("unknown query type %T", q)
 	}

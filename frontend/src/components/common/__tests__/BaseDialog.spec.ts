@@ -34,4 +34,34 @@ describe('BaseDialog', () => {
     expect(document.body.querySelector<HTMLElement>('.modal-body')?.scrollTop).toBe(0)
     wrapper.unmount()
   })
+
+  it('keeps the parent open and body scroll locked until the child closes', async () => {
+    const parent = mount(BaseDialog, {
+      attachTo: document.body,
+      props: { show: true, title: 'Parent' },
+      global: { stubs: { Icon: true } }
+    })
+    await nextTick()
+    const child = mount(BaseDialog, {
+      attachTo: document.body,
+      props: { show: true, title: 'Child' },
+      global: { stubs: { Icon: true } }
+    })
+    await nextTick()
+
+    expect(document.body.classList.contains('modal-open')).toBe(true)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+    expect(child.emitted('close')).toHaveLength(1)
+    expect(parent.emitted('close')).toBeUndefined()
+
+    await child.setProps({ show: false })
+    expect(document.body.classList.contains('modal-open')).toBe(true)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+    expect(parent.emitted('close')).toHaveLength(1)
+
+    child.unmount()
+    parent.unmount()
+  })
 })

@@ -19,6 +19,37 @@ func TestBillingErrorDetails_MapsGroupRPMExceededToTooManyRequests(t *testing.T)
 	require.LessOrEqual(t, retryAfter, 60)
 }
 
+func TestIsRetryableGroupBillingError_ClassifiesGroupScopedFailures(t *testing.T) {
+	for _, err := range []error{
+		service.ErrSubscriptionNotFound,
+		service.ErrSubscriptionInvalid,
+		service.ErrSubscriptionExpired,
+		service.ErrSubscriptionSuspended,
+		service.ErrDailyLimitExceeded,
+		service.ErrWeeklyLimitExceeded,
+		service.ErrMonthlyLimitExceeded,
+		service.ErrGroupRPMExceeded,
+	} {
+		require.True(t, isRetryableGroupBillingError(err), "expected group failover for %v", err)
+	}
+}
+
+func TestIsRetryableGroupBillingError_RejectsUserAndAPIKeyScopedFailures(t *testing.T) {
+	for _, err := range []error{
+		service.ErrUserRPMExceeded,
+		service.ErrAPIKeyRateLimit5hExceeded,
+		service.ErrAPIKeyRateLimit1dExceeded,
+		service.ErrAPIKeyRateLimit7dExceeded,
+		service.ErrUserPlatformDailyQuotaExhausted,
+		service.ErrUserPlatformWeeklyQuotaExhausted,
+		service.ErrUserPlatformMonthlyQuotaExhausted,
+		service.ErrInsufficientBalance,
+		service.ErrBillingServiceUnavailable,
+	} {
+		require.False(t, isRetryableGroupBillingError(err), "must not fail over for %v", err)
+	}
+}
+
 func TestBillingErrorDetails_MapsUserRPMExceededToTooManyRequests(t *testing.T) {
 	status, code, msg, retryAfter := billingErrorDetails(service.ErrUserRPMExceeded)
 	require.Equal(t, http.StatusTooManyRequests, status)

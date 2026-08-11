@@ -38,17 +38,22 @@
                 : 'border-gray-200 bg-white hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:hover:border-dark-500'"
             >
               <div class="flex items-center gap-4">
-                <!-- 复选框 -->
+                <!-- 手工授权复选框；标签派生授权显示为锁定状态 -->
                 <div class="flex-shrink-0">
-                  <label class="relative flex h-6 w-6 cursor-pointer items-center justify-center">
+                  <div v-if="config.tagMatched" class="flex h-6 w-6 items-center justify-center rounded-md border-2 border-amber-400 bg-amber-100 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-300" :title="config.tagNames.join(', ')">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-7a6 6 0 00-12 0v7a2 2 0 002 2zm3-9V7a3 3 0 016 0v3" />
+                    </svg>
+                  </div>
+                  <label v-else class="relative flex h-6 w-6 cursor-pointer items-center justify-center">
                     <input
                       type="checkbox"
-                      :checked="config.isSelected"
+                      :checked="config.manualSelected"
                       @change="toggleExclusiveGroup(config.groupId)"
                       class="peer sr-only"
                     />
                     <div class="h-5 w-5 rounded-md border-2 border-gray-300 transition-all peer-checked:border-primary-500 peer-checked:bg-primary-500 dark:border-dark-500 peer-checked:dark:border-primary-500">
-                      <svg v-if="config.isSelected" class="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                      <svg v-if="config.manualSelected" class="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
@@ -57,10 +62,13 @@
 
                 <!-- 分组信息 -->
                 <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
                     <span class="text-base font-semibold text-gray-900 dark:text-white">{{ config.groupName }}</span>
                     <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                       {{ t('admin.groups.exclusive') }}
+                    </span>
+                    <span v-if="config.tagMatched" class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                      {{ config.tagNames.join(', ') }} + {{ t('admin.groups.exclusive') }}
                     </span>
                   </div>
                   <div class="mt-1.5 flex items-center gap-3 text-sm">
@@ -183,7 +191,7 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { AdminUser, Group, GroupPlatform } from '@/types'
+import type { AdminUser, Group, GroupPlatform, UserTag } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 
@@ -194,6 +202,9 @@ interface GroupRateConfig {
   isExclusive: boolean
   defaultRate: number
   customRate: number | null
+  manualSelected: boolean
+  tagMatched: boolean
+  tagNames: string[]
   isSelected: boolean
 }
 
@@ -203,6 +214,8 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const groups = ref<Group[]>([])
+const userTags = ref<UserTag[]>([])
+const availableTags = ref<UserTag[]>([])
 const groupConfigs = ref<GroupRateConfig[]>([])
 const originalGroupRates = ref<Record<number, number>>({}) // 记录原始专属倍率，用于检测删除
 const loading = ref(false)
@@ -227,28 +240,43 @@ watch(
 const load = async () => {
   loading.value = true
   try {
-    const res = await adminAPI.groups.list(1, 1000)
+    const [res, loadedUserTags, loadedTags] = await Promise.all([
+      adminAPI.groups.list(1, 1000),
+      props.user?.tags?.length ? Promise.resolve(props.user.tags) : adminAPI.tags.getUserTags(props.user!.id),
+      adminAPI.tags.list().catch(() => [])
+    ])
     // 只显示标准类型且活跃的分组
     groups.value = res.items.filter((g) => g.subscription_type === 'standard' && g.status === 'active')
+    userTags.value = loadedUserTags || []
+    availableTags.value = loadedTags
 
     // 初始化配置
     const userAllowedGroups = props.user?.allowed_groups || []
+    const userTagIDs = new Set(userTags.value.map((tag) => tag.id))
     const userGroupRates = props.user?.group_rates || {}
 
     // 保存原始专属倍率，用于检测删除操作
     originalGroupRates.value = { ...userGroupRates }
 
-    groupConfigs.value = groups.value.map((g) => ({
-      groupId: g.id,
-      groupName: g.name,
-      platform: g.platform,
-      isExclusive: g.is_exclusive,
-      defaultRate: g.rate_multiplier,
-      customRate: userGroupRates[g.id] ?? null,
-      // 专属分组：检查是否在 allowed_groups 中
-      // 公开分组：始终选中
-      isSelected: g.is_exclusive ? userAllowedGroups.includes(g.id) : true,
-    }))
+    groupConfigs.value = groups.value.map((g) => {
+      const groupTags = g.tags?.length
+        ? g.tags
+        : (g.tag_ids || []).map((id) => availableTags.value.find((tag) => tag.id === id)).filter((tag): tag is UserTag => Boolean(tag))
+      const matchedTagNames = groupTags.filter((tag) => userTagIDs.has(tag.id)).map((tag) => tag.name)
+      const tagMatched = g.is_exclusive && matchedTagNames.length > 0
+      return {
+        groupId: g.id,
+        groupName: g.name,
+        platform: g.platform,
+        isExclusive: g.is_exclusive,
+        defaultRate: g.rate_multiplier,
+        customRate: userGroupRates[g.id] ?? null,
+        manualSelected: g.is_exclusive && userAllowedGroups.includes(g.id),
+        tagMatched,
+        tagNames: matchedTagNames,
+        isSelected: g.is_exclusive ? userAllowedGroups.includes(g.id) || tagMatched : true,
+      }
+    })
   } catch (error) {
     console.error('Failed to load groups:', error)
   } finally {
@@ -258,8 +286,9 @@ const load = async () => {
 
 const toggleExclusiveGroup = (groupId: number) => {
   const config = groupConfigs.value.find((c) => c.groupId === groupId)
-  if (config && config.isExclusive) {
-    config.isSelected = !config.isSelected
+  if (config && config.isExclusive && !config.tagMatched) {
+    config.manualSelected = !config.manualSelected
+    config.isSelected = config.manualSelected
   }
 }
 
@@ -281,7 +310,7 @@ const handleSave = async () => {
 
   try {
     // 构建 allowed_groups（仅包含专属分组中被勾选的）
-    const allowedGroups = groupConfigs.value.filter((c) => c.isExclusive && c.isSelected).map((c) => c.groupId)
+    const allowedGroups = groupConfigs.value.filter((c) => c.isExclusive && c.manualSelected).map((c) => c.groupId)
 
     // 构建 group_rates
     // - 有新专属倍率: 设置为该值

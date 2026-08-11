@@ -261,12 +261,28 @@
             </div>
           </template>
 
-          <template #cell-is_exclusive="{ value }">
-            <span :class="['badge', value ? 'badge-primary' : 'badge-gray']">
-              {{
-                value ? t("admin.groups.exclusive") : t("admin.groups.public")
-              }}
-            </span>
+          <template #cell-is_exclusive="{ value, row }">
+            <div class="flex max-w-44 flex-col items-start gap-1.5">
+              <span :class="['badge', value ? 'badge-primary' : 'badge-gray']">
+                {{
+                  value ? t("admin.groups.exclusive") : t("admin.groups.public")
+                }}
+              </span>
+              <div
+                v-if="value && row.tags?.length"
+                data-testid="group-authorization-tags"
+                class="flex flex-wrap gap-1"
+              >
+                <span
+                  v-for="tag in row.tags"
+                  :key="tag.id"
+                  :title="tag.name"
+                  class="inline-flex max-w-40 items-center rounded-md bg-cyan-50 px-1.5 py-0.5 text-xs font-medium text-cyan-700 ring-1 ring-inset ring-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-800"
+                >
+                  <span class="truncate">{{ tag.name }}</span>
+                </span>
+              </div>
+            </div>
           </template>
 
           <template #cell-account_count="{ row }">
@@ -846,6 +862,16 @@
                   : t("admin.groups.public")
               }}
             </span>
+          </div>
+          <div v-if="createForm.is_exclusive && createForm.subscription_type === 'standard'" class="mt-4 border-t border-amber-200 pt-4 dark:border-amber-900/50">
+            <label class="input-label">{{ t("admin.groups.form.tags") }}</label>
+            <UserTagMultiSelect
+              v-model="createForm.tag_ids"
+              :options="availableTags"
+              :placeholder="t('admin.groups.form.tagsPlaceholder')"
+              :empty-text="t('admin.groups.failedToLoadTags')"
+            />
+            <p class="input-hint">{{ t("admin.groups.form.tagsHint") }}</p>
           </div>
         </div>
 
@@ -2690,6 +2716,16 @@
                   : t("admin.groups.public")
               }}
             </span>
+          </div>
+          <div v-if="editForm.is_exclusive && editForm.subscription_type === 'standard'" class="mt-4 border-t border-amber-200 pt-4 dark:border-amber-900/50">
+            <label class="input-label">{{ t("admin.groups.form.tags") }}</label>
+            <UserTagMultiSelect
+              v-model="editForm.tag_ids"
+              :options="availableTags"
+              :placeholder="t('admin.groups.form.tagsPlaceholder')"
+              :empty-text="t('admin.groups.failedToLoadTags')"
+            />
+            <p class="input-hint">{{ t("admin.groups.form.tagsHint") }}</p>
           </div>
         </div>
         <div>
@@ -4668,6 +4704,7 @@ import type {
   CompositeRouteMatchType,
   GroupPlatform,
   SubscriptionType,
+  UserTag,
 } from "@/types";
 import type { Column } from "@/components/common/types";
 import AppLayout from "@/components/layout/AppLayout.vue";
@@ -4678,6 +4715,7 @@ import BaseDialog from "@/components/common/BaseDialog.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import Select from "@/components/common/Select.vue";
+import UserTagMultiSelect from "@/components/admin/user/UserTagMultiSelect.vue";
 import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import Icon from "@/components/icons/Icon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
@@ -5144,6 +5182,7 @@ const copyAccountsGroupOptionsForEdit = computed(() => {
 });
 
 const groups = ref<AdminGroup[]>([]);
+const availableTags = ref<UserTag[]>([]);
 const loading = ref(false);
 type GroupUsageSummary = {
   today_cost: number;
@@ -5329,6 +5368,7 @@ const createForm = reactive({
   // 账号过滤控制（OpenAI/Antigravity 平台）
   require_oauth_only: false,
   require_privacy_set: false,
+  tag_ids: [] as number[],
   // 模型路由开关
   model_routing_enabled: false,
   // 支持的模型系列（仅 antigravity 平台）
@@ -5703,6 +5743,7 @@ const editForm = reactive({
   // 账号过滤控制（OpenAI/Antigravity 平台）
   require_oauth_only: false,
   require_privacy_set: false,
+  tag_ids: [] as number[],
   // 模型路由开关
   model_routing_enabled: false,
   // 支持的模型系列（仅 antigravity 平台）
@@ -5893,6 +5934,15 @@ const deleteConfirmMessage = computed(() => {
   }
   return t("admin.groups.deleteConfirm", { name: deletingGroup.value.name });
 });
+
+const loadAvailableTags = async () => {
+  try {
+    availableTags.value = await adminAPI.tags.list();
+  } catch (error) {
+    appStore.showError(t("admin.groups.failedToLoadTags"));
+    console.error("Error loading user tags:", error);
+  }
+};
 
 const loadLiveCapability = async () => {
   if (liveCapability.value) return liveCapability.value;
@@ -6161,6 +6211,7 @@ const closeCreateModal = () => {
   createForm.allow_live = false;
   createForm.require_oauth_only = false;
   createForm.require_privacy_set = false;
+  createForm.tag_ids = [];
   createForm.supported_model_scopes = ["claude", "gemini_text", "gemini_image"];
   createForm.mcp_xml_inject = true;
   createForm.copy_accounts_from_group_ids = [];
@@ -6468,6 +6519,10 @@ const handleCreateGroup = async () => {
     requestData.peak_rate_multiplier = normalizeRateMultiplier(
       createForm.peak_rate_multiplier,
     );
+    requestData.tag_ids =
+      requestData.subscription_type === "standard" && requestData.is_exclusive
+        ? [...createForm.tag_ids]
+        : [];
     if (requestData.subscription_type === "subscription") {
       requestData.limited_time_multiplier_enabled = false;
       requestData.limited_time_multiplier_cron = "";
@@ -6613,6 +6668,7 @@ const handleEdit = async (group: AdminGroup) => {
     messagesDispatchFormState.exact_model_mappings;
   editForm.require_oauth_only = group.require_oauth_only ?? false;
   editForm.require_privacy_set = group.require_privacy_set ?? false;
+  editForm.tag_ids = [...(group.tag_ids ?? group.tags?.map((tag) => tag.id) ?? [])];
   editForm.model_routing_enabled = group.model_routing_enabled || false;
   editForm.supported_model_scopes = group.supported_model_scopes || [
     "claude",
@@ -6652,6 +6708,7 @@ const closeEditModal = () => {
   editReasoningEffortPolicyRef.value?.resetValidation();
   editModelRoutingRules.value = [];
   editForm.copy_accounts_from_group_ids = [];
+  editForm.tag_ids = [];
   editForm.peak_rate_enabled = false;
   editForm.peak_start = "";
   editForm.peak_end = "";
@@ -6778,6 +6835,10 @@ const handleUpdateGroup = async () => {
     payload.peak_rate_multiplier = normalizeRateMultiplier(
       editForm.peak_rate_multiplier,
     );
+    payload.tag_ids =
+      payload.subscription_type === "standard" && payload.is_exclusive
+        ? [...editForm.tag_ids]
+        : [];
     if (payload.subscription_type === "subscription") {
       payload.limited_time_multiplier_enabled = false;
       payload.limited_time_multiplier_cron = "";
@@ -7109,6 +7170,7 @@ watch(
   (newVal) => {
     if (newVal === "subscription") {
       createForm.is_exclusive = true;
+      createForm.tag_ids = [];
       createForm.fallback_group_id_on_invalid_request = null;
     } else {
       createForm.peak_rate_enabled = false;
@@ -7123,12 +7185,29 @@ watch(
 watch(
   () => editForm.subscription_type,
   (newVal) => {
+    if (newVal === "subscription") {
+      editForm.tag_ids = [];
+    }
     if (newVal !== "subscription") {
       editForm.peak_rate_enabled = false;
       editForm.peak_start = "";
       editForm.peak_end = "";
       editForm.peak_rate_multiplier = 1.0;
     }
+  },
+);
+
+watch(
+  () => createForm.is_exclusive,
+  (enabled) => {
+    if (!enabled) createForm.tag_ids = [];
+  },
+);
+
+watch(
+  () => editForm.is_exclusive,
+  (enabled) => {
+    if (!enabled) editForm.tag_ids = [];
   },
 );
 
@@ -7304,6 +7383,7 @@ const saveSortOrder = async () => {
 
 onMounted(() => {
   loadGroups();
+  void loadAvailableTags();
   void loadLiveCapability();
   loadModelsListCandidates("create", 0, createForm.platform);
   document.addEventListener("click", handleClickOutside);

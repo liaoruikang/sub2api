@@ -10,6 +10,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygroup"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -23,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/grokvideojob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupusertag"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
@@ -46,6 +48,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/ent/usertag"
+	"github.com/Wei-Shaw/sub2api/ent/usertagassignment"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
@@ -146,6 +150,18 @@ func init() {
 	apikeyDescUsage7d := apikeyFields[16].Descriptor()
 	// apikey.DefaultUsage7d holds the default value on creation for the usage_7d field.
 	apikey.DefaultUsage7d = apikeyDescUsage7d.Default.(float64)
+	apikeygroupFields := schema.APIKeyGroup{}.Fields()
+	_ = apikeygroupFields
+	// apikeygroupDescPosition is the schema descriptor for position field.
+	apikeygroupDescPosition := apikeygroupFields[2].Descriptor()
+	// apikeygroup.DefaultPosition holds the default value on creation for the position field.
+	apikeygroup.DefaultPosition = apikeygroupDescPosition.Default.(int)
+	// apikeygroup.PositionValidator is a validator for the "position" field. It is called by the builders before save.
+	apikeygroup.PositionValidator = apikeygroupDescPosition.Validators[0].(func(int) error)
+	// apikeygroupDescCreatedAt is the schema descriptor for created_at field.
+	apikeygroupDescCreatedAt := apikeygroupFields[3].Descriptor()
+	// apikeygroup.DefaultCreatedAt holds the default value on creation for the created_at field.
+	apikeygroup.DefaultCreatedAt = apikeygroupDescCreatedAt.Default.(func() time.Time)
 	accountMixin := schema.Account{}.Mixin()
 	accountMixinHooks1 := accountMixin[1].Hooks()
 	account.Hooks[0] = accountMixinHooks1[0]
@@ -1292,6 +1308,12 @@ func init() {
 	groupDescProfitSafetyBuffer := groupFields[63].Descriptor()
 	// group.DefaultProfitSafetyBuffer holds the default value on creation for the profit_safety_buffer field.
 	group.DefaultProfitSafetyBuffer = groupDescProfitSafetyBuffer.Default.(float64)
+	groupusertagFields := schema.GroupUserTag{}.Fields()
+	_ = groupusertagFields
+	// groupusertagDescCreatedAt is the schema descriptor for created_at field.
+	groupusertagDescCreatedAt := groupusertagFields[2].Descriptor()
+	// groupusertag.DefaultCreatedAt holds the default value on creation for the created_at field.
+	groupusertag.DefaultCreatedAt = groupusertagDescCreatedAt.Default.(func() time.Time)
 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()
 	idempotencyrecordMixinFields0 := idempotencyrecordMixin[0].Fields()
 	_ = idempotencyrecordMixinFields0
@@ -2563,6 +2585,49 @@ func init() {
 	usersubscriptionDescAssignedAt := usersubscriptionFields[12].Descriptor()
 	// usersubscription.DefaultAssignedAt holds the default value on creation for the assigned_at field.
 	usersubscription.DefaultAssignedAt = usersubscriptionDescAssignedAt.Default.(func() time.Time)
+	usertagMixin := schema.UserTag{}.Mixin()
+	usertagMixinHooks1 := usertagMixin[1].Hooks()
+	usertag.Hooks[0] = usertagMixinHooks1[0]
+	usertagMixinInters1 := usertagMixin[1].Interceptors()
+	usertag.Interceptors[0] = usertagMixinInters1[0]
+	usertagMixinFields0 := usertagMixin[0].Fields()
+	_ = usertagMixinFields0
+	usertagFields := schema.UserTag{}.Fields()
+	_ = usertagFields
+	// usertagDescCreatedAt is the schema descriptor for created_at field.
+	usertagDescCreatedAt := usertagMixinFields0[0].Descriptor()
+	// usertag.DefaultCreatedAt holds the default value on creation for the created_at field.
+	usertag.DefaultCreatedAt = usertagDescCreatedAt.Default.(func() time.Time)
+	// usertagDescUpdatedAt is the schema descriptor for updated_at field.
+	usertagDescUpdatedAt := usertagMixinFields0[1].Descriptor()
+	// usertag.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	usertag.DefaultUpdatedAt = usertagDescUpdatedAt.Default.(func() time.Time)
+	// usertag.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	usertag.UpdateDefaultUpdatedAt = usertagDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// usertagDescName is the schema descriptor for name field.
+	usertagDescName := usertagFields[0].Descriptor()
+	// usertag.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	usertag.NameValidator = func() func(string) error {
+		validators := usertagDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	usertagassignmentFields := schema.UserTagAssignment{}.Fields()
+	_ = usertagassignmentFields
+	// usertagassignmentDescCreatedAt is the schema descriptor for created_at field.
+	usertagassignmentDescCreatedAt := usertagassignmentFields[2].Descriptor()
+	// usertagassignment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	usertagassignment.DefaultCreatedAt = usertagassignmentDescCreatedAt.Default.(func() time.Time)
 }
 
 const (

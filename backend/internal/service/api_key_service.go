@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,14 +24,18 @@ import (
 )
 
 var (
-	ErrAPIKeyNotFound       = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
-	ErrGroupNotAllowed      = infraerrors.Forbidden("GROUP_NOT_ALLOWED", "user is not allowed to bind this group")
-	ErrAPIKeyExists         = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
-	ErrAPIKeyTooShort       = infraerrors.BadRequest("API_KEY_TOO_SHORT", "api key must be at least 16 characters")
-	ErrAPIKeyInvalidChars   = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
-	ErrAPIKeyRateLimited    = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
-	ErrAPIKeyAuthOverloaded = infraerrors.ServiceUnavailable("API_KEY_AUTH_OVERLOADED", "api key authentication is temporarily overloaded")
-	ErrInvalidIPPattern     = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrAPIKeyNotFound                  = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+	ErrGroupNotAllowed                 = infraerrors.Forbidden("GROUP_NOT_ALLOWED", "user is not allowed to bind this group")
+	ErrAPIKeyExists                    = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
+	ErrAPIKeyTooShort                  = infraerrors.BadRequest("API_KEY_TOO_SHORT", "api key must be at least 16 characters")
+	ErrAPIKeyInvalidChars              = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
+	ErrAPIKeyRateLimited               = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
+	ErrAPIKeyAuthOverloaded            = infraerrors.ServiceUnavailable("API_KEY_AUTH_OVERLOADED", "api key authentication is temporarily overloaded")
+	ErrInvalidIPPattern                = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrInvalidGroupID                  = infraerrors.BadRequest("INVALID_GROUP_ID", "group_ids must contain positive group ids")
+	ErrAPIKeyGroupMismatch             = infraerrors.BadRequest("API_KEY_GROUP_MISMATCH", "group_id must match group_ids")
+	ErrAPIKeyGroupPlatformMismatch     = infraerrors.BadRequest("API_KEY_GROUP_PLATFORM_MISMATCH", "api key groups must use the same platform")
+	ErrAPIKeyGroupSubscriptionMismatch = infraerrors.BadRequest("API_KEY_GROUP_SUBSCRIPTION_MISMATCH", "api key groups must use the same subscription type")
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -210,6 +215,7 @@ type APIKeyAuthCacheInvalidator interface {
 type CreateAPIKeyRequest struct {
 	Name        string   `json:"name"`
 	GroupID     *int64   `json:"group_id"`
+	GroupIDs    *[]int64 `json:"group_ids"`
 	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
 	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
 	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
@@ -228,6 +234,7 @@ type CreateAPIKeyRequest struct {
 type UpdateAPIKeyRequest struct {
 	Name        *string   `json:"name"`
 	GroupID     *int64    `json:"group_id"`
+	GroupIDs    *[]int64  `json:"group_ids"`
 	Status      *string   `json:"status"`
 	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
 	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
@@ -257,6 +264,7 @@ type APIKeyService struct {
 	groupRepo                 GroupRepository
 	userSubRepo               UserSubscriptionRepository
 	userGroupRateRepo         UserGroupRateRepository
+	userTagRepo               UserTagRepository
 	cache                     APIKeyCache
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	concurrencyService        *ConcurrencyService
@@ -336,6 +344,31 @@ func (s *APIKeyService) SetRateLimitCacheInvalidator(inv RateLimitCacheInvalidat
 
 func (s *APIKeyService) SetConcurrencyService(concurrencyService *ConcurrencyService) {
 	s.concurrencyService = concurrencyService
+}
+
+// SetUserTagRepository injects tag-derived group lookup without changing the
+// constructor signature used by existing service consumers and tests.
+func (s *APIKeyService) SetUserTagRepository(repo UserTagRepository) {
+	s.userTagRepo = repo
+}
+
+func (s *APIKeyService) loadTagDerivedGroupsForUser(ctx context.Context, user *User) error {
+	if s == nil || s.userTagRepo == nil || user == nil {
+		return nil
+	}
+	groupIDs, err := s.userTagRepo.GetGroupIDsByUserID(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("get tag-derived groups: %w", err)
+	}
+	user.TagDerivedGroups = append([]int64(nil), groupIDs...)
+	return nil
+}
+
+func (s *APIKeyService) loadTagDerivedGroups(ctx context.Context, apiKey *APIKey) error {
+	if apiKey == nil {
+		return nil
+	}
+	return s.loadTagDerivedGroupsForUser(ctx, apiKey.User)
 }
 
 func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
@@ -426,12 +459,80 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
+func normalizeAPIKeyRequestGroupIDs(groupIDs *[]int64, legacyGroupID *int64, allowLegacyZero bool) ([]int64, error) {
+	if groupIDs == nil {
+		if legacyGroupID == nil {
+			return []int64{}, nil
+		}
+		if *legacyGroupID == 0 && allowLegacyZero {
+			return []int64{}, nil
+		}
+		if *legacyGroupID <= 0 {
+			return nil, ErrInvalidGroupID
+		}
+		return []int64{*legacyGroupID}, nil
+	}
+
+	seen := make(map[int64]struct{}, len(*groupIDs))
+	normalized := make([]int64, 0, len(*groupIDs))
+	for _, groupID := range *groupIDs {
+		if groupID <= 0 {
+			return nil, ErrInvalidGroupID
+		}
+		if _, exists := seen[groupID]; exists {
+			continue
+		}
+		seen[groupID] = struct{}{}
+		normalized = append(normalized, groupID)
+	}
+
+	if legacyGroupID != nil {
+		if *legacyGroupID < 0 || (*legacyGroupID == 0 && len(normalized) > 0) {
+			return nil, ErrAPIKeyGroupMismatch
+		}
+		if len(normalized) == 0 {
+			if *legacyGroupID != 0 {
+				return nil, ErrAPIKeyGroupMismatch
+			}
+		} else if normalized[0] != *legacyGroupID {
+			return nil, ErrAPIKeyGroupMismatch
+		}
+	}
+	return normalized, nil
+}
+
+func (s *APIKeyService) resolveAPIKeyGroups(ctx context.Context, user *User, groupIDs []int64) ([]*Group, error) {
+	groups := make([]*Group, 0, len(groupIDs))
+	for _, groupID := range groupIDs {
+		group, err := s.groupRepo.GetByID(ctx, groupID)
+		if err != nil {
+			return nil, fmt.Errorf("get group: %w", err)
+		}
+		if !s.canUserBindGroup(ctx, user, group) {
+			return nil, ErrGroupNotAllowed
+		}
+		if len(groups) > 0 {
+			if group.Platform != groups[0].Platform {
+				return nil, ErrAPIKeyGroupPlatformMismatch
+			}
+			if group.SubscriptionType != groups[0].SubscriptionType {
+				return nil, ErrAPIKeyGroupSubscriptionMismatch
+			}
+		}
+		groups = append(groups, group)
+	}
+	return groups, nil
+}
+
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
 	// 验证用户存在
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if err := s.loadTagDerivedGroupsForUser(ctx, user); err != nil {
+		return nil, err
 	}
 
 	// 验证 IP 白名单格式
@@ -448,17 +549,12 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 	}
 
-	// 验证分组权限（如果指定了分组）
-	if req.GroupID != nil {
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
-		}
-
-		// 检查用户是否可以绑定该分组
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
-		}
+	groupIDs, err := normalizeAPIKeyRequestGroupIDs(req.GroupIDs, req.GroupID, false)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.resolveAPIKeyGroups(ctx, user, groupIDs); err != nil {
+		return nil, err
 	}
 
 	var key string
@@ -501,7 +597,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		UserID:      userID,
 		Key:         key,
 		Name:        html.EscapeString(req.Name),
-		GroupID:     req.GroupID,
+		GroupIDs:    groupIDs,
 		Status:      StatusActive,
 		IPWhitelist: req.IPWhitelist,
 		IPBlacklist: req.IPBlacklist,
@@ -717,6 +813,9 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
 	apiKey.Key = key
+	if err := s.loadTagDerivedGroups(ctx, apiKey); err != nil {
+		return nil, err
+	}
 	s.compileAPIKeyIPRules(apiKey)
 	return apiKey, nil
 }
@@ -760,23 +859,28 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		fields.Name = true
 	}
 
-	if req.GroupID != nil {
-		// 验证分组权限
+	if req.GroupIDs != nil || req.GroupID != nil {
 		user, err := s.userRepo.GetByID(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("get user: %w", err)
 		}
-
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
+		if err := s.loadTagDerivedGroupsForUser(ctx, user); err != nil {
+			return nil, err
+		}
+		groupIDs, err := normalizeAPIKeyRequestGroupIDs(req.GroupIDs, req.GroupID, true)
 		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
+			return nil, err
 		}
-
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
+		if _, err := s.resolveAPIKeyGroups(ctx, user, groupIDs); err != nil {
+			return nil, err
 		}
-
-		apiKey.GroupID = req.GroupID
+		apiKey.GroupIDs = groupIDs
+		if len(groupIDs) == 0 {
+			apiKey.GroupID = nil
+		} else {
+			gid := groupIDs[0]
+			apiKey.GroupID = &gid
+		}
 		fields.GroupID = true
 	}
 
@@ -921,6 +1025,9 @@ func (s *APIKeyService) ValidateKey(ctx context.Context, key string) (*APIKey, *
 	if err != nil {
 		return nil, nil, fmt.Errorf("get user: %w", err)
 	}
+	if err := s.loadTagDerivedGroupsForUser(ctx, user); err != nil {
+		return nil, nil, err
+	}
 
 	// 检查用户状态
 	if !user.IsActive() {
@@ -986,6 +1093,10 @@ func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
+	if err := s.loadTagDerivedGroupsForUser(ctx, user); err != nil {
+		// 标签仅用于补充专属分组权限；查询失败不能让公开分组从创建密钥列表消失。
+		slog.Warn("failed to load tag-derived groups for available API key groups", "user_id", userID, "error", err)
+	}
 
 	// 获取所有活跃分组
 	allGroups, err := s.groupRepo.ListActive(ctx)
@@ -1013,6 +1124,35 @@ func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([
 		}
 	}
 
+	if s.userTagRepo != nil {
+		for i := range availableGroups {
+			if !availableGroups[i].IsExclusive || availableGroups[i].IsSubscriptionType() {
+				continue
+			}
+			tags, err := s.userTagRepo.GetByGroupID(ctx, availableGroups[i].ID)
+			if err != nil {
+				slog.Warn("failed to load group tags for available API key groups", "group_id", availableGroups[i].ID, "error", err)
+				continue
+			}
+			availableGroups[i].Tags = tags
+			availableGroups[i].TagIDs = make([]int64, 0, len(tags))
+			for _, tag := range tags {
+				availableGroups[i].TagIDs = append(availableGroups[i].TagIDs, tag.ID)
+			}
+		}
+	}
+
+	exclusiveGroups := make([]Group, 0, len(availableGroups))
+	publicGroups := make([]Group, 0, len(availableGroups))
+	for _, group := range availableGroups {
+		if group.IsExclusive {
+			exclusiveGroups = append(exclusiveGroups, group)
+		} else {
+			publicGroups = append(publicGroups, group)
+		}
+	}
+	availableGroups = append(exclusiveGroups, publicGroups...)
+
 	return availableGroups, nil
 }
 
@@ -1034,7 +1174,7 @@ func (s *APIKeyService) SearchAPIKeys(ctx context.Context, userID int64, keyword
 	return keys, nil
 }
 
-// GetUserAllowedGroupIDSet 返回 user_allowed_groups 授权给该用户的专属分组 ID 集合。
+// GetUserAllowedGroupIDSet 返回手工授权和标签派生授权的专属分组 ID 并集。
 //
 // 与 GetAvailableGroups 的区别：这里是「橱窗」语义（模型广场用），不检查订阅有效性，
 // 也不关心分组是否活跃——仅回答"哪些专属分组对该用户可见"。返回值恒非 nil。
@@ -1043,8 +1183,14 @@ func (s *APIKeyService) GetUserAllowedGroupIDSet(ctx context.Context, userID int
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	allowed := make(map[int64]struct{}, len(user.AllowedGroups))
+	if err := s.loadTagDerivedGroupsForUser(ctx, user); err != nil {
+		return nil, err
+	}
+	allowed := make(map[int64]struct{}, len(user.AllowedGroups)+len(user.TagDerivedGroups))
 	for _, id := range user.AllowedGroups {
+		allowed[id] = struct{}{}
+	}
+	for _, id := range user.TagDerivedGroups {
 		allowed[id] = struct{}{}
 	}
 	return allowed, nil

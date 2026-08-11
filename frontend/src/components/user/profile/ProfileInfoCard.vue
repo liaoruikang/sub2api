@@ -38,6 +38,25 @@
                 </span>
               </div>
 
+              <div
+                v-if="user?.tags?.length"
+                data-testid="profile-overview-tags"
+                class="flex flex-wrap items-center gap-2"
+                :aria-label="t('profile.tags')"
+              >
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {{ t('profile.tags') }}
+                </span>
+                <span
+                  v-for="tag in user.tags"
+                  :key="tag.id"
+                  :title="tag.name"
+                  class="badge badge-primary max-w-full"
+                >
+                  <span class="truncate">{{ tag.name }}</span>
+                </span>
+              </div>
+
               <div class="space-y-1">
                 <p class="truncate text-sm text-gray-600 dark:text-gray-300">
                   {{ primaryEmailDisplay }}

@@ -46,6 +46,21 @@ type mockUserRepo struct {
 	txCalls                  int
 }
 
+type mockUserTagRepo struct {
+	UserTagRepository
+	tags    []UserTag
+	err     error
+	userIDs []int64
+}
+
+func (m *mockUserTagRepo) GetByUserID(_ context.Context, userID int64) ([]UserTag, error) {
+	m.userIDs = append(m.userIDs, userID)
+	if m.err != nil {
+		return nil, m.err
+	}
+	return append([]UserTag(nil), m.tags...), nil
+}
+
 type mockUserRepoTxKey struct{}
 
 type mockUserRepoTxState struct {
@@ -891,6 +906,44 @@ func TestUpdateProfile_RollsBackAvatarMutationWhenUserUpdateFails(t *testing.T) 
 	require.Empty(t, repo.deleteAvatarIDs)
 	require.Equal(t, "https://cdn.example.com/original.png", repo.getByIDUser.AvatarURL)
 	require.Equal(t, "remote_url", repo.getByIDUser.AvatarSource)
+}
+
+func TestUserServiceHydratesTagsOnlyForProfileReads(t *testing.T) {
+	tagsRepo := &mockUserTagRepo{
+		tags: []UserTag{
+			{ID: 7, Name: "VIP"},
+			{ID: 8, Name: "美西"},
+		},
+	}
+	repo := &mockUserRepo{
+		getByIDUser: &User{ID: 12, Email: "tags@example.com"},
+	}
+	svc := NewUserService(repo, nil, nil, nil)
+	svc.SetUserTagRepository(tagsRepo)
+
+	current, err := svc.GetCurrentUser(context.Background(), 12)
+	require.NoError(t, err)
+	require.Equal(t, []UserTag{{ID: 7, Name: "VIP"}, {ID: 8, Name: "美西"}}, current.Tags)
+
+	profile, err := svc.GetProfile(context.Background(), 12)
+	require.NoError(t, err)
+	require.Equal(t, current.Tags, profile.Tags)
+	require.Equal(t, []int64{12, 12}, tagsRepo.userIDs)
+
+	_, err = svc.GetByID(context.Background(), 12)
+	require.NoError(t, err)
+	require.Equal(t, []int64{12, 12}, tagsRepo.userIDs)
+}
+
+func TestUserServiceTagHydrationFailureDoesNotBlockProfile(t *testing.T) {
+	tagsRepo := &mockUserTagRepo{err: errors.New("tag lookup failed")}
+	repo := &mockUserRepo{getByIDUser: &User{ID: 12, Email: "tags@example.com"}}
+	svc := NewUserService(repo, nil, nil, nil)
+	svc.SetUserTagRepository(tagsRepo)
+
+	user, err := svc.GetCurrentUser(context.Background(), 12)
+	require.NoError(t, err)
+	require.Empty(t, user.Tags)
 }
 
 func TestGetProfile_HydratesAvatarFromRepository(t *testing.T) {

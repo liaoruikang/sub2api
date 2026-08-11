@@ -807,8 +807,14 @@ func (s *GatewayService) groupFromContext(ctx context.Context, groupID int64) *G
 }
 
 func (s *GatewayService) resolveGroupByID(ctx context.Context, groupID int64) (*Group, error) {
+	if s == nil {
+		return nil, ErrGroupNotFound
+	}
 	if group := s.groupFromContext(ctx, groupID); group != nil {
 		return group, nil
+	}
+	if s.groupRepo == nil {
+		return nil, ErrGroupNotFound
 	}
 	group, err := s.groupRepo.GetByIDLite(ctx, groupID)
 	if err != nil {
@@ -819,6 +825,15 @@ func (s *GatewayService) resolveGroupByID(ctx context.Context, groupID int64) (*
 
 func (s *GatewayService) ResolveGroupByID(ctx context.Context, groupID int64) (*Group, error) {
 	return s.resolveGroupByID(ctx, groupID)
+}
+
+// ResolveActiveSubscription returns the active subscription for a target group.
+// Gateway handlers use it when an API key moves beyond its primary group.
+func (s *GatewayService) ResolveActiveSubscription(ctx context.Context, userID, groupID int64) (*UserSubscription, error) {
+	if s == nil || s.userSubRepo == nil {
+		return nil, ErrSubscriptionNotFound
+	}
+	return s.userSubRepo.GetActiveByUserIDAndGroupID(ctx, userID, groupID)
 }
 
 func (s *GatewayService) routingAccountIDsForRequest(ctx context.Context, groupID *int64, requestedModel string, platform string) []int64 {

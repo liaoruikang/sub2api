@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygroup"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -33,6 +34,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/grokvideojob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupusertag"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
@@ -55,6 +57,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/ent/usertag"
+	"github.com/Wei-Shaw/sub2api/ent/usertagassignment"
 
 	stdsql "database/sql"
 )
@@ -66,6 +70,8 @@ type Client struct {
 	Schema *migrate.Schema
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// APIKeyGroup is the client for interacting with the APIKeyGroup builders.
+	APIKeyGroup *APIKeyGroupClient
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
@@ -100,6 +106,8 @@ type Client struct {
 	GrokVideoJob *GrokVideoJobClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// GroupUserTag is the client for interacting with the GroupUserTag builders.
+	GroupUserTag *GroupUserTagClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
@@ -144,6 +152,10 @@ type Client struct {
 	UserPlatformQuota *UserPlatformQuotaClient
 	// UserSubscription is the client for interacting with the UserSubscription builders.
 	UserSubscription *UserSubscriptionClient
+	// UserTag is the client for interacting with the UserTag builders.
+	UserTag *UserTagClient
+	// UserTagAssignment is the client for interacting with the UserTagAssignment builders.
+	UserTagAssignment *UserTagAssignmentClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -156,6 +168,7 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.APIKey = NewAPIKeyClient(c.config)
+	c.APIKeyGroup = NewAPIKeyGroupClient(c.config)
 	c.Account = NewAccountClient(c.config)
 	c.AccountGroup = NewAccountGroupClient(c.config)
 	c.Announcement = NewAnnouncementClient(c.config)
@@ -173,6 +186,7 @@ func (c *Client) init() {
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.GrokVideoJob = NewGrokVideoJobClient(c.config)
 	c.Group = NewGroupClient(c.config)
+	c.GroupUserTag = NewGroupUserTagClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
 	c.PaymentAuditLog = NewPaymentAuditLogClient(c.config)
@@ -195,6 +209,8 @@ func (c *Client) init() {
 	c.UserAttributeValue = NewUserAttributeValueClient(c.config)
 	c.UserPlatformQuota = NewUserPlatformQuotaClient(c.config)
 	c.UserSubscription = NewUserSubscriptionClient(c.config)
+	c.UserTag = NewUserTagClient(c.config)
+	c.UserTagAssignment = NewUserTagAssignmentClient(c.config)
 }
 
 type (
@@ -288,6 +304,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:                           ctx,
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
+		APIKeyGroup:                   NewAPIKeyGroupClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
@@ -305,6 +322,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		GrokVideoJob:                  NewGrokVideoJobClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		GroupUserTag:                  NewGroupUserTagClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
@@ -327,6 +345,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		UserAttributeValue:            NewUserAttributeValueClient(cfg),
 		UserPlatformQuota:             NewUserPlatformQuotaClient(cfg),
 		UserSubscription:              NewUserSubscriptionClient(cfg),
+		UserTag:                       NewUserTagClient(cfg),
+		UserTagAssignment:             NewUserTagAssignmentClient(cfg),
 	}, nil
 }
 
@@ -347,6 +367,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:                           ctx,
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
+		APIKeyGroup:                   NewAPIKeyGroupClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
@@ -364,6 +385,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		GrokVideoJob:                  NewGrokVideoJobClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		GroupUserTag:                  NewGroupUserTagClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
@@ -386,6 +408,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		UserAttributeValue:            NewUserAttributeValueClient(cfg),
 		UserPlatformQuota:             NewUserPlatformQuotaClient(cfg),
 		UserSubscription:              NewUserSubscriptionClient(cfg),
+		UserTag:                       NewUserTagClient(cfg),
+		UserTagAssignment:             NewUserTagAssignmentClient(cfg),
 	}, nil
 }
 
@@ -415,17 +439,18 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
-		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.GrokVideoJob, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.APIKey, c.APIKeyGroup, c.Account, c.AccountGroup, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.GrokVideoJob, c.Group, c.GroupUserTag, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
+		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
+		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription, c.UserTag, c.UserTagAssignment,
 	} {
 		n.Use(hooks...)
 	}
@@ -435,17 +460,18 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
-		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.GrokVideoJob, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.APIKey, c.APIKeyGroup, c.Account, c.AccountGroup, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.GrokVideoJob, c.Group, c.GroupUserTag, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
+		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
+		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription, c.UserTag, c.UserTagAssignment,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -456,6 +482,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *APIKeyMutation:
 		return c.APIKey.mutate(ctx, m)
+	case *APIKeyGroupMutation:
+		return c.APIKeyGroup.mutate(ctx, m)
 	case *AccountMutation:
 		return c.Account.mutate(ctx, m)
 	case *AccountGroupMutation:
@@ -490,6 +518,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.GrokVideoJob.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
+	case *GroupUserTagMutation:
+		return c.GroupUserTag.mutate(ctx, m)
 	case *IdempotencyRecordMutation:
 		return c.IdempotencyRecord.mutate(ctx, m)
 	case *IdentityAdoptionDecisionMutation:
@@ -534,6 +564,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.UserPlatformQuota.mutate(ctx, m)
 	case *UserSubscriptionMutation:
 		return c.UserSubscription.mutate(ctx, m)
+	case *UserTagMutation:
+		return c.UserTag.mutate(ctx, m)
+	case *UserTagAssignmentMutation:
+		return c.UserTagAssignment.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -679,6 +713,22 @@ func (c *APIKeyClient) QueryGroup(_m *APIKey) *GroupQuery {
 	return query
 }
 
+// QueryGroups queries the groups edge of a APIKey.
+func (c *APIKeyClient) QueryGroups(_m *APIKey) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, apikey.GroupsTable, apikey.GroupsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUsageLogs queries the usage_logs edge of a APIKey.
 func (c *APIKeyClient) QueryUsageLogs(_m *APIKey) *UsageLogQuery {
 	query := (&UsageLogClient{config: c.config}).Query()
@@ -688,6 +738,22 @@ func (c *APIKeyClient) QueryUsageLogs(_m *APIKey) *UsageLogQuery {
 			sqlgraph.From(apikey.Table, apikey.FieldID, id),
 			sqlgraph.To(usagelog.Table, usagelog.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, apikey.UsageLogsTable, apikey.UsageLogsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAPIKeyGroups queries the api_key_groups edge of a APIKey.
+func (c *APIKeyClient) QueryAPIKeyGroups(_m *APIKey) *APIKeyGroupQuery {
+	query := (&APIKeyGroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, id),
+			sqlgraph.To(apikeygroup.Table, apikeygroup.APIKeyColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, apikey.APIKeyGroupsTable, apikey.APIKeyGroupsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -719,6 +785,122 @@ func (c *APIKeyClient) mutate(ctx context.Context, m *APIKeyMutation) (Value, er
 		return (&APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown APIKey mutation op: %q", m.Op())
+	}
+}
+
+// APIKeyGroupClient is a client for the APIKeyGroup schema.
+type APIKeyGroupClient struct {
+	config
+}
+
+// NewAPIKeyGroupClient returns a client for the APIKeyGroup from the given config.
+func NewAPIKeyGroupClient(c config) *APIKeyGroupClient {
+	return &APIKeyGroupClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `apikeygroup.Hooks(f(g(h())))`.
+func (c *APIKeyGroupClient) Use(hooks ...Hook) {
+	c.hooks.APIKeyGroup = append(c.hooks.APIKeyGroup, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `apikeygroup.Intercept(f(g(h())))`.
+func (c *APIKeyGroupClient) Intercept(interceptors ...Interceptor) {
+	c.inters.APIKeyGroup = append(c.inters.APIKeyGroup, interceptors...)
+}
+
+// Create returns a builder for creating a APIKeyGroup entity.
+func (c *APIKeyGroupClient) Create() *APIKeyGroupCreate {
+	mutation := newAPIKeyGroupMutation(c.config, OpCreate)
+	return &APIKeyGroupCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of APIKeyGroup entities.
+func (c *APIKeyGroupClient) CreateBulk(builders ...*APIKeyGroupCreate) *APIKeyGroupCreateBulk {
+	return &APIKeyGroupCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *APIKeyGroupClient) MapCreateBulk(slice any, setFunc func(*APIKeyGroupCreate, int)) *APIKeyGroupCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &APIKeyGroupCreateBulk{err: fmt.Errorf("calling to APIKeyGroupClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*APIKeyGroupCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &APIKeyGroupCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for APIKeyGroup.
+func (c *APIKeyGroupClient) Update() *APIKeyGroupUpdate {
+	mutation := newAPIKeyGroupMutation(c.config, OpUpdate)
+	return &APIKeyGroupUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *APIKeyGroupClient) UpdateOne(_m *APIKeyGroup) *APIKeyGroupUpdateOne {
+	mutation := newAPIKeyGroupMutation(c.config, OpUpdateOne)
+	mutation.api_key = &_m.APIKeyID
+	mutation.group = &_m.GroupID
+	return &APIKeyGroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for APIKeyGroup.
+func (c *APIKeyGroupClient) Delete() *APIKeyGroupDelete {
+	mutation := newAPIKeyGroupMutation(c.config, OpDelete)
+	return &APIKeyGroupDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Query returns a query builder for APIKeyGroup.
+func (c *APIKeyGroupClient) Query() *APIKeyGroupQuery {
+	return &APIKeyGroupQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAPIKeyGroup},
+		inters: c.Interceptors(),
+	}
+}
+
+// QueryAPIKey queries the api_key edge of a APIKeyGroup.
+func (c *APIKeyGroupClient) QueryAPIKey(_m *APIKeyGroup) *APIKeyQuery {
+	return c.Query().
+		Where(apikeygroup.APIKeyID(_m.APIKeyID), apikeygroup.GroupID(_m.GroupID)).
+		QueryAPIKey()
+}
+
+// QueryGroup queries the group edge of a APIKeyGroup.
+func (c *APIKeyGroupClient) QueryGroup(_m *APIKeyGroup) *GroupQuery {
+	return c.Query().
+		Where(apikeygroup.APIKeyID(_m.APIKeyID), apikeygroup.GroupID(_m.GroupID)).
+		QueryGroup()
+}
+
+// Hooks returns the client hooks.
+func (c *APIKeyGroupClient) Hooks() []Hook {
+	return c.hooks.APIKeyGroup
+}
+
+// Interceptors returns the client interceptors.
+func (c *APIKeyGroupClient) Interceptors() []Interceptor {
+	return c.inters.APIKeyGroup
+}
+
+func (c *APIKeyGroupClient) mutate(ctx context.Context, m *APIKeyGroupMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&APIKeyGroupCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&APIKeyGroupUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&APIKeyGroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&APIKeyGroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown APIKeyGroup mutation op: %q", m.Op())
 	}
 }
 
@@ -3281,6 +3463,22 @@ func (c *GroupClient) QueryAPIKeys(_m *Group) *APIKeyQuery {
 	return query
 }
 
+// QueryAPIKeyFallbacks queries the api_key_fallbacks edge of a Group.
+func (c *GroupClient) QueryAPIKeyFallbacks(_m *Group) *APIKeyQuery {
+	query := (&APIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(apikey.Table, apikey.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, group.APIKeyFallbacksTable, group.APIKeyFallbacksPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryRedeemCodes queries the redeem_codes edge of a Group.
 func (c *GroupClient) QueryRedeemCodes(_m *Group) *RedeemCodeQuery {
 	query := (&RedeemCodeClient{config: c.config}).Query()
@@ -3361,6 +3559,38 @@ func (c *GroupClient) QueryAllowedUsers(_m *Group) *UserQuery {
 	return query
 }
 
+// QueryUserTags queries the user_tags edge of a Group.
+func (c *GroupClient) QueryUserTags(_m *Group) *UserTagQuery {
+	query := (&UserTagClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(usertag.Table, usertag.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, group.UserTagsTable, group.UserTagsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAPIKeyGroups queries the api_key_groups edge of a Group.
+func (c *GroupClient) QueryAPIKeyGroups(_m *Group) *APIKeyGroupQuery {
+	query := (&APIKeyGroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(apikeygroup.Table, apikeygroup.GroupColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, group.APIKeyGroupsTable, group.APIKeyGroupsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAccountGroups queries the account_groups edge of a Group.
 func (c *GroupClient) QueryAccountGroups(_m *Group) *AccountGroupQuery {
 	query := (&AccountGroupClient{config: c.config}).Query()
@@ -3393,6 +3623,22 @@ func (c *GroupClient) QueryUserAllowedGroups(_m *Group) *UserAllowedGroupQuery {
 	return query
 }
 
+// QueryGroupUserTags queries the group_user_tags edge of a Group.
+func (c *GroupClient) QueryGroupUserTags(_m *Group) *GroupUserTagQuery {
+	query := (&GroupUserTagClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(groupusertag.Table, groupusertag.GroupColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, group.GroupUserTagsTable, group.GroupUserTagsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *GroupClient) Hooks() []Hook {
 	hooks := c.hooks.Group
@@ -3417,6 +3663,122 @@ func (c *GroupClient) mutate(ctx context.Context, m *GroupMutation) (Value, erro
 		return (&GroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Group mutation op: %q", m.Op())
+	}
+}
+
+// GroupUserTagClient is a client for the GroupUserTag schema.
+type GroupUserTagClient struct {
+	config
+}
+
+// NewGroupUserTagClient returns a client for the GroupUserTag from the given config.
+func NewGroupUserTagClient(c config) *GroupUserTagClient {
+	return &GroupUserTagClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupusertag.Hooks(f(g(h())))`.
+func (c *GroupUserTagClient) Use(hooks ...Hook) {
+	c.hooks.GroupUserTag = append(c.hooks.GroupUserTag, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupusertag.Intercept(f(g(h())))`.
+func (c *GroupUserTagClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupUserTag = append(c.inters.GroupUserTag, interceptors...)
+}
+
+// Create returns a builder for creating a GroupUserTag entity.
+func (c *GroupUserTagClient) Create() *GroupUserTagCreate {
+	mutation := newGroupUserTagMutation(c.config, OpCreate)
+	return &GroupUserTagCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupUserTag entities.
+func (c *GroupUserTagClient) CreateBulk(builders ...*GroupUserTagCreate) *GroupUserTagCreateBulk {
+	return &GroupUserTagCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupUserTagClient) MapCreateBulk(slice any, setFunc func(*GroupUserTagCreate, int)) *GroupUserTagCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupUserTagCreateBulk{err: fmt.Errorf("calling to GroupUserTagClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupUserTagCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupUserTagCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupUserTag.
+func (c *GroupUserTagClient) Update() *GroupUserTagUpdate {
+	mutation := newGroupUserTagMutation(c.config, OpUpdate)
+	return &GroupUserTagUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupUserTagClient) UpdateOne(_m *GroupUserTag) *GroupUserTagUpdateOne {
+	mutation := newGroupUserTagMutation(c.config, OpUpdateOne)
+	mutation.group = &_m.GroupID
+	mutation.tag = &_m.TagID
+	return &GroupUserTagUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupUserTag.
+func (c *GroupUserTagClient) Delete() *GroupUserTagDelete {
+	mutation := newGroupUserTagMutation(c.config, OpDelete)
+	return &GroupUserTagDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Query returns a query builder for GroupUserTag.
+func (c *GroupUserTagClient) Query() *GroupUserTagQuery {
+	return &GroupUserTagQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupUserTag},
+		inters: c.Interceptors(),
+	}
+}
+
+// QueryGroup queries the group edge of a GroupUserTag.
+func (c *GroupUserTagClient) QueryGroup(_m *GroupUserTag) *GroupQuery {
+	return c.Query().
+		Where(groupusertag.GroupID(_m.GroupID), groupusertag.TagID(_m.TagID)).
+		QueryGroup()
+}
+
+// QueryTag queries the tag edge of a GroupUserTag.
+func (c *GroupUserTagClient) QueryTag(_m *GroupUserTag) *UserTagQuery {
+	return c.Query().
+		Where(groupusertag.GroupID(_m.GroupID), groupusertag.TagID(_m.TagID)).
+		QueryTag()
+}
+
+// Hooks returns the client hooks.
+func (c *GroupUserTagClient) Hooks() []Hook {
+	return c.hooks.GroupUserTag
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupUserTagClient) Interceptors() []Interceptor {
+	return c.inters.GroupUserTag
+}
+
+func (c *GroupUserTagClient) mutate(ctx context.Context, m *GroupUserTagMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupUserTagCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupUserTagUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupUserTagUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupUserTagDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupUserTag mutation op: %q", m.Op())
 	}
 }
 
@@ -6026,6 +6388,22 @@ func (c *UserClient) QueryAllowedGroups(_m *User) *GroupQuery {
 	return query
 }
 
+// QueryTags queries the tags edge of a User.
+func (c *UserClient) QueryTags(_m *User) *UserTagQuery {
+	query := (&UserTagClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(usertag.Table, usertag.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.TagsTable, user.TagsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUsageLogs queries the usage_logs edge of a User.
 func (c *UserClient) QueryUsageLogs(_m *User) *UsageLogQuery {
 	query := (&UsageLogClient{config: c.config}).Query()
@@ -6147,6 +6525,22 @@ func (c *UserClient) QueryUserAllowedGroups(_m *User) *UserAllowedGroupQuery {
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(userallowedgroup.Table, userallowedgroup.UserColumn),
 			sqlgraph.Edge(sqlgraph.O2M, true, user.UserAllowedGroupsTable, user.UserAllowedGroupsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUserTagAssignments queries the user_tag_assignments edge of a User.
+func (c *UserClient) QueryUserTagAssignments(_m *User) *UserTagAssignmentQuery {
+	query := (&UserTagAssignmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(usertagassignment.Table, usertagassignment.UserColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.UserTagAssignmentsTable, user.UserTagAssignmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -6963,31 +7357,348 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 	}
 }
 
+// UserTagClient is a client for the UserTag schema.
+type UserTagClient struct {
+	config
+}
+
+// NewUserTagClient returns a client for the UserTag from the given config.
+func NewUserTagClient(c config) *UserTagClient {
+	return &UserTagClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `usertag.Hooks(f(g(h())))`.
+func (c *UserTagClient) Use(hooks ...Hook) {
+	c.hooks.UserTag = append(c.hooks.UserTag, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `usertag.Intercept(f(g(h())))`.
+func (c *UserTagClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserTag = append(c.inters.UserTag, interceptors...)
+}
+
+// Create returns a builder for creating a UserTag entity.
+func (c *UserTagClient) Create() *UserTagCreate {
+	mutation := newUserTagMutation(c.config, OpCreate)
+	return &UserTagCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserTag entities.
+func (c *UserTagClient) CreateBulk(builders ...*UserTagCreate) *UserTagCreateBulk {
+	return &UserTagCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserTagClient) MapCreateBulk(slice any, setFunc func(*UserTagCreate, int)) *UserTagCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserTagCreateBulk{err: fmt.Errorf("calling to UserTagClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserTagCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserTagCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserTag.
+func (c *UserTagClient) Update() *UserTagUpdate {
+	mutation := newUserTagMutation(c.config, OpUpdate)
+	return &UserTagUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserTagClient) UpdateOne(_m *UserTag) *UserTagUpdateOne {
+	mutation := newUserTagMutation(c.config, OpUpdateOne, withUserTag(_m))
+	return &UserTagUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserTagClient) UpdateOneID(id int64) *UserTagUpdateOne {
+	mutation := newUserTagMutation(c.config, OpUpdateOne, withUserTagID(id))
+	return &UserTagUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserTag.
+func (c *UserTagClient) Delete() *UserTagDelete {
+	mutation := newUserTagMutation(c.config, OpDelete)
+	return &UserTagDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserTagClient) DeleteOne(_m *UserTag) *UserTagDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserTagClient) DeleteOneID(id int64) *UserTagDeleteOne {
+	builder := c.Delete().Where(usertag.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserTagDeleteOne{builder}
+}
+
+// Query returns a query builder for UserTag.
+func (c *UserTagClient) Query() *UserTagQuery {
+	return &UserTagQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserTag},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserTag entity by its id.
+func (c *UserTagClient) Get(ctx context.Context, id int64) (*UserTag, error) {
+	return c.Query().Where(usertag.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserTagClient) GetX(ctx context.Context, id int64) *UserTag {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUsers queries the users edge of a UserTag.
+func (c *UserTagClient) QueryUsers(_m *UserTag) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usertag.Table, usertag.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, usertag.UsersTable, usertag.UsersPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroups queries the groups edge of a UserTag.
+func (c *UserTagClient) QueryGroups(_m *UserTag) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usertag.Table, usertag.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, usertag.GroupsTable, usertag.GroupsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUserTagAssignments queries the user_tag_assignments edge of a UserTag.
+func (c *UserTagClient) QueryUserTagAssignments(_m *UserTag) *UserTagAssignmentQuery {
+	query := (&UserTagAssignmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usertag.Table, usertag.FieldID, id),
+			sqlgraph.To(usertagassignment.Table, usertagassignment.TagColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, usertag.UserTagAssignmentsTable, usertag.UserTagAssignmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupUserTags queries the group_user_tags edge of a UserTag.
+func (c *UserTagClient) QueryGroupUserTags(_m *UserTag) *GroupUserTagQuery {
+	query := (&GroupUserTagClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usertag.Table, usertag.FieldID, id),
+			sqlgraph.To(groupusertag.Table, groupusertag.TagColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, usertag.GroupUserTagsTable, usertag.GroupUserTagsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *UserTagClient) Hooks() []Hook {
+	hooks := c.hooks.UserTag
+	return append(hooks[:len(hooks):len(hooks)], usertag.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserTagClient) Interceptors() []Interceptor {
+	inters := c.inters.UserTag
+	return append(inters[:len(inters):len(inters)], usertag.Interceptors[:]...)
+}
+
+func (c *UserTagClient) mutate(ctx context.Context, m *UserTagMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserTagCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserTagUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserTagUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserTagDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserTag mutation op: %q", m.Op())
+	}
+}
+
+// UserTagAssignmentClient is a client for the UserTagAssignment schema.
+type UserTagAssignmentClient struct {
+	config
+}
+
+// NewUserTagAssignmentClient returns a client for the UserTagAssignment from the given config.
+func NewUserTagAssignmentClient(c config) *UserTagAssignmentClient {
+	return &UserTagAssignmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `usertagassignment.Hooks(f(g(h())))`.
+func (c *UserTagAssignmentClient) Use(hooks ...Hook) {
+	c.hooks.UserTagAssignment = append(c.hooks.UserTagAssignment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `usertagassignment.Intercept(f(g(h())))`.
+func (c *UserTagAssignmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserTagAssignment = append(c.inters.UserTagAssignment, interceptors...)
+}
+
+// Create returns a builder for creating a UserTagAssignment entity.
+func (c *UserTagAssignmentClient) Create() *UserTagAssignmentCreate {
+	mutation := newUserTagAssignmentMutation(c.config, OpCreate)
+	return &UserTagAssignmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserTagAssignment entities.
+func (c *UserTagAssignmentClient) CreateBulk(builders ...*UserTagAssignmentCreate) *UserTagAssignmentCreateBulk {
+	return &UserTagAssignmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserTagAssignmentClient) MapCreateBulk(slice any, setFunc func(*UserTagAssignmentCreate, int)) *UserTagAssignmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserTagAssignmentCreateBulk{err: fmt.Errorf("calling to UserTagAssignmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserTagAssignmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserTagAssignmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserTagAssignment.
+func (c *UserTagAssignmentClient) Update() *UserTagAssignmentUpdate {
+	mutation := newUserTagAssignmentMutation(c.config, OpUpdate)
+	return &UserTagAssignmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserTagAssignmentClient) UpdateOne(_m *UserTagAssignment) *UserTagAssignmentUpdateOne {
+	mutation := newUserTagAssignmentMutation(c.config, OpUpdateOne)
+	mutation.user = &_m.UserID
+	mutation.tag = &_m.TagID
+	return &UserTagAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserTagAssignment.
+func (c *UserTagAssignmentClient) Delete() *UserTagAssignmentDelete {
+	mutation := newUserTagAssignmentMutation(c.config, OpDelete)
+	return &UserTagAssignmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Query returns a query builder for UserTagAssignment.
+func (c *UserTagAssignmentClient) Query() *UserTagAssignmentQuery {
+	return &UserTagAssignmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserTagAssignment},
+		inters: c.Interceptors(),
+	}
+}
+
+// QueryUser queries the user edge of a UserTagAssignment.
+func (c *UserTagAssignmentClient) QueryUser(_m *UserTagAssignment) *UserQuery {
+	return c.Query().
+		Where(usertagassignment.UserID(_m.UserID), usertagassignment.TagID(_m.TagID)).
+		QueryUser()
+}
+
+// QueryTag queries the tag edge of a UserTagAssignment.
+func (c *UserTagAssignmentClient) QueryTag(_m *UserTagAssignment) *UserTagQuery {
+	return c.Query().
+		Where(usertagassignment.UserID(_m.UserID), usertagassignment.TagID(_m.TagID)).
+		QueryTag()
+}
+
+// Hooks returns the client hooks.
+func (c *UserTagAssignmentClient) Hooks() []Hook {
+	return c.hooks.UserTagAssignment
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserTagAssignmentClient) Interceptors() []Interceptor {
+	return c.inters.UserTagAssignment
+}
+
+func (c *UserTagAssignmentClient) mutate(ctx context.Context, m *UserTagAssignmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserTagAssignmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserTagAssignmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserTagAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserTagAssignmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserTagAssignment mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
-		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-			GrokVideoJob, Group, IdempotencyRecord, IdentityAdoptionDecision,
-			PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-			PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-			SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-			UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-			UserPlatformQuota, UserSubscription []ent.Hook
+		APIKey, APIKeyGroup, Account, AccountGroup, Announcement, AnnouncementRead,
+		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
+		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
+		ErrorPassthroughRule, GrokVideoJob, Group, GroupUserTag, IdempotencyRecord,
+		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription, UserTag,
+		UserTagAssignment []ent.Hook
 	}
 	inters struct {
-		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
-		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-			GrokVideoJob, Group, IdempotencyRecord, IdentityAdoptionDecision,
-			PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-			PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-			SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-			UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-			UserPlatformQuota, UserSubscription []ent.Interceptor
+		APIKey, APIKeyGroup, Account, AccountGroup, Announcement, AnnouncementRead,
+		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
+		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
+		ErrorPassthroughRule, GrokVideoJob, Group, GroupUserTag, IdempotencyRecord,
+		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription, UserTag,
+		UserTagAssignment []ent.Interceptor
 	}
 )
 

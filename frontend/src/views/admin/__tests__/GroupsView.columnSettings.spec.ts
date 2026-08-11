@@ -12,6 +12,7 @@ const {
   getCapacitySummary,
   getLiveCapability,
   listAccounts,
+  listTags,
   showError,
   showSuccess,
   isCurrentStep,
@@ -24,6 +25,7 @@ const {
   getCapacitySummary: vi.fn(),
   getLiveCapability: vi.fn(),
   listAccounts: vi.fn(),
+  listTags: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
   isCurrentStep: vi.fn(),
@@ -61,6 +63,9 @@ vi.mock('@/api/admin', () => ({
     },
     accounts: {
       list: listAccounts,
+    },
+    tags: {
+      list: listTags,
     },
   },
 }))
@@ -151,6 +156,9 @@ const DataTableStub = {
     <div>
       <div data-test="columns">{{ columns.map((col) => col.key).join(',') }}</div>
       <div data-test="rows">{{ data.map((row) => row.name).join(',') }}</div>
+      <div v-for="row in data" :key="row.id" :data-test="'group-type-' + row.id">
+        <slot name="cell-is_exclusive" :value="row.is_exclusive" :row="row" />
+      </div>
     </div>
   `,
 }
@@ -231,6 +239,7 @@ describe('admin GroupsView column settings', () => {
     getUsageSummary.mockReset()
     getCapacitySummary.mockReset()
     listAccounts.mockReset()
+    listTags.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
     isCurrentStep.mockReset()
@@ -249,11 +258,59 @@ describe('admin GroupsView column settings', () => {
     getCapacitySummary.mockResolvedValue([])
     getLiveCapability.mockResolvedValue({ supported: false })
     listAccounts.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
+    listTags.mockResolvedValue([])
     isCurrentStep.mockReturnValue(false)
   })
 
   afterEach(() => {
     localStorage.clear()
+  })
+
+  it('shows authorization tags beneath exclusive group type', async () => {
+    listGroups.mockResolvedValue({
+      items: [
+        createGroup({
+          id: 25,
+          name: 'Tagged Group',
+          is_exclusive: true,
+          tags: [
+            {
+              id: 1,
+              name: 'Downstream',
+              created_at: '2026-08-10T00:00:00Z',
+              updated_at: '2026-08-10T00:00:00Z',
+            },
+          ],
+        }),
+        createGroup({
+          id: 26,
+          name: 'Public Group',
+          is_exclusive: false,
+          tags: [
+            {
+              id: 2,
+              name: 'Hidden on public',
+              created_at: '2026-08-10T00:00:00Z',
+              updated_at: '2026-08-10T00:00:00Z',
+            },
+          ],
+        }),
+      ],
+      total: 2,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+
+    const wrapper = await mountView()
+
+    const exclusiveCell = wrapper.get('[data-test="group-type-25"]')
+    expect(exclusiveCell.text()).toContain('Downstream')
+    expect(exclusiveCell.find('[data-testid="group-authorization-tags"]').exists()).toBe(true)
+
+    const publicCell = wrapper.get('[data-test="group-type-26"]')
+    expect(publicCell.text()).not.toContain('Hidden on public')
+    expect(publicCell.find('[data-testid="group-authorization-tags"]').exists()).toBe(false)
   })
 
   it('hides the id column by default while keeping other group columns visible', async () => {

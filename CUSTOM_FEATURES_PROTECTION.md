@@ -239,7 +239,29 @@
 - `openai_low_upstream_rate_priority_enabled`
 - `openai_oauth_scheduling_rate_multiplier`
 
-### 2.8 账号池模式扩展到 OAuth 与批量编辑
+### 用户标签驱动专属分组授权
+
+功能要求：
+
+- 管理员可以创建、重命名、删除用户标签，并给用户分配一个或多个标签。
+- 标准专属 Group 可以绑定一个或多个用户标签；用户拥有任意一个绑定标签时自动获得该 Group。
+- 手工授权和标签派生授权取并集；标签派生权限不能写入 `user_allowed_groups`。
+- 用户分组配置中，标签命中的专属 Group 显示“标签名 + 专属分组”，并且不可通过 checkbox 撤销。
+- 删除标签、移除用户标签或移除 Group 标签后，派生授权自动撤销，但不能删除仍存在的手工授权。
+- subscription Group 不能通过标签绕过 active subscription 检查。
+
+关键文件：
+
+- 后端：`backend/migrations/221_add_user_tag_group_authorization.sql`、`backend/internal/service/user_tag.go`、`backend/internal/repository/user_tag_repo.go`、`backend/internal/service/api_key_service.go`、`backend/internal/service/api_key_auth_cache_impl.go`
+- 前端：`frontend/src/components/admin/user/UserTagManagementModal.vue`、`frontend/src/components/admin/user/UserTagMultiSelect.vue`、`frontend/src/components/admin/user/UserAllowedGroupsModal.vue`、`frontend/src/views/admin/GroupsView.vue`、`frontend/src/views/admin/UsersView.vue`
+
+容易丢失点：
+
+- 标签授权查询必须过滤已删除、非 active、非 standard 或非 exclusive Group，并对多标签 OR 查询去重。
+- auth snapshot 需要包含标签派生 Group，缓存版本变化后旧快照必须回源。
+- API Key 主 Group、有序次级 Group、Model Plaza 和 Available Channels 必须使用有效授权并集。
+
+## 2.8 账号池模式扩展到 OAuth 与批量编辑
 
 功能要求：
 
@@ -368,6 +390,65 @@
 - 构建参数中需要保留：
   - `-gcflags=all=-d=ssa/nilcheckelim/off`
 
+### 2.11 API Key 多分组绑定与 Gateway Failover
+
+功能要求：
+
+- 一个 API Key 可以绑定多个 Group。
+- `group_ids` 的顺序由管理员配置决定，第一次请求固定从 `group_ids[0]` 开始；读取关联关系时必须按 `api_key_groups.position` 排序，不能按 Group ID 或数据库默认顺序排序。
+- 保留旧客户端的 `group_id` 兼容语义：未传 `group_ids` 时不修改已有绑定，`group_id > 0` 绑定单个 Group，`group_id == 0` 解绑全部；同时传入时必须保证 `group_ids[0] == group_id`。
+- Group 绑定必须校验用户权限、platform 一致性和 subscription type 一致性；重复 Group ID 去重并保留首次出现的位置。
+- 当前 Group 必须先完成同账号重试、账号级 failover 和账号池耗尽处理，只有当前 Group 的账号池真正耗尽或 Group 级可恢复准入/计费错误时，才按配置顺序切换到下一个 Group。
+- 账号切换和 Group 切换共用同一个请求级切换预算；同账号重试和利润 veto 不消费预算。每个 Group 的 `FailedAccountIDs`、同账号重试计数和利润 veto 状态必须独立。
+- 每次切换 Group 都要重新执行完整准入：subscription、API Key/Group context、composite target、channel mapping、Claude Code only、Group 用户并发槽和 billing eligibility。
+- sticky session、usage、billing 和异步 usage 闭包必须归属当前成功 Group，不能继续使用初始 Group 或可变 API Key 快照。
+- 流式请求一旦写出有效语义内容，禁止账号或 Group failover；仅写出 compact SSE keepalive 时仍允许 failover。
+- invalid-request fallback 是独立且最多一次的 fallback attempt，不得递归 fallback、错误推进普通 Group 顺序；启动 fallback 前也必须遵守请求级预算。
+- 保留现有 OAuth/API Key pool mode、最高调度模式、最高调度轮转、OpenAI scheduler、利润控制、Bedrock、Responses compact/SSE 和既有协议兼容逻辑。
+
+关键文件：
+
+- 数据模型与迁移：
+  - `backend/ent/schema/api_key.go`
+  - `backend/ent/schema/api_key_group.go`
+  - `backend/ent/schema/group.go`
+  - `backend/migrations/194_add_api_key_groups.sql`
+- API Key service/repository/DTO：
+  - `backend/internal/service/api_key.go`
+  - `backend/internal/service/api_key_service.go`
+  - `backend/internal/repository/api_key_repo.go`
+  - `backend/internal/handler/dto/types.go`
+  - `backend/internal/handler/dto/mappers.go`
+- Gateway failover：
+  - `backend/internal/handler/group_attempt.go`
+  - `backend/internal/handler/failover_loop.go`
+  - `backend/internal/handler/ordered_group_failover.go`
+  - `backend/internal/handler/gateway_handler.go`
+  - `backend/internal/handler/gateway_handler_chat_completions.go`
+  - `backend/internal/handler/gateway_handler_responses.go`
+  - `backend/internal/service/gateway_scheduling.go`
+
+关键结构/函数：
+
+- `api_key_groups(api_key_id, group_id, position)`
+- `CreateAPIKeyRequest.GroupIDs`
+- `UpdateAPIKeyRequest.GroupIDs`
+- `resolveOrderedAPIKeyGroups`
+- `applyAPIKeyGroupAttemptWithBase`
+- `OrderedGroupFailoverState`
+- `RequestFailoverBudget`
+- `NewFailoverStateWithBudget`
+- `NewOrderedGroupFailoverStateWithBudget`
+- `isRetryableGroupBillingError`
+
+容易丢失点：
+
+- 不要用 `group_id` 覆盖或替代完整的有序 `group_ids` 关联；`group_id` 只能作为第一个 Group 的 legacy mirror。
+- 不要在 Group 切换时复用旧 subscription、channel mapping、并发槽、sticky key 或 usage 闭包；这些状态必须按当前 Group 重新装配。
+- 不要把 User/API Key 限流、余额不足、billing service unavailable、客户端取消或确定性请求错误错误地当作 Group 可恢复错误。
+- 不要在已经写出有效 SSE/JSON 语义内容后切换 Group，也不要把 compact keepalive 当作有效响应内容。
+- 共享预算不能污染 Group-local 失败集合；fallback 不得循环回普通 Group failover。
+
 ## 3. 合并后必测清单
 
 ### 3.1 系统设置保存验证
@@ -430,7 +511,26 @@ HTML 注入的 `window.__APP_CONFIG__` 也应包含这两个字段，避免菜�
 8. 关闭最高调度轮转后，范围内账号最高调度状态应被清空。
 9. 顶部“最高调度轮转”按钮开启态只改变文字颜色，不改变原按钮背景/边框。
 
-### 3.5 类型和测试命令
+### 3.5 API Key 多 Group 与 Gateway Failover 验证
+
+1. 创建一个 API Key 并绑定至少两个 Group，确认详情和更新接口返回完整且按配置顺序排列的 `group_ids` / `groups`，并且 `group_id` 等于第一个 Group。
+2. 调整 Group 顺序后发起请求，确认第一次尝试固定使用新的第一个 Group，而不是按 Group ID 或名称排序。
+3. 让第一个 Group 出现可恢复的 subscription、Group RPM、账号池耗尽或账号级 failover 耗尽，确认先完成当前 Group 内账号处理，再按顺序切换到下一个 Group。
+4. 确认切换 Group 时重新执行 subscription、billing、channel mapping、composite target、Claude Code only 和 Group 用户并发准入；前一个 Group 的失败账号与利润 veto 不得影响后一个 Group。
+5. 确认账号切换与 Group 切换共用请求级预算；同账号重试、利润 veto、无下一个 Group、客户端取消、已写语义响应和不可重试错误不消费预算。
+6. 流式请求在 Group1 只写 compact keepalive 时仍允许切换；写出有效语义 SSE/JSON 后不得切换或拼接 Group2 响应。
+7. 配置 invalid-request fallback，确认 fallback 只执行一次、使用完整 Group attempt、失败后不递归 fallback 也不错误推进普通 Group 顺序，并遵守共享预算。
+8. 确认成功 Group 的 sticky session、billing、usage 和审计记录都使用成功 Group，异步 usage 闭包不捕获初始或可变 API Key。
+
+后端定向测试：
+
+```bash
+cd backend
+go test ./internal/handler -run 'TestRequestFailoverBudget|TestOrderedGroupFailoverState|TestIsRetryableGroupBillingError' -count=1
+go test ./internal/service -run 'OpenAICompact' -count=1
+```
+
+### 3.6 类型和测试命令
 
 前端优先按当前偏好跑 typecheck / lint-only，不强制 build：
 
@@ -578,5 +678,9 @@ handleToggleHighestScheduling
 - 最高调度轮转开启后，范围内账号禁止手动切换最高调度，且状态/调度变化导致符合条件最高调度数量低于 `n` 时会被动补位。
 - 关闭最高调度轮转后，范围内最高调度状态会被清空。
 - 最高调度列可点击手动切换，调度开关旁没有重复的最高调度按钮。
+- API Key 多 Group 绑定保留 `group_ids` 配置顺序，并同步正确的 `group_id` legacy mirror。
+- Group failover 先完成当前 Group 内账号处理，再按顺序切换；账号与 Group 切换共享预算且 Group-local 状态隔离。
+- 每次 Group 切换重新执行 subscription、billing、mapping、并发和平台准入，成功 Group 的 sticky/usage 归属正确。
+- 有效流式语义内容写出后不切换 Group，compact keepalive 不阻断 failover，invalid-request fallback 最多执行一次。
 - 前端 typecheck 通过。
-- 新增的 service 回归测试通过。
+- 新增的 service 和 handler 回归测试通过。

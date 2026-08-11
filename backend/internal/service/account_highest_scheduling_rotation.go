@@ -35,8 +35,13 @@ type highestSchedulingRotationReconcilerSink interface {
 	SetHighestSchedulingRotationReconciler(HighestSchedulingRotationReconciler)
 }
 
+type highestSchedulingRotationAccountRepository interface {
+	ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error)
+	UpdateExtra(ctx context.Context, id int64, updates map[string]any) error
+}
+
 type highestSchedulingRotationCore struct {
-	accountRepo AccountRepository
+	accountRepo highestSchedulingRotationAccountRepository
 	settingRepo SettingRepository
 }
 
@@ -108,6 +113,10 @@ func (c *highestSchedulingRotationCore) GetHighestSchedulingRotationConfig(ctx c
 }
 
 func (c *highestSchedulingRotationCore) UpdateHighestSchedulingRotationConfig(ctx context.Context, config HighestSchedulingRotationConfig) (*HighestSchedulingRotationState, error) {
+	previous, previousConfigured, err := c.loadHighestSchedulingRotationConfigWithState(ctx)
+	if err != nil {
+		return nil, err
+	}
 	normalized, err := normalizeHighestSchedulingRotationConfig(config)
 	if err != nil {
 		return nil, err
@@ -122,8 +131,14 @@ func (c *highestSchedulingRotationCore) UpdateHighestSchedulingRotationConfig(ct
 	if err := c.settingRepo.Set(ctx, SettingKeyHighestSchedulingRotationConfig, string(payload)); err != nil {
 		return nil, err
 	}
-	if _, err := c.ReconcileHighestSchedulingRotation(ctx, "config_update"); err != nil {
-		return nil, err
+	if normalized.Enabled {
+		if _, err := c.ReconcileHighestSchedulingRotation(ctx, "config_update"); err != nil {
+			return nil, err
+		}
+	} else if previousConfigured && previous.Enabled {
+		if err := c.clearHighestSchedulingRotation(ctx, previous); err != nil {
+			return nil, err
+		}
 	}
 	return c.GetHighestSchedulingRotationConfig(ctx)
 }
@@ -139,6 +154,9 @@ func (c *highestSchedulingRotationCore) ReconcileHighestSchedulingRotation(ctx c
 			ActiveAccountIDs: []int64{},
 			CandidateCount:   0,
 		}, nil
+	}
+	if !config.Enabled {
+		return c.highestSchedulingRotationState(ctx, config)
 	}
 	if err := c.applyHighestSchedulingRotation(ctx, config); err != nil {
 		return nil, err
@@ -268,22 +286,27 @@ func uniquePositiveInt64Values(values []int64) []int64 {
 	return out
 }
 
-func (c *highestSchedulingRotationCore) applyHighestSchedulingRotation(ctx context.Context, config HighestSchedulingRotationConfig) error {
+func (c *highestSchedulingRotationCore) clearHighestSchedulingRotation(ctx context.Context, config HighestSchedulingRotationConfig) error {
 	accounts, err := c.listHighestSchedulingRotationScopeAccounts(ctx, config)
 	if err != nil {
 		return err
 	}
-	if !config.Enabled {
-		for i := range accounts {
-			account := &accounts[i]
-			if !account.IsHighestSchedulingModeConfigured() {
-				continue
-			}
-			if err := c.accountRepo.UpdateExtra(ctx, account.ID, map[string]any{AccountExtraHighestSchedulingMode: false}); err != nil {
-				return err
-			}
+	for i := range accounts {
+		account := &accounts[i]
+		if !account.IsHighestSchedulingModeConfigured() {
+			continue
 		}
-		return nil
+		if err := c.accountRepo.UpdateExtra(ctx, account.ID, map[string]any{AccountExtraHighestSchedulingMode: false}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *highestSchedulingRotationCore) applyHighestSchedulingRotation(ctx context.Context, config HighestSchedulingRotationConfig) error {
+	accounts, err := c.listHighestSchedulingRotationScopeAccounts(ctx, config)
+	if err != nil {
+		return err
 	}
 
 	candidates := highestSchedulingRotationCandidates(accounts, config)

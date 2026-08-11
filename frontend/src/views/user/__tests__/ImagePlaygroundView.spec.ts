@@ -9,7 +9,9 @@ import ImagePlaygroundView from '../ImagePlaygroundView.vue'
 const {
   getImageOptionsMock,
   generateImageMock,
+  generateImageAdvancedMock,
   generateImageStreamMock,
+  extractImageGenerationErrorMessageMock,
   addImageHistoryRecordMock,
   listImageHistoryRecordsMock,
   deleteImageHistoryRecordMock,
@@ -18,7 +20,9 @@ const {
 } = vi.hoisted(() => ({
   getImageOptionsMock: vi.fn(),
   generateImageMock: vi.fn(),
+  generateImageAdvancedMock: vi.fn(),
   generateImageStreamMock: vi.fn(),
+  extractImageGenerationErrorMessageMock: vi.fn(() => ''),
   addImageHistoryRecordMock: vi.fn(),
   listImageHistoryRecordsMock: vi.fn(),
   deleteImageHistoryRecordMock: vi.fn(),
@@ -35,8 +39,20 @@ const {
 
 vi.mock('@/api/imagePlayground', () => ({
   getImageOptions: getImageOptionsMock,
+  imageGeneratePayload: (input: Record<string, unknown>) => ({
+    api_key_id: input.api_key_id,
+    model: input.model,
+    prompt: input.prompt,
+    size: input.size,
+    quality: input.quality,
+    output_format: input.output_format,
+    moderation: input.moderation,
+    n: input.n,
+  }),
   generateImage: generateImageMock,
+  generateImageAdvanced: generateImageAdvancedMock,
   generateImageStream: generateImageStreamMock,
+  extractImageGenerationErrorMessage: extractImageGenerationErrorMessageMock,
 }))
 
 vi.mock('@/utils/imagePlaygroundHistory', () => ({
@@ -66,6 +82,23 @@ vi.mock('@/components/layout/AppLayout.vue', () => ({
   default: {
     name: 'AppLayout',
     template: '<div data-testid="app-layout"><slot /></div>',
+  },
+}))
+
+vi.mock('@/components/common/BaseDialog.vue', () => ({
+  default: {
+    name: 'BaseDialog',
+    props: {
+      show: Boolean,
+      title: String,
+    },
+    emits: ['close'],
+    template: `
+      <div v-if="show" role="dialog" :aria-label="title" tabindex="-1" @keydown.esc="$emit('close')">
+        <button type="button" aria-label="Close modal" @click="$emit('close')">close</button>
+        <slot />
+      </div>
+    `,
   },
 }))
 
@@ -127,6 +160,15 @@ const mountView = async () => {
   return wrapper
 }
 
+const getAdvancedDialog = (wrapper: VueWrapper) => {
+  const dialog = wrapper.find('[role="dialog"]')
+  if (!dialog.exists()) {
+    throw new Error('Advanced details dialog was not found')
+  }
+
+  return dialog
+}
+
 const getGenerateButton = (wrapper: VueWrapper): HTMLButtonElement =>
   wrapper.get('[data-test="image-generate"]').element as HTMLButtonElement
 
@@ -185,6 +227,7 @@ describe('ImagePlaygroundView', () => {
   beforeEach(() => {
     getImageOptionsMock.mockReset()
     generateImageMock.mockReset()
+    generateImageAdvancedMock.mockReset()
     generateImageStreamMock.mockReset()
     addImageHistoryRecordMock.mockReset()
     listImageHistoryRecordsMock.mockReset()
@@ -196,6 +239,7 @@ describe('ImagePlaygroundView', () => {
       email: 'image-user@example.com',
       role: 'user',
     }
+    window.localStorage.removeItem('image_playground_advanced_mode_enabled')
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -213,6 +257,7 @@ describe('ImagePlaygroundView', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    document.body.innerHTML = ''
   })
 
   it('renders an empty state when no image-capable keys are available', async () => {
@@ -238,7 +283,7 @@ describe('ImagePlaygroundView', () => {
   it('renders the generator panel with an independent scroll area and fixed action footer', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.get('[data-test="image-generator-panel"]').classes()).toContain('xl:max-h-[calc(100vh-7rem)]')
+    expect(wrapper.get('[data-test="image-generator-panel"]').classes()).toContain('xl:max-h-[calc(100vh-8rem)]')
     expect(wrapper.get('[data-test="image-generator-scroll"]').classes()).toContain('xl:overflow-y-auto')
     expect(wrapper.get('[data-test="image-generator-actions"]').classes()).toContain('xl:sticky')
   })
@@ -562,6 +607,109 @@ describe('ImagePlaygroundView', () => {
     expect(wrapper.text()).toContain('imagePlayground.referenceTooLargeError')
     expect(wrapper.text()).not.toContain('imagePlayground.referenceAddedStatus')
     expect(getGenerateButton(wrapper).disabled).toBe(true)
+  })
+
+  it('opens advanced request details in a dialog without adding a fixed middle-column card', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-advanced"]').setValue(true)
+    await flushPromises()
+    expect(wrapper.get('[data-test="image-advanced-details"]').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[data-test="image-advanced-request-details"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="image-advanced-details"]').trigger('click')
+    await flushPromises()
+
+    expect(getAdvancedDialog(wrapper).text()).toContain('imagePlayground.advancedNoData')
+    expect(getAdvancedDialog(wrapper).get('[data-test="image-advanced-request-details"]').text()).toContain(
+      'imagePlayground.advancedNoData'
+    )
+    expect(getAdvancedDialog(wrapper).find('[data-test="image-advanced-response-details"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="image-advanced-error"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="image-advanced-details"]').attributes('aria-expanded')).toBe('true')
+  })
+
+  it('shows the last advanced request and response in the dialog', async () => {
+    generateImageAdvancedMock.mockResolvedValue({
+      data: [{ b64_json: 'advanced-base64' }],
+      _sub2api_image_playground: { actual_cost: 0.2 },
+    })
+
+    const wrapper = await mountView()
+    await wrapper.get('[data-test="image-advanced"]').setValue(true)
+    await wrapper.get('[data-test="image-prompt"]').setValue('Advanced ocean prompt')
+    await wrapper.get('[data-test="image-advanced-details"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(getAdvancedDialog(wrapper).get('[data-test="image-advanced-request-details"]').text()).toContain(
+      'Advanced ocean prompt'
+    )
+    expect(getAdvancedDialog(wrapper).get('[data-test="image-advanced-response-details"]').text()).toContain(
+      'advanced-base64'
+    )
+    expect(generateImageAdvancedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({ prompt: 'Advanced ocean prompt' }),
+        reference_images: [],
+      })
+    )
+  })
+
+  it('shows the last advanced error in preference to a response', async () => {
+    generateImageAdvancedMock.mockRejectedValue({
+      response: { data: { error: { message: 'upstream advanced failure' } } },
+    })
+
+    const wrapper = await mountView()
+    await wrapper.get('[data-test="image-advanced"]').setValue(true)
+    await wrapper.get('[data-test="image-prompt"]').setValue('Failing advanced prompt')
+    await submitGeneration(wrapper)
+    await wrapper.get('[data-test="image-advanced-details"]').trigger('click')
+    await flushPromises()
+
+    expect(getAdvancedDialog(wrapper).get('[data-test="image-advanced-response-details"]').text()).toContain(
+      'upstream advanced failure'
+    )
+    expect(getAdvancedDialog(wrapper).get('[data-test="image-advanced-response-details"]').text()).not.toContain(
+      'imagePlayground.advancedNoData'
+    )
+  })
+
+  it('closes advanced details from the dialog controls', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-advanced"]').setValue(true)
+    await wrapper.get('[data-test="image-advanced-details"]').trigger('click')
+    await getAdvancedDialog(wrapper).get('button[aria-label="Close modal"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="image-advanced-details"]').trigger('click')
+    await getAdvancedDialog(wrapper).trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  it('closes advanced details when advanced mode is disabled without clearing the last request', async () => {
+    generateImageAdvancedMock.mockResolvedValue({ data: [{ b64_json: 'retained-base64' }] })
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="image-advanced"]').setValue(true)
+    await wrapper.get('[data-test="image-prompt"]').setValue('Retained advanced prompt')
+    await submitGeneration(wrapper)
+    await wrapper.get('[data-test="image-advanced-details"]').trigger('click')
+    expect(getAdvancedDialog(wrapper).exists()).toBe(true)
+
+    await wrapper.get('[data-test="image-advanced"]').setValue(false)
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="image-advanced"]').setValue(true)
+    await wrapper.get('[data-test="image-advanced-details"]').trigger('click')
+    expect(getAdvancedDialog(wrapper).get('[data-test="image-advanced-request-details"]').text()).toContain(
+      'Retained advanced prompt'
+    )
   })
 
   it('shows generated results and price and saves successful generations to history', async () => {

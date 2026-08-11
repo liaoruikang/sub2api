@@ -52,6 +52,28 @@ const (
 // 语义上等同于「无可用账号」：候选账号都不满足分组的利润约束。
 const profitVetoExhaustedMessage = "No available accounts: all candidates rejected by group profit control"
 
+// RequestFailoverBudget tracks account and group switches for one request.
+// Same-account retries and profit vetoes do not consume this budget.
+type RequestFailoverBudget struct {
+	SwitchCount int
+	MaxSwitches int
+}
+
+func NewRequestFailoverBudget(maxSwitches int) *RequestFailoverBudget {
+	return &RequestFailoverBudget{MaxSwitches: maxSwitches}
+}
+
+func (b *RequestFailoverBudget) TryConsume() bool {
+	if b == nil {
+		return true
+	}
+	if b.SwitchCount >= b.MaxSwitches {
+		return false
+	}
+	b.SwitchCount++
+	return true
+}
+
 // FailoverState 跨循环迭代共享的 failover 状态
 type FailoverState struct {
 	SwitchCount           int
@@ -70,16 +92,22 @@ type FailoverState struct {
 	profitVetoedAccountIDs map[int64]struct{}
 	// profitVetoCount 本次请求累计的利润否决次数，用于 maxProfitVetoAttempts 上限。
 	profitVetoCount int
+	requestBudget   *RequestFailoverBudget
 }
 
 // NewFailoverState 创建 failover 状态
 func NewFailoverState(maxSwitches int, hasBoundSession bool) *FailoverState {
+	return NewFailoverStateWithBudget(maxSwitches, hasBoundSession, nil)
+}
+
+func NewFailoverStateWithBudget(maxSwitches int, hasBoundSession bool, budget *RequestFailoverBudget) *FailoverState {
 	return &FailoverState{
 		MaxSwitches:            maxSwitches,
 		FailedAccountIDs:       make(map[int64]struct{}),
 		SameAccountRetryCount:  make(map[int64]int),
 		hasBoundSession:        hasBoundSession,
 		profitVetoedAccountIDs: make(map[int64]struct{}),
+		requestBudget:          budget,
 	}
 }
 
@@ -173,6 +201,9 @@ func (s *FailoverState) HandleFailoverError(
 	if s.SwitchCount >= s.MaxSwitches {
 		return FailoverExhausted
 	}
+	if s.requestBudget != nil && !s.requestBudget.TryConsume() {
+		return FailoverExhausted
+	}
 
 	// 递增切换计数
 	s.SwitchCount++
@@ -195,11 +226,11 @@ func (s *FailoverState) HandleFailoverError(
 }
 
 // HandleSelectionExhausted 处理选号失败（所有候选账号都在排除列表中）时的退避重试决策。
-// 针对 Antigravity 单账号分组的 503 (MODEL_CAPACITY_EXHAUSTED) 场景：
+// 针对显式标记为单账号重试的 Antigravity 503 场景：
 // 清除排除列表、等待退避后重新选号。
 //
-// 返回 FailoverContinue 时，调用方应设置 SingleAccountRetry context 并 continue。
-// 返回 FailoverExhausted 时，调用方应返回错误响应。
+// 返回 FailoverContinue 时，调用方继续使用当前带 marker 的 context。
+// 返回 FailoverExhausted 时，调用方应返回错误响应或推进下一个 Group。
 // 返回 FailoverCanceled 时，调用方应直接 return。
 func (s *FailoverState) HandleSelectionExhausted(ctx context.Context) FailoverAction {
 	// 客户端已断开时选号失败是 context canceled 的必然结果，
@@ -208,7 +239,9 @@ func (s *FailoverState) HandleSelectionExhausted(ctx context.Context) FailoverAc
 		return FailoverCanceled
 	}
 
-	if s.LastFailoverErr != nil &&
+	singleAccountRetry, marked := service.SingleAccountRetryFromContext(ctx)
+	if marked && singleAccountRetry &&
+		s.LastFailoverErr != nil &&
 		s.LastFailoverErr.StatusCode == http.StatusServiceUnavailable &&
 		s.SwitchCount <= s.MaxSwitches {
 

@@ -397,6 +397,51 @@ func TestAPIKeyService_GetByKey_IgnoresLegacyAuthCacheSnapshotWithoutMessagesDis
 	require.Equal(t, "gpt-5.4-nano", apiKey.Group.MessagesDispatchModelConfig.OpusMappedModel)
 }
 
+func TestAPIKeyService_GetByKey_RefreshesV24SnapshotWithOrderedGroups(t *testing.T) {
+	cache := &authCacheStub{}
+	var repoCalls int32
+	groups := []*Group{
+		{ID: 16, Name: "first", Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, SubscriptionType: SubscriptionTypeStandard, RateMultiplier: 1},
+		{ID: 25, Name: "second", Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, SubscriptionType: SubscriptionTypeStandard, RateMultiplier: 1},
+		{ID: 26, Name: "third", Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, SubscriptionType: SubscriptionTypeStandard, RateMultiplier: 1},
+	}
+	groupIDs := []int64{16, 25, 26}
+	repo := &authRepoStub{
+		getByKeyForAuth: func(ctx context.Context, key string) (*APIKey, error) {
+			atomic.AddInt32(&repoCalls, 1)
+			return &APIKey{
+				ID:       1,
+				UserID:   2,
+				Key:      key,
+				GroupID:  &groupIDs[0],
+				GroupIDs: append([]int64(nil), groupIDs...),
+				Groups:   groups,
+				Group:    groups[0],
+				Status:   StatusActive,
+				User:     &User{ID: 2, Status: StatusActive, Role: RoleUser, Balance: 10, Concurrency: 3},
+			}, nil
+		},
+	}
+	cfg := &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{L2TTLSeconds: 60}}
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
+	legacyGroupID := int64(16)
+	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
+		return &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{
+			Version: 24, APIKeyID: 1, UserID: 2, GroupID: &legacyGroupID, Status: StatusActive,
+			User:  APIKeyAuthUserSnapshot{ID: 2, Status: StatusActive, Role: RoleUser, Balance: 10, Concurrency: 3},
+			Group: &APIKeyAuthGroupSnapshot{ID: 16, Name: "first", Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard, RateMultiplier: 1},
+		}}, nil
+	}
+
+	apiKey, err := svc.GetByKey(context.Background(), "k-v24-refresh")
+	require.NoError(t, err)
+	require.Equal(t, int32(1), atomic.LoadInt32(&repoCalls))
+	require.Equal(t, groupIDs, apiKey.GroupIDs)
+	require.Len(t, apiKey.Groups, 3)
+	require.Equal(t, groupIDs, []int64{apiKey.Groups[0].ID, apiKey.Groups[1].ID, apiKey.Groups[2].ID})
+	require.NotEmpty(t, cache.setAuthKeys)
+}
+
 func TestAPIKeyService_GetByKey_NegativeCache(t *testing.T) {
 	cache := &authCacheStub{}
 	repo := &authRepoStub{

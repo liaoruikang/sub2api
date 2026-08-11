@@ -827,14 +827,62 @@ func TestHandleSelectionExhausted(t *testing.T) {
 		fs.FailedAccountIDs[100] = struct{}{}
 		fs.SwitchCount = 1
 
+		ctx := service.WithSingleAccountRetry(context.Background(), true, false)
 		start := time.Now()
-		action := fs.HandleSelectionExhausted(context.Background())
+		action := fs.HandleSelectionExhausted(ctx)
 		elapsed := time.Since(start)
 
 		require.Equal(t, FailoverContinue, action)
 		require.Empty(t, fs.FailedAccountIDs, "应清除失败账号列表")
 		require.GreaterOrEqual(t, elapsed, 1500*time.Millisecond, "应等待约 2s")
 		require.Less(t, elapsed, 5*time.Second)
+	})
+
+	t.Run("503但无单账号标记_立即耗尽并保留失败列表", func(t *testing.T) {
+		fs := NewFailoverState(3, false)
+		fs.LastFailoverErr = newTestFailoverErr(503, false, false)
+		fs.FailedAccountIDs[100] = struct{}{}
+		fs.SwitchCount = 1
+
+		start := time.Now()
+		action := fs.HandleSelectionExhausted(context.Background())
+		elapsed := time.Since(start)
+
+		require.Equal(t, FailoverExhausted, action)
+		require.Contains(t, fs.FailedAccountIDs, int64(100))
+		require.Less(t, elapsed, 100*time.Millisecond, "普通 503 不应等待单账号退避")
+	})
+
+	t.Run("503但单账号标记为false_立即耗尽并保留失败列表", func(t *testing.T) {
+		fs := NewFailoverState(3, false)
+		fs.LastFailoverErr = newTestFailoverErr(503, false, false)
+		fs.FailedAccountIDs[100] = struct{}{}
+		fs.SwitchCount = 1
+
+		ctx := service.WithSingleAccountRetry(context.Background(), false, false)
+		start := time.Now()
+		action := fs.HandleSelectionExhausted(ctx)
+		elapsed := time.Since(start)
+
+		require.Equal(t, FailoverExhausted, action)
+		require.Contains(t, fs.FailedAccountIDs, int64(100))
+		require.Less(t, elapsed, 100*time.Millisecond, "显式 false 不应等待单账号退避")
+	})
+
+	t.Run("metadata false覆盖legacy true", func(t *testing.T) {
+		fs := NewFailoverState(3, false)
+		fs.LastFailoverErr = newTestFailoverErr(503, false, false)
+		fs.FailedAccountIDs[100] = struct{}{}
+		ctx := service.WithSingleAccountRetry(context.Background(), true, true)
+		ctx = service.WithSingleAccountRetry(ctx, false, false)
+
+		start := time.Now()
+		action := fs.HandleSelectionExhausted(ctx)
+		elapsed := time.Since(start)
+
+		require.Equal(t, FailoverExhausted, action)
+		require.Contains(t, fs.FailedAccountIDs, int64(100))
+		require.Less(t, elapsed, 100*time.Millisecond, "metadata false 不应被legacy true覆盖")
 	})
 
 	t.Run("503但SwitchCount已超过MaxSwitches_返回Exhausted", func(t *testing.T) {
@@ -893,7 +941,8 @@ func TestHandleSelectionExhausted(t *testing.T) {
 		fs.LastFailoverErr = newTestFailoverErr(503, false, false)
 		fs.SwitchCount = 2 // == MaxSwitches，条件是 <=，仍可重试
 
-		action := fs.HandleSelectionExhausted(context.Background())
+		ctx := service.WithSingleAccountRetry(context.Background(), true, false)
+		action := fs.HandleSelectionExhausted(ctx)
 		require.Equal(t, FailoverContinue, action)
 	})
 }

@@ -75,45 +75,32 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		return
 	}
 	reqModel := modelResult.String()
-	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
-		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
-		return
-	}
+	baseRequestCtx := c.Request.Context()
 	reqStream, ok := parseOpenAICompatibleStream(body)
 	if !ok {
 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", invalidStreamFieldTypeMessage)
+		return
+	}
+	orderedGroups, _ := resolveOrderedAPIKeyGroups(baseRequestCtx, h.gatewayService, apiKey)
+	if len(orderedGroups) == 0 && apiKey.Group != nil {
+		orderedGroups = []*service.Group{apiKey.Group}
+	}
+	groupIDs := make([]int64, 0, len(orderedGroups))
+	groupsByID := make(map[int64]*service.Group, len(orderedGroups))
+	for _, group := range orderedGroups {
+		groupIDs = append(groupIDs, group.ID)
+		groupsByID[group.ID] = group
+	}
+	requestBudget := NewRequestFailoverBudget(h.maxAccountSwitches)
+	groupFailover := NewOrderedGroupFailoverStateWithBudget(groupIDs, len(groupIDs)-1, requestBudget)
+	if len(orderedGroups) <= 1 && apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly {
+		h.responsesErrorResponse(c, http.StatusForbidden, "permission_error", "This group is restricted to Claude Code clients (/v1/messages only)")
 		return
 	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
 	setOpsRequestContext(c, reqModel, reqStream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
-	requestCtx := c.Request.Context()
-	// 定价上下文无条件装配：/v1/responses 是 token 计费端点，声明生图工具的
-	// 混合请求同样按 token 计费（外加图片部分），其 token 利润保护不因请求体
-	// 里的任何工具声明（含 Codex 被动 image_gen namespace）而关闭。生图意图
-	// 仅用于能力路由与图片计费；独立图片/视频端点才在利润门范围之外。
-	requestCtx, pricingAt := service.WithGatewayTokenRequestPricing(requestCtx)
-	if service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(c.Request.Context(), apiKey)) {
-		requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
-	}
-	c.Request = c.Request.WithContext(requestCtx)
-
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(requestCtx, apiKey.GroupID, reqModel)
-
-	// Claude Code only restriction:
-	// /v1/responses is never a Claude Code endpoint.
-	// When claude_code_only is enabled, this endpoint is rejected.
-	// The existing service-layer checkClaudeCodeRestriction handles degradation
-	// to fallback groups when the Forward path calls SelectAccountForModelWithExclusions.
-	// Here we just reject at handler level since /v1/responses clients can't be Claude Code.
-	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly {
-		h.responsesErrorResponse(c, http.StatusForbidden, "permission_error",
-			"This group is restricted to Claude Code clients (/v1/messages only)")
-		return
-	}
 
 	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIResponses, reqModel, body); decision != nil && !decision.AllowNextStage {
 		h.responsesSecurityAuditError(c, decision)
@@ -124,8 +111,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
 	}
-
-	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 
@@ -148,19 +133,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		}
 	}()
 
-	if apiKey.Group != nil && apiKey.Group.EffectiveUserConcurrencyLimitAt(time.Now()) > 0 {
-		groupUserReleaseFunc, err := h.concurrencyHelper.AcquireGroupUserSlotWithWait(c, apiKey.Group.ID, subject.UserID, apiKey.Group.EffectiveUserConcurrencyLimitAt(time.Now()), reqStream, &streamStarted)
-		if err != nil {
-			reqLog.Warn("gateway.responses.group_user_slot_acquire_failed", zap.Int64("group_id", apiKey.Group.ID), zap.Error(err))
-			h.handleConcurrencyError(c, err, "group_user", streamStarted)
-			return
-		}
-		groupUserReleaseFunc = wrapReleaseOnDone(c.Request.Context(), groupUserReleaseFunc)
-		if groupUserReleaseFunc != nil {
-			defer groupUserReleaseFunc()
-		}
-	}
-
 	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)
 	if err != nil {
 		reqLog.Warn("gateway.responses.user_slot_acquire_failed", zap.Error(err))
@@ -170,17 +142,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	userReleaseFunc = wrapReleaseOnDone(c.Request.Context(), userReleaseFunc)
 	if userReleaseFunc != nil {
 		defer userReleaseFunc()
-	}
-
-	// 2. Re-check billing
-	if err := h.billingCacheService.CheckBillingEligibility(requestCtx, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(requestCtx, apiKey)); err != nil {
-		reqLog.Info("gateway.responses.billing_check_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.responsesErrorResponse(c, status, code, message)
-		return
 	}
 
 	// Parse request for session hash
@@ -196,188 +157,311 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	}
 	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
 
-	// 3. Account selection + failover loop
-	fs := NewFailoverState(h.maxAccountSwitches, false)
+	// 3. Ordered Group attempts; account selection and failover remain inside each attempt.
+	var currentAPIKey *service.APIKey
+	var currentSubscription *service.UserSubscription
+	var channelMapping service.ChannelMappingResult
+	var pricingAt time.Time
+	var groupUserReleaseFunc func()
+	defer func() {
+		if groupUserReleaseFunc != nil {
+			groupUserReleaseFunc()
+		}
+	}()
+	releaseGroupUserSlot := func() {
+		if groupUserReleaseFunc != nil {
+			groupUserReleaseFunc()
+			groupUserReleaseFunc = nil
+		}
+	}
 
+groupAttempt:
 	for {
-		if requestCtx.Err() != nil {
+		releaseGroupUserSlot()
+		groupID, ok := groupFailover.CurrentGroupID()
+		if !ok {
+			h.responsesErrorResponse(c, http.StatusBadGateway, "server_error", "All available groups exhausted")
 			return
 		}
-		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(requestCtx, apiKey.GroupID, sessionHash, reqModel, fs.FailedAccountIDs, "", int64(0))
-		if err != nil {
-			if len(fs.FailedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, effectiveAPIKeyPlatform(c, apiKey))
-				if !cls.ModelNotFound {
-					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+		currentGroup := groupsByID[groupID]
+		attemptCtx, attemptPricingAt := service.WithGatewayTokenRequestPricing(baseRequestCtx)
+		var attemptErr error
+		currentSubscription = nil
+		if currentGroup.IsSubscriptionType() {
+			currentSubscription, attemptErr = h.gatewayService.ResolveActiveSubscription(attemptCtx, subject.UserID, currentGroup.ID)
+			if attemptErr != nil {
+				if isRetryableGroupBillingError(attemptErr) && groupFailover.Advance(attemptCtx, nil, false) == GroupFailoverContinue {
+					continue groupAttempt
 				}
-				message := cls.Message
-				if !cls.ModelNotFound {
-					message = "No available accounts: " + err.Error()
+				status, code, message, retryAfter := billingErrorDetails(attemptErr)
+				if retryAfter > 0 {
+					c.Header("Retry-After", strconv.Itoa(retryAfter))
 				}
-				h.responsesErrorResponse(c, cls.Status, cls.ErrType, message)
-				return
-			}
-			action := fs.HandleSelectionExhausted(requestCtx)
-			switch action {
-			case FailoverContinue:
-				continue
-			case FailoverCanceled:
-				failoverClientGone(c)
-				return
-			default:
-				if fs.LastFailoverErr != nil {
-					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
-				} else {
-					h.responsesErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
-				}
+				h.responsesErrorResponse(c, status, code, message)
 				return
 			}
 		}
-		account := selection.Account
-		setOpsSelectedAccount(c, account.ID, account.Platform)
-
-		// 4. Acquire account concurrency slot
-		accountReleaseFunc := selection.ReleaseFunc
-		if !selection.Acquired {
-			if selection.WaitPlan == nil {
-				markOpsRoutingCapacityLimited(c)
-				h.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts")
+		currentAPIKey, _, attemptErr = applyAPIKeyGroupAttemptWithBase(c, attemptCtx, apiKey, currentGroup, currentSubscription)
+		if attemptErr != nil {
+			if groupFailover.Advance(attemptCtx, nil, false) == GroupFailoverContinue {
+				continue groupAttempt
+			}
+			h.responsesErrorResponse(c, http.StatusForbidden, "permission_error", attemptErr.Error())
+			return
+		}
+		requestCtx := c.Request.Context()
+		if service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(requestCtx, currentAPIKey)) {
+			requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
+			c.Request = c.Request.WithContext(requestCtx)
+		}
+		ensureCompositeTargetPlatform(c, currentAPIKey, reqModel)
+		if !compositeTargetPlatformResolved(c, currentAPIKey, reqModel) {
+			if groupFailover.Advance(requestCtx, nil, false) == GroupFailoverContinue {
+				continue groupAttempt
+			}
+			h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
+			return
+		}
+		requestCtx = c.Request.Context()
+		requestCtx = service.WithSingleAccountRetry(
+			requestCtx,
+			h.gatewayService.IsSingleAntigravityAccountGroup(requestCtx, currentAPIKey.GroupID),
+			h.metadataBridgeEnabled(),
+		)
+		c.Request = c.Request.WithContext(requestCtx)
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(requestCtx, currentAPIKey.GroupID, reqModel)
+		if currentAPIKey.Group != nil && currentAPIKey.Group.ClaudeCodeOnly {
+			if groupFailover.Advance(requestCtx, nil, false) == GroupFailoverContinue {
+				continue groupAttempt
+			}
+			h.responsesErrorResponse(c, http.StatusForbidden, "permission_error", "This group is restricted to Claude Code clients (/v1/messages only)")
+			return
+		}
+		if maxGroupConcurrency := currentGroup.EffectiveUserConcurrencyLimitAt(time.Now()); maxGroupConcurrency > 0 {
+			groupUserReleaseFunc, attemptErr = h.concurrencyHelper.AcquireGroupUserSlotWithWait(c, currentGroup.ID, subject.UserID, maxGroupConcurrency, reqStream, &streamStarted)
+			if attemptErr != nil {
+				reqLog.Warn("gateway.responses.group_user_slot_acquire_failed", zap.Int64("group_id", currentGroup.ID), zap.Error(attemptErr))
+				h.handleConcurrencyError(c, attemptErr, "group_user", streamStarted)
 				return
 			}
-			accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
-				c,
-				account.ID,
-				selection.WaitPlan.MaxConcurrency,
-				selection.WaitPlan.Timeout,
-				reqStream,
-				&streamStarted,
-			)
+			groupUserReleaseFunc = wrapReleaseOnDone(requestCtx, groupUserReleaseFunc)
+		}
+		if attemptErr = h.billingCacheService.CheckBillingEligibility(requestCtx, currentAPIKey.User, currentAPIKey, currentAPIKey.Group, currentSubscription, service.QuotaPlatform(requestCtx, currentAPIKey)); attemptErr != nil {
+			if isRetryableGroupBillingError(attemptErr) && groupFailover.Advance(requestCtx, nil, false) == GroupFailoverContinue {
+				continue groupAttempt
+			}
+			status, code, message, retryAfter := billingErrorDetails(attemptErr)
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.responsesErrorResponse(c, status, code, message)
+			return
+		}
+		pricingAt = attemptPricingAt
+		fs := NewFailoverStateWithBudget(h.maxAccountSwitches, false, requestBudget)
+
+		for {
+			if requestCtx.Err() != nil {
+				return
+			}
+			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(requestCtx, currentAPIKey.GroupID, sessionHash, reqModel, fs.FailedAccountIDs, "", int64(0))
 			if err != nil {
-				reqLog.Warn("gateway.responses.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
-				h.handleConcurrencyError(c, err, "account", streamStarted)
-				return
-			}
-		}
-		// 终检与准入后绑定必须使用选号结果携带的门：门安装在调度栈的局部
-		// ctx 上（composite/fallback 还可能解析出与入口分组不同的门），直接用
-		// requestCtx 会退化为空操作。
-		admissionCtx := service.ContextWithSelectionProfitGate(requestCtx, selection)
-		latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account)
-		if vetoed {
-			if accountReleaseFunc != nil {
-				accountReleaseFunc()
-			}
-			reqLog.Debug("gateway.responses.account_slot_profit_vetoed", zap.Int64("account_id", account.ID), zap.String("reason", reason))
-			if fs.RecordProfitVeto(account.ID) == FailoverExhausted {
-				reqLog.Warn("gateway.responses.profit_veto_attempts_exhausted", zap.Int("profit_veto_count", fs.ProfitVetoCount()))
-				h.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", profitVetoExhaustedMessage)
-				return
-			}
-			continue
-		}
-		account = latest
-		selection.Account = latest
-		if selection.ProfitGateActive() {
-			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, apiKey.GroupID, sessionHash, account.ID); err != nil {
-				reqLog.Warn("gateway.responses.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
-			}
-		}
-		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
-
-		// 5. Forward request
-		writerSizeBeforeForward := c.Writer.Size()
-		forwardBody := body
-		if channelMapping.Mapped {
-			forwardBody = h.gatewayService.ReplaceModelInBody(body, channelMapping.MappedModel)
-		}
-		var result *service.ForwardResult
-		setActualUpstreamEndpoint(c, "")
-		if shouldUseAntigravityCompat(account) {
-			if h.antigravityGatewayService == nil {
-				h.responsesErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
-				if accountReleaseFunc != nil {
-					accountReleaseFunc()
-				}
-				return
-			}
-			setActualUpstreamEndpoint(c, EndpointAntigravityGenerateContent)
-			result, err = h.antigravityGatewayService.ForwardAsResponses(requestCtx, c, account, forwardBody, parsedReq)
-		} else {
-			result, err = h.gatewayService.ForwardAsResponses(requestCtx, c, account, forwardBody, parsedReq)
-		}
-
-		if accountReleaseFunc != nil {
-			accountReleaseFunc()
-		}
-
-		if err != nil {
-			var failoverErr *service.UpstreamFailoverError
-			if errors.As(err, &failoverErr) {
-				// Can't failover if streaming content already sent
-				if c.Writer.Size() != writerSizeBeforeForward {
-					h.handleResponsesFailoverExhausted(c, failoverErr, true)
+				if len(fs.FailedAccountIDs) == 0 {
+					if groupAction := groupFailover.Advance(requestCtx, nil, false); groupAction == GroupFailoverContinue {
+						continue groupAttempt
+					} else if groupAction == GroupFailoverCanceled {
+						failoverClientGone(c)
+						return
+					}
+					cls := classifyNoAccountErrorFromGin(c, h.gatewayService, currentAPIKey, reqModel, reqModel, effectiveAPIKeyPlatform(c, currentAPIKey))
+					if !cls.ModelNotFound {
+						markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+					}
+					message := cls.Message
+					if !cls.ModelNotFound {
+						message = "No available accounts: " + err.Error()
+					}
+					h.responsesErrorResponse(c, cls.Status, cls.ErrType, message)
 					return
 				}
-				action := fs.HandleFailoverError(requestCtx, h.gatewayService, account.ID, account.Platform, account.GetPoolModeRetryCount(), failoverErr)
+				action := fs.HandleSelectionExhausted(requestCtx)
 				switch action {
 				case FailoverContinue:
 					continue
-				case FailoverExhausted:
-					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
-					return
 				case FailoverCanceled:
 					failoverClientGone(c)
 					return
+				default:
+					if fs.LastFailoverErr != nil {
+						if groupAction := groupFailover.Advance(requestCtx, fs.LastFailoverErr, false); groupAction == GroupFailoverContinue {
+							continue groupAttempt
+						} else if groupAction == GroupFailoverCanceled {
+							failoverClientGone(c)
+							return
+						}
+						h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
+					} else {
+						h.responsesErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
+					}
+					return
 				}
 			}
-			upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
-			wroteFallback := false
-			if !upstreamErrorAlreadyCommunicated {
-				wroteFallback = h.ensureForwardErrorResponse(c, streamStarted)
+			account := selection.Account
+			setOpsSelectedAccount(c, account.ID, account.Platform)
+
+			// 4. Acquire account concurrency slot
+			accountReleaseFunc := selection.ReleaseFunc
+			if !selection.Acquired {
+				if selection.WaitPlan == nil {
+					markOpsRoutingCapacityLimited(c)
+					h.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts")
+					return
+				}
+				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					selection.WaitPlan.Timeout,
+					reqStream,
+					&streamStarted,
+				)
+				if err != nil {
+					reqLog.Warn("gateway.responses.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+					h.handleConcurrencyError(c, err, "account", streamStarted)
+					return
+				}
 			}
-			reqLog.Error("gateway.responses.forward_failed",
-				zap.Int64("account_id", account.ID),
-				zap.Bool("fallback_error_response_written", wroteFallback),
-				zap.Bool("upstream_error_response_already_written", upstreamErrorAlreadyCommunicated),
-				zap.Error(err),
-			)
-			return
-		}
+			// 终检与准入后绑定必须使用选号结果携带的门：门安装在调度栈的局部
+			// ctx 上（composite/fallback 还可能解析出与入口分组不同的门），直接用
+			// requestCtx 会退化为空操作。
+			admissionCtx := service.ContextWithSelectionProfitGate(requestCtx, selection)
+			latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account)
+			if vetoed {
+				if accountReleaseFunc != nil {
+					accountReleaseFunc()
+				}
+				reqLog.Debug("gateway.responses.account_slot_profit_vetoed", zap.Int64("account_id", account.ID), zap.String("reason", reason))
+				if fs.RecordProfitVeto(account.ID) == FailoverExhausted {
+					reqLog.Warn("gateway.responses.profit_veto_attempts_exhausted", zap.Int("profit_veto_count", fs.ProfitVetoCount()))
+					h.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", profitVetoExhaustedMessage)
+					return
+				}
+				continue
+			}
+			account = latest
+			selection.Account = latest
+			if selection.ProfitGateActive() {
+				if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, currentAPIKey.GroupID, sessionHash, account.ID); err != nil {
+					reqLog.Warn("gateway.responses.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				}
+			}
+			accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
-		// 6. Record usage
-		userAgent := c.GetHeader("User-Agent")
-		clientIP := ip.GetClientIP(c)
-		requestPayloadHash := service.HashUsageRequestPayload(body)
-		inboundEndpoint := GetInboundEndpoint(c)
-		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+			// 5. Forward request
+			writerSizeBeforeForward := service.OpenAICompactKeepaliveAdjustedWrittenSize(c)
+			forwardBody := body
+			if channelMapping.Mapped {
+				forwardBody = h.gatewayService.ReplaceModelInBody(body, channelMapping.MappedModel)
+			}
+			var result *service.ForwardResult
+			setActualUpstreamEndpoint(c, "")
+			if shouldUseAntigravityCompat(account) {
+				if h.antigravityGatewayService == nil {
+					h.responsesErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
+					if accountReleaseFunc != nil {
+						accountReleaseFunc()
+					}
+					return
+				}
+				setActualUpstreamEndpoint(c, EndpointAntigravityGenerateContent)
+				result, err = h.antigravityGatewayService.ForwardAsResponses(requestCtx, c, account, forwardBody, parsedReq)
+			} else {
+				result, err = h.gatewayService.ForwardAsResponses(requestCtx, c, account, forwardBody, parsedReq)
+			}
 
-		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
-		sessionID := service.ExtractClientSessionID(c)
-		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
-			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-				Result:             result,
-				QuotaPlatform:      quotaPlatform,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				PricingAt:          pricingAt,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      h.apiKeyService,
-				SessionID:          sessionID,
-				ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
-			}); err != nil {
-				reqLog.Error("gateway.responses.record_usage_failed",
+			if accountReleaseFunc != nil {
+				accountReleaseFunc()
+			}
+
+			if err != nil {
+				var failoverErr *service.UpstreamFailoverError
+				if errors.As(err, &failoverErr) {
+					// Can't failover if streaming content already sent
+					if service.OpenAICompactKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeForward {
+						h.handleResponsesFailoverExhausted(c, failoverErr, true)
+						return
+					}
+					action := fs.HandleFailoverError(requestCtx, h.gatewayService, account.ID, account.Platform, account.GetPoolModeRetryCount(), failoverErr)
+					switch action {
+					case FailoverContinue:
+						continue
+					case FailoverExhausted:
+						if groupAction := groupFailover.Advance(requestCtx, fs.LastFailoverErr, false); groupAction == GroupFailoverContinue {
+							continue groupAttempt
+						} else if groupAction == GroupFailoverCanceled {
+							failoverClientGone(c)
+							return
+						}
+						h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
+						return
+					case FailoverCanceled:
+						failoverClientGone(c)
+						return
+					}
+				}
+				upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
+				wroteFallback := false
+				if !upstreamErrorAlreadyCommunicated {
+					wroteFallback = h.ensureForwardErrorResponse(c, streamStarted)
+				}
+				reqLog.Error("gateway.responses.forward_failed",
 					zap.Int64("account_id", account.ID),
+					zap.Bool("fallback_error_response_written", wroteFallback),
+					zap.Bool("upstream_error_response_already_written", upstreamErrorAlreadyCommunicated),
 					zap.Error(err),
 				)
+				return
 			}
-		})
-		return
+
+			// 6. Record usage
+			userAgent := c.GetHeader("User-Agent")
+			clientIP := ip.GetClientIP(c)
+			requestPayloadHash := service.HashUsageRequestPayload(body)
+			inboundEndpoint := GetInboundEndpoint(c)
+			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+
+			usageAPIKey := currentAPIKey
+			usageUser := currentAPIKey.User
+			usageSubscription := currentSubscription
+			usageQuotaPlatform := service.QuotaPlatform(c.Request.Context(), currentAPIKey)
+			usageChannelMapping := channelMapping
+			sessionID := service.ExtractClientSessionID(c)
+			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
+					Result:             result,
+					QuotaPlatform:      usageQuotaPlatform,
+					APIKey:             usageAPIKey,
+					User:               usageUser,
+					Account:            account,
+					Subscription:       usageSubscription,
+					PricingAt:          pricingAt,
+					InboundEndpoint:    inboundEndpoint,
+					UpstreamEndpoint:   upstreamEndpoint,
+					UserAgent:          userAgent,
+					IPAddress:          clientIP,
+					RequestPayloadHash: requestPayloadHash,
+					APIKeyService:      h.apiKeyService,
+					SessionID:          sessionID,
+					ChannelUsageFields: clientRequestedUsageFields(c, usageChannelMapping, reqModel, result.UpstreamModel),
+				}); err != nil {
+					reqLog.Error("gateway.responses.record_usage_failed",
+						zap.Int64("account_id", account.ID),
+						zap.Error(err),
+					)
+				}
+			})
+			return
+		}
 	}
 }
 
