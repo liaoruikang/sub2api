@@ -818,16 +818,20 @@ func openAIStreamFailedEventErrorCode(payload []byte) string {
 	return code
 }
 
-// isOpenAIUpstreamCapacityShedEvent 判断流内 failed 事件是否为上游容量降载信号。
-// 上游在容量紧张时会把请求丢进降载路径：HTTP 200 之后立刻推 event: error
-// （code=server_is_overloaded / slow_down）并以 response.failed 收尾。
-func isOpenAIUpstreamCapacityShedEvent(payload []byte) bool {
-	switch openAIStreamFailedEventErrorCode(payload) {
+func isOpenAICapacityShedErrorCode(code string) bool {
+	switch strings.ToLower(strings.TrimSpace(code)) {
 	case "server_is_overloaded", "slow_down":
 		return true
 	default:
 		return false
 	}
+}
+
+// isOpenAIUpstreamCapacityShedEvent 判断流内 failed 事件是否为上游容量降载信号。
+// 上游在容量紧张时会把请求丢进降载路径：HTTP 200 之后立刻推 event: error
+// （code=server_is_overloaded / slow_down）并以 response.failed 收尾。
+func isOpenAIUpstreamCapacityShedEvent(payload []byte) bool {
+	return isOpenAICapacityShedErrorCode(openAIStreamFailedEventErrorCode(payload))
 }
 
 // openAICapacityShedRetryableClientCode 是把上游容量降载错误转发给客户端时改写

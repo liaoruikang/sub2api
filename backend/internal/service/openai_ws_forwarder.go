@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strings"
 	"time"
 
@@ -58,8 +59,11 @@ var openAIWSIngressPreflightPingIdle = 20 * time.Second
 
 // openAIWSFallbackError 表示可安全回退到 HTTP 的 WS 错误（尚未写下游）。
 type openAIWSFallbackError struct {
-	Reason string
-	Err    error
+	Reason          string
+	Err             error
+	StatusCode      int
+	ResponseBody    []byte
+	ResponseHeaders http.Header
 }
 
 func (e *openAIWSFallbackError) Error() string {
@@ -81,6 +85,16 @@ func (e *openAIWSFallbackError) Unwrap() error {
 
 func wrapOpenAIWSFallback(reason string, err error) error {
 	return &openAIWSFallbackError{Reason: strings.TrimSpace(reason), Err: err}
+}
+
+func wrapOpenAIWSFallbackWithResponse(reason string, err error, statusCode int, responseHeaders http.Header, responseBody []byte) error {
+	return &openAIWSFallbackError{
+		Reason:          strings.TrimSpace(reason),
+		Err:             err,
+		StatusCode:      statusCode,
+		ResponseBody:    append([]byte(nil), responseBody...),
+		ResponseHeaders: cloneHeader(responseHeaders),
+	}
 }
 
 // OpenAIWSClientCloseError 表示应以指定 WebSocket close code 主动关闭客户端连接的错误。

@@ -777,6 +777,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			return wsResult, nil
 		}
+		if failoverErr := openAIWSCapacityShedFallbackFailoverError(wsErr); failoverErr != nil {
+			return nil, failoverErr
+		}
 		s.writeOpenAIWSFallbackErrorResponse(c, account, wsErr)
 		return nil, wsErr
 	}

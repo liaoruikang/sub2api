@@ -108,6 +108,12 @@ func TestClassifyOpenAIWSErrorEvent(t *testing.T) {
 	reason, recoverable = classifyOpenAIWSErrorEvent([]byte(`{"type":"error","error":{"code":"previous_response_not_found","message":"not found"}}`))
 	require.Equal(t, "previous_response_not_found", reason)
 	require.True(t, recoverable)
+
+	for _, code := range []string{"server_is_overloaded", "slow_down"} {
+		reason, recoverable = classifyOpenAIWSErrorEvent([]byte(`{"type":"error","error":{"code":"` + code + `","message":"capacity shed"}}`))
+		require.Equal(t, "upstream_capacity_shed", reason, code)
+		require.True(t, recoverable, code)
+	}
 }
 
 func TestClassifyOpenAIWSReconnectReason(t *testing.T) {
@@ -118,6 +124,25 @@ func TestClassifyOpenAIWSReconnectReason(t *testing.T) {
 	reason, retryable = classifyOpenAIWSReconnectReason(wrapOpenAIWSFallback("read_event", errors.New("io")))
 	require.Equal(t, "read_event", reason)
 	require.True(t, retryable)
+
+	reason, retryable = classifyOpenAIWSReconnectReason(wrapOpenAIWSFallbackWithResponse("upstream_capacity_shed", errors.New("overloaded"), http.StatusServiceUnavailable, nil, []byte(`{"type":"error","error":{"code":"server_is_overloaded"}}`)))
+	require.Equal(t, "upstream_capacity_shed", reason)
+	require.True(t, retryable)
+}
+
+func TestOpenAIWSCapacityShedFallbackFailoverError(t *testing.T) {
+	body := []byte(`{"type":"error","error":{"code":"slow_down","message":"slow down"}}`)
+	headers := http.Header{"X-Request-Id": []string{"req-capacity"}}
+
+	failoverErr := openAIWSCapacityShedFallbackFailoverError(wrapOpenAIWSFallbackWithResponse("upstream_capacity_shed", errors.New("slow down"), http.StatusServiceUnavailable, headers, body))
+	require.NotNil(t, failoverErr)
+	require.Equal(t, http.StatusServiceUnavailable, failoverErr.StatusCode)
+	require.Equal(t, "req-capacity", failoverErr.ResponseHeaders.Get("X-Request-Id"))
+	require.Equal(t, string(body), string(failoverErr.ResponseBody))
+	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.True(t, failoverErr.RequestScopedTransient)
+
+	require.Nil(t, openAIWSCapacityShedFallbackFailoverError(wrapOpenAIWSFallbackWithResponse("event_error", errors.New("policy"), http.StatusBadRequest, nil, []byte(`{"type":"error","error":{"code":"content_policy_violation"}}`))))
 }
 
 func TestOpenAIWSErrorHTTPStatus(t *testing.T) {

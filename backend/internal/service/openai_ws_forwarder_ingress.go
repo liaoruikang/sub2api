@@ -839,6 +839,20 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		lastEventType := ""
 		needModelReplace := false
 		clientDisconnected := false
+		bufferedClientEvents := make([][]byte, 0, 4)
+		flushBufferedClientEvents := func() error {
+			if len(bufferedClientEvents) == 0 || clientDisconnected {
+				return nil
+			}
+			for _, buffered := range bufferedClientEvents {
+				if err := writeClientMessage(buffered); err != nil {
+					return err
+				}
+				wroteDownstream = true
+			}
+			bufferedClientEvents = bufferedClientEvents[:0]
+			return nil
+		}
 		mappedModel := ""
 		var mappedModelBytes []byte
 		if originalModel != "" {
@@ -939,6 +953,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 						false,
 					)
 				}
+				if !wroteDownstream && turn == 1 && fallbackReason == "upstream_capacity_shed" && turnPreviousResponseID == "" {
+					lease.MarkBroken()
+					return nil, newOpenAIWSCapacityShedFailoverError(http.StatusServiceUnavailable, lease.HandshakeHeaders(), upstreamMessage)
+				}
 				if !wroteDownstream && isOpenAIWSRateLimitError(errCodeRaw, errTypeRaw, errMsgRaw) {
 					lease.MarkBroken()
 					return nil, &UpstreamFailoverError{
@@ -988,27 +1006,61 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					}
 				}
 				replayCollector.AddEvent(eventType, upstreamMessage)
-				if err := writeClientMessage(upstreamMessage); err != nil {
-					if isOpenAIWSClientDisconnectError(err) {
-						clientDisconnected = true
-						closeStatus, closeReason := summarizeOpenAIWSReadCloseError(err)
-						logOpenAIWSModeInfo(
-							"ingress_ws_client_disconnected_drain account_id=%d turn=%d conn_id=%s close_status=%s close_reason=%s",
-							account.ID,
-							turn,
-							truncateOpenAIWSLogValue(lease.ConnID(), openAIWSIDValueMaxLen),
-							closeStatus,
-							truncateOpenAIWSLogValue(closeReason, openAIWSHeaderValueMaxLen),
-						)
-					} else {
-						return nil, wrapOpenAIWSIngressTurnError(
-							"write_client",
-							fmt.Errorf("write client websocket event: %w", err),
-							wroteDownstream,
-						)
-					}
+				shouldBufferClientEvent := firstTokenMs == nil && !isTokenEvent && !isTerminalEvent
+				if shouldBufferClientEvent {
+					buffered := make([]byte, len(upstreamMessage))
+					copy(buffered, upstreamMessage)
+					bufferedClientEvents = append(bufferedClientEvents, buffered)
 				} else {
-					wroteDownstream = true
+					if err := flushBufferedClientEvents(); err != nil {
+						if isOpenAIWSClientDisconnectError(err) {
+							clientDisconnected = true
+							closeStatus, closeReason := summarizeOpenAIWSReadCloseError(err)
+							logOpenAIWSModeInfo(
+								"ingress_ws_client_disconnected_drain account_id=%d turn=%d conn_id=%s close_status=%s close_reason=%s",
+								account.ID,
+								turn,
+								truncateOpenAIWSLogValue(lease.ConnID(), openAIWSIDValueMaxLen),
+								closeStatus,
+								truncateOpenAIWSLogValue(closeReason, openAIWSHeaderValueMaxLen),
+							)
+						} else {
+							return nil, wrapOpenAIWSIngressTurnError(
+								"write_client",
+								fmt.Errorf("write client websocket event: %w", err),
+								wroteDownstream,
+							)
+						}
+					} else if !clientDisconnected {
+						clientMessage := upstreamMessage
+						if eventType == "error" || eventType == "response.failed" {
+							if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(clientMessage); changed {
+								clientMessage = rewritten
+							}
+						}
+						if err := writeClientMessage(clientMessage); err != nil {
+							if isOpenAIWSClientDisconnectError(err) {
+								clientDisconnected = true
+								closeStatus, closeReason := summarizeOpenAIWSReadCloseError(err)
+								logOpenAIWSModeInfo(
+									"ingress_ws_client_disconnected_drain account_id=%d turn=%d conn_id=%s close_status=%s close_reason=%s",
+									account.ID,
+									turn,
+									truncateOpenAIWSLogValue(lease.ConnID(), openAIWSIDValueMaxLen),
+									closeStatus,
+									truncateOpenAIWSLogValue(closeReason, openAIWSHeaderValueMaxLen),
+								)
+							} else {
+								return nil, wrapOpenAIWSIngressTurnError(
+									"write_client",
+									fmt.Errorf("write client websocket event: %w", err),
+									wroteDownstream,
+								)
+							}
+						} else {
+							wroteDownstream = true
+						}
+					}
 				}
 			}
 			if isTerminalEvent {

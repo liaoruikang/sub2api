@@ -779,12 +779,41 @@ func classifyOpenAIWSReconnectReason(err error) (string, bool) {
 		"event_error",
 		"error_event",
 		"upstream_error_event",
+		"upstream_capacity_shed",
 		"ws_connection_limit_reached",
 		"missing_final_response":
 		return reason, true
 	default:
 		return reason, false
 	}
+}
+
+func newOpenAIWSCapacityShedFailoverError(statusCode int, responseHeaders http.Header, responseBody []byte) *UpstreamFailoverError {
+	if statusCode == 0 {
+		statusCode = http.StatusServiceUnavailable
+	}
+	return &UpstreamFailoverError{
+		StatusCode:             statusCode,
+		ResponseBody:           append([]byte(nil), responseBody...),
+		ResponseHeaders:        cloneHeader(responseHeaders),
+		RetryableOnSameAccount: true,
+		RequestScopedTransient: true,
+	}
+}
+
+func openAIWSCapacityShedFallbackFailoverError(err error) *UpstreamFailoverError {
+	if err == nil {
+		return nil
+	}
+	var fallbackErr *openAIWSFallbackError
+	if !errors.As(err, &fallbackErr) || fallbackErr == nil {
+		return nil
+	}
+	reason := strings.TrimPrefix(strings.TrimSpace(fallbackErr.Reason), "prewarm_")
+	if reason != "upstream_capacity_shed" && !isOpenAIUpstreamCapacityShedEvent(fallbackErr.ResponseBody) {
+		return nil
+	}
+	return newOpenAIWSCapacityShedFailoverError(fallbackErr.StatusCode, fallbackErr.ResponseHeaders, fallbackErr.ResponseBody)
 }
 
 func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType string, clientMessage string, upstreamMessage string, ok bool) {

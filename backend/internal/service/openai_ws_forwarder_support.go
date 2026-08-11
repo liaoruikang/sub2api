@@ -636,6 +636,9 @@ func classifyOpenAIWSErrorEventFromRaw(codeRaw, errTypeRaw, msgRaw string) (stri
 	case "previous_response_not_found":
 		return "previous_response_not_found", true
 	}
+	if isOpenAICapacityShedErrorCode(code) {
+		return "upstream_capacity_shed", true
+	}
 	if isOpenAIWSRateLimitError(codeRaw, errTypeRaw, msgRaw) {
 		return "upstream_rate_limited", false
 	}
@@ -670,6 +673,13 @@ func classifyOpenAIWSErrorEvent(message []byte) (string, bool) {
 		return "event_error", false
 	}
 	return classifyOpenAIWSErrorEventFromRaw(parseOpenAIWSErrorEventFields(message))
+}
+
+func openAIWSFallbackStatusCodeFromRaw(fallbackReason, codeRaw, errTypeRaw string) int {
+	if strings.TrimSpace(fallbackReason) == "upstream_capacity_shed" {
+		return http.StatusServiceUnavailable
+	}
+	return openAIWSErrorHTTPStatusFromRaw(codeRaw, errTypeRaw)
 }
 
 func openAIWSErrorHTTPStatusFromRaw(codeRaw, errTypeRaw string) int {

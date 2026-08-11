@@ -588,6 +588,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 					UpstreamOutTok: usage.OutputTokens,
 				})
 			}
+			if !wroteDownstream && isOpenAIUpstreamCapacityShedEvent(message) {
+				lease.MarkBroken()
+				return nil, wrapOpenAIWSFallbackWithResponse("upstream_capacity_shed", errors.New(extractOpenAISSEErrorMessage(message)), http.StatusServiceUnavailable, lease.HandshakeHeaders(), message)
+			}
 		}
 
 		if eventType == "error" {
@@ -640,12 +644,15 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			// error 事件后连接不再可复用，避免回池后污染下一请求。
 			lease.MarkBroken()
 			if !wroteDownstream && canFallback {
-				return nil, wrapOpenAIWSFallback(fallbackReason, errors.New(errMsg))
+				return nil, wrapOpenAIWSFallbackWithResponse(fallbackReason, errors.New(errMsg), openAIWSFallbackStatusCodeFromRaw(fallbackReason, errCodeRaw, errTypeRaw), lease.HandshakeHeaders(), message)
 			}
 			statusCode := openAIWSErrorHTTPStatusFromRaw(errCodeRaw, errTypeRaw)
 			setOpsUpstreamError(c, statusCode, errMsg, "")
 			if reqStream && !clientDisconnected {
 				flushBufferedStreamEvents("error_event")
+				if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(message); changed {
+					message = rewritten
+				}
 				emitStreamMessage(message, true)
 			}
 			if !reqStream {
@@ -681,7 +688,13 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				}
 			} else {
 				flushBufferedStreamEvents(eventType)
-				emitStreamMessage(message, isTerminalEvent)
+				clientMessage := message
+				if eventType == "error" || eventType == "response.failed" {
+					if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(clientMessage); changed {
+						clientMessage = rewritten
+					}
+				}
+				emitStreamMessage(clientMessage, isTerminalEvent)
 			}
 		} else {
 			if responseField.Exists() && responseField.Type == gjson.JSON {
