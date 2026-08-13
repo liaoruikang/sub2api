@@ -228,6 +228,8 @@ type CreateGroupInput struct {
 	DailyLimitUSD                        *float64 // 日限额 (USD)
 	WeeklyLimitUSD                       *float64 // 周限额 (USD)
 	MonthlyLimitUSD                      *float64 // 月限额 (USD)
+	LongContextPricingEnabled            bool
+	ModelPricing                         []ChannelModelPricing
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration         bool
 	AllowBatchImageGeneration    bool
@@ -312,6 +314,8 @@ type UpdateGroupInput struct {
 	DailyLimitUSD                        *float64 // 日限额 (USD)
 	WeeklyLimitUSD                       *float64 // 周限额 (USD)
 	MonthlyLimitUSD                      *float64 // 月限额 (USD)
+	LongContextPricingEnabled            *bool
+	ModelPricing                         *[]ChannelModelPricing
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration         *bool
 	AllowBatchImageGeneration    *bool
@@ -692,6 +696,13 @@ type adminServiceImpl struct {
 	compositeRouteRepo   CompositeModelRouteRepository
 	compositeResolver    *CompositeRouteResolver
 	userTagRepo          UserTagRepository
+	// 分组平台变更后用来失效渠道缓存；可为 nil（缓存会在 TTL 到期后自然重建）
+	channelCacheInvalidator ChannelCacheInvalidator
+}
+
+// ChannelCacheInvalidator 失效渠道缓存。
+type ChannelCacheInvalidator interface {
+	InvalidateCache()
 }
 
 type adminRechargeAffiliateAccruer interface {
@@ -725,32 +736,34 @@ func NewAdminService(
 	affiliateService *AffiliateService,
 	compositeRouteRepo CompositeModelRouteRepository,
 	compositeResolver *CompositeRouteResolver,
+	channelCacheInvalidator ChannelCacheInvalidator,
 ) AdminService {
 	return &adminServiceImpl{
-		userRepo:             userRepo,
-		groupRepo:            groupRepo,
-		groupDuplicateRepo:   groupRepo,
-		accountRepo:          accountRepo,
-		accountDuplicateRepo: accountRepo,
-		accountBillingRepo:   accountRepo,
-		proxyRepo:            proxyRepo,
-		apiKeyRepo:           apiKeyRepo,
-		redeemCodeRepo:       redeemCodeRepo,
-		userGroupRateRepo:    userGroupRateRepo,
-		userRPMCache:         userRPMCache,
-		billingCacheService:  billingCacheService,
-		proxyProber:          proxyProber,
-		proxyLatencyCache:    proxyLatencyCache,
-		authCacheInvalidator: authCacheInvalidator,
-		entClient:            entClient,
-		settingService:       settingService,
-		defaultSubAssigner:   defaultSubAssigner,
-		userSubRepo:          userSubRepo,
-		privacyClientFactory: privacyClientFactory,
-		runtimeBlocker:       runtimeBlocker,
-		affiliateService:     affiliateService,
-		compositeRouteRepo:   compositeRouteRepo,
-		compositeResolver:    compositeResolver,
+		userRepo:                userRepo,
+		groupRepo:               groupRepo,
+		groupDuplicateRepo:      groupRepo,
+		accountRepo:             accountRepo,
+		accountDuplicateRepo:    accountRepo,
+		accountBillingRepo:      accountRepo,
+		proxyRepo:               proxyRepo,
+		apiKeyRepo:              apiKeyRepo,
+		redeemCodeRepo:          redeemCodeRepo,
+		userGroupRateRepo:       userGroupRateRepo,
+		userRPMCache:            userRPMCache,
+		billingCacheService:     billingCacheService,
+		proxyProber:             proxyProber,
+		proxyLatencyCache:       proxyLatencyCache,
+		authCacheInvalidator:    authCacheInvalidator,
+		entClient:               entClient,
+		settingService:          settingService,
+		defaultSubAssigner:      defaultSubAssigner,
+		userSubRepo:             userSubRepo,
+		privacyClientFactory:    privacyClientFactory,
+		runtimeBlocker:          runtimeBlocker,
+		affiliateService:        affiliateService,
+		compositeRouteRepo:      compositeRouteRepo,
+		compositeResolver:       compositeResolver,
+		channelCacheInvalidator: channelCacheInvalidator,
 	}
 }
 
@@ -786,6 +799,7 @@ func ProvideAdminService(
 	compositeResolver *CompositeRouteResolver,
 	rotationReconciler HighestSchedulingRotationReconciler,
 	userTagRepo UserTagRepository,
+	channelCacheInvalidator ChannelCacheInvalidator,
 ) AdminService {
 	InjectHighestSchedulingRotationReconciler(accountRepo, rotationReconciler)
 	adminService := NewAdminService(
@@ -810,6 +824,7 @@ func ProvideAdminService(
 		affiliateService,
 		compositeRouteRepo,
 		compositeResolver,
+		channelCacheInvalidator,
 	)
 	SetAdminServiceUserTagRepository(adminService, userTagRepo)
 	return adminService

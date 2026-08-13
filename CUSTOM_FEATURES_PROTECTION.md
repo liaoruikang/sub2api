@@ -390,7 +390,21 @@
 - 构建参数中需要保留：
   - `-gcflags=all=-d=ssa/nilcheckelim/off`
 
-### 2.11 API Key 多分组绑定与 Gateway Failover
+### 2.11 分组长上下文定价与账号开关三态保护
+
+功能要求：
+
+- 分组 `long_context_pricing_enabled` 控制是否应用模型长上下文阶梯价格。
+- OpenAI 账号自身的长上下文开关是额外 gate；Grok 等没有该账号开关的平台必须传 `nil`，仅由分组开关决定，不能硬编码为 `false` 否决官方阶梯价格。
+- 预估计费与正式用量记账必须共用 `openAILongContextBillingGate`，避免展示金额与实际扣费口径不一致。
+
+关键文件：
+
+- `backend/internal/service/openai_gateway_usage.go`
+- `backend/internal/service/model_pricing_resolver.go`
+- `backend/internal/service/openai_gateway_record_usage_test.go`
+
+### 2.12 API Key 多分组绑定与 Gateway Failover
 
 功能要求：
 
