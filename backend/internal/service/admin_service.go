@@ -697,7 +697,12 @@ type adminServiceImpl struct {
 	compositeResolver    *CompositeRouteResolver
 	userTagRepo          UserTagRepository
 	// 分组平台变更后用来失效渠道缓存；可为 nil（缓存会在 TTL 到期后自然重建）
-	channelCacheInvalidator ChannelCacheInvalidator
+	channelCacheInvalidator  ChannelCacheInvalidator
+	groupPriceChangeObserver GroupPriceChangeObserver
+}
+
+func (s *adminServiceImpl) SetGroupPriceChangeObserver(observer GroupPriceChangeObserver) {
+	s.groupPriceChangeObserver = observer
 }
 
 // ChannelCacheInvalidator 失效渠道缓存。

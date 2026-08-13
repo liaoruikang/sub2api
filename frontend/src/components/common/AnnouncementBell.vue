@@ -118,10 +118,20 @@
                       <h3 class="truncate text-sm font-medium text-gray-900 dark:text-white">
                         {{ item.title }}
                       </h3>
-                      <div class="mt-1 flex items-center gap-2">
+                      <div class="mt-1 flex flex-wrap items-center gap-2">
                         <time class="text-xs text-gray-500 dark:text-gray-400">
                           {{ formatRelativeTime(item.created_at) }}
                         </time>
+                        <span
+                          :class="[
+                            'inline-flex rounded-md px-1.5 py-0.5 text-xs font-medium',
+                            item.created_by == null
+                              ? 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
+                              : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                          ]"
+                        >
+                          {{ announcementSourceLabel(item) }}
+                        </span>
                         <span
                           v-if="!item.read_at"
                           class="inline-flex items-center gap-1 rounded-md bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
@@ -229,7 +239,7 @@
                   </h2>
 
                   <!-- Meta Info -->
-                  <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                  <div class="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <div class="flex items-center gap-1.5">
                       <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -243,6 +253,16 @@
                       </svg>
                       <span>{{ selectedAnnouncement.read_at ? t('announcements.read') : t('announcements.unread') }}</span>
                     </div>
+                    <span
+                      :class="[
+                        'inline-flex rounded-md px-2 py-1 text-xs font-medium',
+                        selectedAnnouncement.created_by == null
+                          ? 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
+                          : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                      ]"
+                    >
+                      {{ announcementSourceLabel(selectedAnnouncement) }}
+                    </span>
                   </div>
                 </div>
 
@@ -350,8 +370,13 @@ function renderMarkdown(content: string): string {
   return DOMPurify.sanitize(html)
 }
 
-function openModal() {
+function announcementSourceLabel(announcement: Pick<UserAnnouncement, 'created_by'>): string {
+  return announcement.created_by == null ? '系统发布' : '管理员发布'
+}
+
+async function openModal() {
   isModalOpen.value = true
+  await announcementStore.fetchAnnouncements(true)
 }
 
 function closeModal() {

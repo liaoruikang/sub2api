@@ -30,6 +30,29 @@
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
+            <button
+              @click="openPriceMonitorDialog"
+              class="btn btn-secondary"
+              title="分组价格监测设置"
+            >
+              <Icon name="cog" size="md" class="mr-1" />
+              分组价格监测
+              <span
+                :class="[
+                  'ml-1 rounded-full px-1.5 py-0.5 text-xs',
+                  priceMonitor.enabled
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    : 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-dark-400'
+                ]"
+              >{{ priceMonitor.enabled ? '已启用' : '已停用' }}</span>
+              <span
+                v-if="priceMonitor.enabled"
+                class="ml-1 inline-flex min-w-20 items-center gap-1 whitespace-nowrap text-xs tabular-nums text-gray-500 dark:text-dark-400"
+              >
+                <Icon name="clock" size="xs" />
+                {{ priceMonitorCountdownText }}
+              </span>
+            </button>
             <button @click="openCreateDialog" class="btn btn-primary">
               <Icon name="plus" size="md" class="mr-1" />
               {{ t('admin.announcements.createAnnouncement') }}
@@ -59,6 +82,12 @@
                 <span>{{ formatDateTime(row.created_at) }}</span>
               </div>
             </div>
+          </template>
+
+          <template #cell-source="{ row }">
+            <span :class="['badge', row.created_by == null ? 'badge-gray' : 'badge-primary']">
+              {{ row.created_by == null ? '系统发布' : '管理员发布' }}
+            </span>
           </template>
 
           <template #cell-status="{ value }">
@@ -254,6 +283,105 @@
       @close="previewAnnouncement = null"
     />
   </AppLayout>
+
+  <BaseDialog
+    :show="showPriceMonitorDialog"
+    title="分组价格监测设置"
+    width="wide"
+    @close="closePriceMonitorDialog"
+  >
+    <div class="space-y-5">
+      <div class="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/50">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">自动检测分组倍率变化</h3>
+          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">同一监测周期内的多个变化会合并为一条公告。</p>
+          <p
+            v-if="priceMonitor.enabled"
+            class="mt-2 inline-flex items-center gap-1.5 text-sm font-medium tabular-nums text-primary-600 dark:text-primary-400"
+          >
+            <Icon name="clock" size="sm" />
+            距离下一次监测：{{ priceMonitorCountdownText }}
+          </p>
+        </div>
+        <label class="inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+          <input v-model="priceMonitor.enabled" type="checkbox" class="peer sr-only" />
+          <span
+            :class="[
+              'flex h-5 w-9 items-center rounded-full p-0.5 transition-colors duration-300 ease-out dark:bg-dark-600',
+              priceMonitor.enabled ? 'bg-primary-600' : 'bg-gray-300'
+            ]"
+          >
+            <span
+              :class="[
+                'h-4 w-4 rounded-full bg-white shadow transition-transform duration-300 ease-out',
+                priceMonitor.enabled ? 'translate-x-4' : 'translate-x-0'
+              ]"
+            />
+          </span>
+          {{ priceMonitor.enabled ? '已启用' : '已停用' }}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <label class="input-label">监测周期（秒）
+          <input v-model.number="priceMonitor.interval_seconds" type="number" min="5" class="input mt-1" />
+        </label>
+        <label class="input-label">公告有效天数
+          <input v-model.number="priceMonitor.duration_days" type="number" min="1" step="1" class="input mt-1" />
+          <span class="input-hint">保存后从当前时间开始计算结束时间</span>
+        </label>
+        <label class="input-label">公告状态
+          <Select v-model="priceMonitor.status" :options="statusOptions" class="mt-1" />
+        </label>
+        <label class="input-label">通知方式
+          <Select v-model="priceMonitor.notify_mode" :options="notifyModeOptions" class="mt-1" />
+        </label>
+      </div>
+
+      <div>
+        <div class="mb-2 flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">监测分组</h3>
+            <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">选择全部分组，或指定需要监测的分组。</p>
+          </div>
+          <span class="text-xs text-gray-500 dark:text-dark-400">
+            {{ monitorAllGroups ? '全部分组' : `已选 ${priceMonitor.group_ids.length} 个` }}
+          </span>
+        </div>
+        <label
+          :class="[
+            'flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors',
+            monitorAllGroups
+              ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20'
+              : 'border-gray-200 hover:border-gray-300 dark:border-dark-700 dark:hover:border-dark-600'
+          ]"
+        >
+          <input v-model="monitorAllGroups" type="checkbox" class="peer sr-only" />
+          <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-white peer-checked:border-primary-600 peer-checked:bg-primary-600 dark:border-dark-500 dark:bg-dark-800">
+            <Icon v-if="monitorAllGroups" name="check" size="sm" />
+          </span>
+          <span class="text-sm font-medium text-gray-800 dark:text-gray-100">全部分组</span>
+        </label>
+        <div v-if="!monitorAllGroups" class="mt-3">
+          <GroupSelector
+            v-model="priceMonitor.group_ids"
+            :groups="allGroups"
+            :searchable="true"
+          />
+        </div>
+      </div>
+
+      <AnnouncementTargetingEditor v-model="priceMonitor.targeting" :groups="subscriptionGroups" />
+    </div>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn btn-secondary" @click="closePriceMonitorDialog">取消</button>
+        <button type="button" class="btn btn-primary" :disabled="priceMonitorSaving" @click="savePriceMonitor">
+          {{ priceMonitorSaving ? t('common.saving') : '保存监测设置' }}
+        </button>
+      </div>
+    </template>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
@@ -263,7 +391,7 @@ import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
-import type { AdminGroup, Announcement, AnnouncementTargeting } from '@/types'
+import type { AdminGroup, Announcement, AnnouncementTargeting, GroupPriceMonitorConfig } from '@/types'
 import type { Column } from '@/components/common/types'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -275,6 +403,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
+import GroupSelector from '@/components/common/GroupSelector.vue'
 
 import AnnouncementTargetingEditor from '@/components/admin/announcements/AnnouncementTargetingEditor.vue'
 import AnnouncementReadStatusDialog from '@/components/admin/announcements/AnnouncementReadStatusDialog.vue'
@@ -323,6 +452,7 @@ const notifyModeOptions = computed(() => [
 
 const columns = computed<Column[]>(() => [
   { key: 'title', label: t('admin.announcements.columns.title'), sortable: true },
+  { key: 'source', label: '发布者' },
   { key: 'status', label: t('admin.announcements.columns.status'), sortable: true },
   { key: 'notify_mode', label: t('admin.announcements.columns.notifyMode'), sortable: true },
   { key: 'targeting', label: t('admin.announcements.columns.targeting') },
@@ -438,15 +568,142 @@ const form = reactive({
 })
 
 const subscriptionGroups = ref<AdminGroup[]>([])
+const allGroups = ref<AdminGroup[]>([])
+const priceMonitorSaving = ref(false)
+const showPriceMonitorDialog = ref(false)
+const monitorAllGroups = ref(true)
+const priceMonitorNow = ref(Date.now())
+const priceMonitorNextCheckDeadline = ref<number | null>(null)
+let priceMonitorCountdownTimer: number | null = null
+let priceMonitorScheduleSyncing = false
+let lastPriceMonitorScheduleSyncAt = 0
+const priceMonitor = reactive<{
+  enabled: boolean
+  group_ids: number[]
+  interval_seconds: number
+  status: 'draft' | 'active' | 'archived'
+  notify_mode: 'silent' | 'popup'
+  duration_days: number
+  targeting: AnnouncementTargeting
+}>({
+  enabled: false,
+  group_ids: [],
+  interval_seconds: 60,
+  status: 'active',
+  notify_mode: 'popup',
+  duration_days: 3,
+  targeting: { any_of: [] }
+})
+
+const priceMonitorRemainingSeconds = computed(() => {
+  if (!priceMonitor.enabled || priceMonitorNextCheckDeadline.value === null) return null
+  return Math.max(0, Math.ceil((priceMonitorNextCheckDeadline.value - priceMonitorNow.value) / 1000))
+})
+
+const priceMonitorCountdownText = computed(() => {
+  const seconds = priceMonitorRemainingSeconds.value
+  if (seconds === null) return '正在安排'
+  if (seconds <= 0) return '正在监测'
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const rest = seconds % 60
+  if (hours > 0) return `${hours}小时 ${minutes}分 ${rest}秒`
+  if (minutes > 0) return `${minutes}分 ${rest}秒`
+  return `${rest}秒`
+})
+
+function applyPriceMonitorSchedule(config: GroupPriceMonitorConfig) {
+  if (!config.enabled || !config.next_check_at) {
+    priceMonitorNextCheckDeadline.value = null
+    return
+  }
+  const nextCheckAt = new Date(config.next_check_at).getTime()
+  const serverTime = config.server_time ? new Date(config.server_time).getTime() : Date.now()
+  if (!Number.isFinite(nextCheckAt) || !Number.isFinite(serverTime)) {
+    priceMonitorNextCheckDeadline.value = null
+    return
+  }
+  priceMonitorNextCheckDeadline.value = Date.now() + Math.max(0, nextCheckAt - serverTime)
+}
 
 async function loadSubscriptionGroups() {
   try {
     const all = await adminAPI.groups.getAll()
+    allGroups.value = all || []
     subscriptionGroups.value = (all || []).filter((g) => g.subscription_type === 'subscription')
   } catch (error: any) {
     console.error('Error loading groups:', error)
     // not fatal
   }
+}
+
+function fillPriceMonitor(config: GroupPriceMonitorConfig) {
+  priceMonitor.enabled = config.enabled
+  priceMonitor.group_ids = [...(config.group_ids || [])]
+  monitorAllGroups.value = priceMonitor.group_ids.length === 0
+  priceMonitor.interval_seconds = config.interval_seconds || 60
+  priceMonitor.status = config.status || 'active'
+  priceMonitor.notify_mode = config.notify_mode || 'popup'
+  const configuredDays = Number(config.duration_days)
+  const legacyDays = config.starts_at && config.ends_at
+    ? Math.round((new Date(config.ends_at).getTime() - new Date(config.starts_at).getTime()) / 86400000)
+    : 0
+  priceMonitor.duration_days = configuredDays > 0 ? configuredDays : Math.max(1, legacyDays || 3)
+  priceMonitor.targeting = config.targeting || { any_of: [] }
+  applyPriceMonitorSchedule(config)
+}
+
+function openPriceMonitorDialog() {
+  showPriceMonitorDialog.value = true
+}
+
+function closePriceMonitorDialog() {
+  if (!priceMonitorSaving.value) showPriceMonitorDialog.value = false
+}
+
+async function loadPriceMonitor() {
+  try { fillPriceMonitor(await adminAPI.announcements.getPriceMonitor()) } catch (error) { console.error('Error loading price monitor:', error) }
+}
+
+async function syncPriceMonitorSchedule() {
+  if (priceMonitorScheduleSyncing) return
+  priceMonitorScheduleSyncing = true
+  try {
+    applyPriceMonitorSchedule(await adminAPI.announcements.getPriceMonitor())
+  } catch (error) {
+    console.error('Error syncing price monitor schedule:', error)
+  } finally {
+    priceMonitorScheduleSyncing = false
+  }
+}
+
+function tickPriceMonitorCountdown() {
+  priceMonitorNow.value = Date.now()
+  if (!priceMonitor.enabled) return
+  if (priceMonitorRemainingSeconds.value !== null && priceMonitorRemainingSeconds.value !== 0) return
+  if (priceMonitorNow.value - lastPriceMonitorScheduleSyncAt < 2000) return
+  lastPriceMonitorScheduleSyncAt = priceMonitorNow.value
+  void syncPriceMonitorSchedule()
+}
+
+async function savePriceMonitor() {
+  if (priceMonitor.interval_seconds < 5) { appStore.showError('监测周期不能小于 5 秒'); return }
+  if (priceMonitor.enabled && priceMonitor.duration_days < 1) { appStore.showError('公告有效天数不能小于 1 天'); return }
+  priceMonitorSaving.value = true
+  try {
+    const saved = await adminAPI.announcements.updatePriceMonitor({
+      enabled: priceMonitor.enabled,
+      group_ids: monitorAllGroups.value ? [] : [...priceMonitor.group_ids],
+      interval_seconds: priceMonitor.interval_seconds,
+      status: priceMonitor.status,
+      notify_mode: priceMonitor.notify_mode,
+      duration_days: priceMonitor.duration_days,
+      targeting: priceMonitor.targeting
+    })
+    fillPriceMonitor(saved)
+    appStore.showSuccess(t('common.success'))
+    showPriceMonitorDialog.value = false
+  } catch (error: any) { appStore.showError(error.response?.data?.detail || '保存监测设置失败') } finally { priceMonitorSaving.value = false }
 }
 
 function resetForm() {
@@ -615,11 +872,14 @@ function openReadStatus(row: Announcement) {
 
 onMounted(async () => {
   await loadSubscriptionGroups()
+  await loadPriceMonitor()
   await loadAnnouncements()
+  priceMonitorCountdownTimer = window.setInterval(tickPriceMonitorCountdown, 1000)
 })
 
 onUnmounted(() => {
   if (searchDebounceTimer) window.clearTimeout(searchDebounceTimer)
+  if (priceMonitorCountdownTimer) window.clearInterval(priceMonitorCountdownTimer)
   currentController?.abort()
 })
 </script>

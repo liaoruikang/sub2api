@@ -8,6 +8,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeygroup"
@@ -285,8 +287,14 @@ func init() {
 	accountgroup.DefaultCreatedAt = accountgroupDescCreatedAt.Default.(func() time.Time)
 	announcementFields := schema.Announcement{}.Fields()
 	_ = announcementFields
+	// announcementDescKind is the schema descriptor for kind field.
+	announcementDescKind := announcementFields[0].Descriptor()
+	// announcement.DefaultKind holds the default value on creation for the kind field.
+	announcement.DefaultKind = announcementDescKind.Default.(string)
+	// announcement.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	announcement.KindValidator = announcementDescKind.Validators[0].(func(string) error)
 	// announcementDescTitle is the schema descriptor for title field.
-	announcementDescTitle := announcementFields[0].Descriptor()
+	announcementDescTitle := announcementFields[1].Descriptor()
 	// announcement.TitleValidator is a validator for the "title" field. It is called by the builders before save.
 	announcement.TitleValidator = func() func(string) error {
 		validators := announcementDescTitle.Validators
@@ -304,31 +312,55 @@ func init() {
 		}
 	}()
 	// announcementDescContent is the schema descriptor for content field.
-	announcementDescContent := announcementFields[1].Descriptor()
+	announcementDescContent := announcementFields[2].Descriptor()
 	// announcement.ContentValidator is a validator for the "content" field. It is called by the builders before save.
 	announcement.ContentValidator = announcementDescContent.Validators[0].(func(string) error)
 	// announcementDescStatus is the schema descriptor for status field.
-	announcementDescStatus := announcementFields[2].Descriptor()
+	announcementDescStatus := announcementFields[3].Descriptor()
 	// announcement.DefaultStatus holds the default value on creation for the status field.
 	announcement.DefaultStatus = announcementDescStatus.Default.(string)
 	// announcement.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	announcement.StatusValidator = announcementDescStatus.Validators[0].(func(string) error)
 	// announcementDescNotifyMode is the schema descriptor for notify_mode field.
-	announcementDescNotifyMode := announcementFields[3].Descriptor()
+	announcementDescNotifyMode := announcementFields[4].Descriptor()
 	// announcement.DefaultNotifyMode holds the default value on creation for the notify_mode field.
 	announcement.DefaultNotifyMode = announcementDescNotifyMode.Default.(string)
 	// announcement.NotifyModeValidator is a validator for the "notify_mode" field. It is called by the builders before save.
 	announcement.NotifyModeValidator = announcementDescNotifyMode.Validators[0].(func(string) error)
 	// announcementDescCreatedAt is the schema descriptor for created_at field.
-	announcementDescCreatedAt := announcementFields[9].Descriptor()
+	announcementDescCreatedAt := announcementFields[10].Descriptor()
 	// announcement.DefaultCreatedAt holds the default value on creation for the created_at field.
 	announcement.DefaultCreatedAt = announcementDescCreatedAt.Default.(func() time.Time)
 	// announcementDescUpdatedAt is the schema descriptor for updated_at field.
-	announcementDescUpdatedAt := announcementFields[10].Descriptor()
+	announcementDescUpdatedAt := announcementFields[11].Descriptor()
 	// announcement.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	announcement.DefaultUpdatedAt = announcementDescUpdatedAt.Default.(func() time.Time)
 	// announcement.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	announcement.UpdateDefaultUpdatedAt = announcementDescUpdatedAt.UpdateDefault.(func() time.Time)
+	announcementgrouppricechangeFields := schema.AnnouncementGroupPriceChange{}.Fields()
+	_ = announcementgrouppricechangeFields
+	// announcementgrouppricechangeDescGroupName is the schema descriptor for group_name field.
+	announcementgrouppricechangeDescGroupName := announcementgrouppricechangeFields[2].Descriptor()
+	// announcementgrouppricechange.GroupNameValidator is a validator for the "group_name" field. It is called by the builders before save.
+	announcementgrouppricechange.GroupNameValidator = announcementgrouppricechangeDescGroupName.Validators[0].(func(string) error)
+	// announcementgrouppricechangeDescSequence is the schema descriptor for sequence field.
+	announcementgrouppricechangeDescSequence := announcementgrouppricechangeFields[5].Descriptor()
+	// announcementgrouppricechange.DefaultSequence holds the default value on creation for the sequence field.
+	announcementgrouppricechange.DefaultSequence = announcementgrouppricechangeDescSequence.Default.(int)
+	// announcementgrouppricechangeDescCreatedAt is the schema descriptor for created_at field.
+	announcementgrouppricechangeDescCreatedAt := announcementgrouppricechangeFields[6].Descriptor()
+	// announcementgrouppricechange.DefaultCreatedAt holds the default value on creation for the created_at field.
+	announcementgrouppricechange.DefaultCreatedAt = announcementgrouppricechangeDescCreatedAt.Default.(func() time.Time)
+	announcementgrouppricereadFields := schema.AnnouncementGroupPriceRead{}.Fields()
+	_ = announcementgrouppricereadFields
+	// announcementgrouppricereadDescReadAt is the schema descriptor for read_at field.
+	announcementgrouppricereadDescReadAt := announcementgrouppricereadFields[3].Descriptor()
+	// announcementgrouppriceread.DefaultReadAt holds the default value on creation for the read_at field.
+	announcementgrouppriceread.DefaultReadAt = announcementgrouppricereadDescReadAt.Default.(func() time.Time)
+	// announcementgrouppricereadDescCreatedAt is the schema descriptor for created_at field.
+	announcementgrouppricereadDescCreatedAt := announcementgrouppricereadFields[4].Descriptor()
+	// announcementgrouppriceread.DefaultCreatedAt holds the default value on creation for the created_at field.
+	announcementgrouppriceread.DefaultCreatedAt = announcementgrouppricereadDescCreatedAt.Default.(func() time.Time)
 	announcementreadFields := schema.AnnouncementRead{}.Fields()
 	_ = announcementreadFields
 	// announcementreadDescReadAt is the schema descriptor for read_at field.

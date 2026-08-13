@@ -441,6 +441,8 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		announcements.GET("", h.Admin.Announcement.List)
 		announcements.POST("", h.Admin.Announcement.Create)
+		announcements.GET("/price-monitor", h.Admin.GroupPriceMonitor.Get)
+		announcements.PUT("/price-monitor", h.Admin.GroupPriceMonitor.Update)
 		announcements.GET("/:id", h.Admin.Announcement.GetByID)
 		announcements.PUT("/:id", h.Admin.Announcement.Update)
 		announcements.DELETE("/:id", h.Admin.Announcement.Delete)

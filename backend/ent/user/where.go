@@ -1500,6 +1500,29 @@ func HasAnnouncementReadsWith(preds ...predicate.AnnouncementRead) predicate.Use
 	})
 }
 
+// HasAnnouncementGroupPriceReads applies the HasEdge predicate on the "announcement_group_price_reads" edge.
+func HasAnnouncementGroupPriceReads() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AnnouncementGroupPriceReadsTable, AnnouncementGroupPriceReadsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAnnouncementGroupPriceReadsWith applies the HasEdge predicate on the "announcement_group_price_reads" edge with a given conditions (other predicates).
+func HasAnnouncementGroupPriceReadsWith(preds ...predicate.AnnouncementGroupPriceRead) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newAnnouncementGroupPriceReadsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAllowedGroups applies the HasEdge predicate on the "allowed_groups" edge.
 func HasAllowedGroups() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

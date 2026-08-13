@@ -24,6 +24,7 @@ vi.mock('vue-i18n', async () => {
 
 const announcement = {
   id: 1,
+  kind: 'manual' as const,
   title: 'Preview announcement',
   content: '## Preview heading\n\n<div>HTML content</div><script>window.__xss = true</script>',
   status: 'draft' as const,
@@ -92,6 +93,7 @@ describe('AnnouncementPopup', () => {
     })
 
     expect(document.body.textContent).toContain('Preview announcement')
+    expect(document.body.textContent).toContain('系统发布')
     expect(document.body.querySelector('.markdown-body h2')?.textContent).toBe('Preview heading')
     expect(document.body.querySelector('.markdown-body script')).toBeNull()
     expect(document.body.textContent).toContain('common.close')
@@ -124,6 +126,18 @@ describe('AnnouncementPopup', () => {
 
     expect(dismissPopup).toHaveBeenCalledTimes(1)
     expect(wrapper.emitted('close')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('labels announcements created by an administrator', async () => {
+    const wrapper = mount(AnnouncementPopup, {
+      props: {
+        announcement: { ...announcement, created_by: 42 },
+        preview: true,
+      },
+    })
+
+    expect(document.body.textContent).toContain('管理员发布')
     wrapper.unmount()
   })
 })

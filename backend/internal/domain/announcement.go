@@ -14,6 +14,11 @@ const (
 )
 
 const (
+	AnnouncementKindManual           = "manual"
+	AnnouncementKindGroupPriceChange = "group_price_change"
+)
+
+const (
 	AnnouncementNotifyModeSilent = "silent"
 	AnnouncementNotifyModePopup  = "popup"
 )
@@ -201,6 +206,7 @@ func (c AnnouncementCondition) validate() error {
 
 type Announcement struct {
 	ID         int64
+	Kind       string
 	Title      string
 	Content    string
 	Status     string

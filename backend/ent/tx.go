@@ -24,6 +24,10 @@ type Tx struct {
 	AccountGroup *AccountGroupClient
 	// Announcement is the client for interacting with the Announcement builders.
 	Announcement *AnnouncementClient
+	// AnnouncementGroupPriceChange is the client for interacting with the AnnouncementGroupPriceChange builders.
+	AnnouncementGroupPriceChange *AnnouncementGroupPriceChangeClient
+	// AnnouncementGroupPriceRead is the client for interacting with the AnnouncementGroupPriceRead builders.
+	AnnouncementGroupPriceRead *AnnouncementGroupPriceReadClient
 	// AnnouncementRead is the client for interacting with the AnnouncementRead builders.
 	AnnouncementRead *AnnouncementReadClient
 	// AuthIdentity is the client for interacting with the AuthIdentity builders.
@@ -238,6 +242,8 @@ func (tx *Tx) init() {
 	tx.Account = NewAccountClient(tx.config)
 	tx.AccountGroup = NewAccountGroupClient(tx.config)
 	tx.Announcement = NewAnnouncementClient(tx.config)
+	tx.AnnouncementGroupPriceChange = NewAnnouncementGroupPriceChangeClient(tx.config)
+	tx.AnnouncementGroupPriceRead = NewAnnouncementGroupPriceReadClient(tx.config)
 	tx.AnnouncementRead = NewAnnouncementReadClient(tx.config)
 	tx.AuthIdentity = NewAuthIdentityClient(tx.config)
 	tx.AuthIdentityChannel = NewAuthIdentityChannelClient(tx.config)

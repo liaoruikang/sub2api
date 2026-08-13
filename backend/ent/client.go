@@ -18,6 +18,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeygroup"
@@ -78,6 +80,10 @@ type Client struct {
 	AccountGroup *AccountGroupClient
 	// Announcement is the client for interacting with the Announcement builders.
 	Announcement *AnnouncementClient
+	// AnnouncementGroupPriceChange is the client for interacting with the AnnouncementGroupPriceChange builders.
+	AnnouncementGroupPriceChange *AnnouncementGroupPriceChangeClient
+	// AnnouncementGroupPriceRead is the client for interacting with the AnnouncementGroupPriceRead builders.
+	AnnouncementGroupPriceRead *AnnouncementGroupPriceReadClient
 	// AnnouncementRead is the client for interacting with the AnnouncementRead builders.
 	AnnouncementRead *AnnouncementReadClient
 	// AuthIdentity is the client for interacting with the AuthIdentity builders.
@@ -172,6 +178,8 @@ func (c *Client) init() {
 	c.Account = NewAccountClient(c.config)
 	c.AccountGroup = NewAccountGroupClient(c.config)
 	c.Announcement = NewAnnouncementClient(c.config)
+	c.AnnouncementGroupPriceChange = NewAnnouncementGroupPriceChangeClient(c.config)
+	c.AnnouncementGroupPriceRead = NewAnnouncementGroupPriceReadClient(c.config)
 	c.AnnouncementRead = NewAnnouncementReadClient(c.config)
 	c.AuthIdentity = NewAuthIdentityClient(c.config)
 	c.AuthIdentityChannel = NewAuthIdentityChannelClient(c.config)
@@ -308,6 +316,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
+		AnnouncementGroupPriceChange:  NewAnnouncementGroupPriceChangeClient(cfg),
+		AnnouncementGroupPriceRead:    NewAnnouncementGroupPriceReadClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
@@ -371,6 +381,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
+		AnnouncementGroupPriceChange:  NewAnnouncementGroupPriceChangeClient(cfg),
+		AnnouncementGroupPriceRead:    NewAnnouncementGroupPriceReadClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
@@ -440,6 +452,7 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.APIKeyGroup, c.Account, c.AccountGroup, c.Announcement,
+		c.AnnouncementGroupPriceChange, c.AnnouncementGroupPriceRead,
 		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
 		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
@@ -461,6 +474,7 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.APIKeyGroup, c.Account, c.AccountGroup, c.Announcement,
+		c.AnnouncementGroupPriceChange, c.AnnouncementGroupPriceRead,
 		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
 		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
@@ -490,6 +504,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AccountGroup.mutate(ctx, m)
 	case *AnnouncementMutation:
 		return c.Announcement.mutate(ctx, m)
+	case *AnnouncementGroupPriceChangeMutation:
+		return c.AnnouncementGroupPriceChange.mutate(ctx, m)
+	case *AnnouncementGroupPriceReadMutation:
+		return c.AnnouncementGroupPriceRead.mutate(ctx, m)
 	case *AnnouncementReadMutation:
 		return c.AnnouncementRead.mutate(ctx, m)
 	case *AuthIdentityMutation:
@@ -1375,6 +1393,38 @@ func (c *AnnouncementClient) QueryReads(_m *Announcement) *AnnouncementReadQuery
 	return query
 }
 
+// QueryGroupPriceChanges queries the group_price_changes edge of a Announcement.
+func (c *AnnouncementClient) QueryGroupPriceChanges(_m *Announcement) *AnnouncementGroupPriceChangeQuery {
+	query := (&AnnouncementGroupPriceChangeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(announcement.Table, announcement.FieldID, id),
+			sqlgraph.To(announcementgrouppricechange.Table, announcementgrouppricechange.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, announcement.GroupPriceChangesTable, announcement.GroupPriceChangesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupPriceReads queries the group_price_reads edge of a Announcement.
+func (c *AnnouncementClient) QueryGroupPriceReads(_m *Announcement) *AnnouncementGroupPriceReadQuery {
+	query := (&AnnouncementGroupPriceReadClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(announcement.Table, announcement.FieldID, id),
+			sqlgraph.To(announcementgrouppriceread.Table, announcementgrouppriceread.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, announcement.GroupPriceReadsTable, announcement.GroupPriceReadsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *AnnouncementClient) Hooks() []Hook {
 	return c.hooks.Announcement
@@ -1397,6 +1447,320 @@ func (c *AnnouncementClient) mutate(ctx context.Context, m *AnnouncementMutation
 		return (&AnnouncementDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Announcement mutation op: %q", m.Op())
+	}
+}
+
+// AnnouncementGroupPriceChangeClient is a client for the AnnouncementGroupPriceChange schema.
+type AnnouncementGroupPriceChangeClient struct {
+	config
+}
+
+// NewAnnouncementGroupPriceChangeClient returns a client for the AnnouncementGroupPriceChange from the given config.
+func NewAnnouncementGroupPriceChangeClient(c config) *AnnouncementGroupPriceChangeClient {
+	return &AnnouncementGroupPriceChangeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `announcementgrouppricechange.Hooks(f(g(h())))`.
+func (c *AnnouncementGroupPriceChangeClient) Use(hooks ...Hook) {
+	c.hooks.AnnouncementGroupPriceChange = append(c.hooks.AnnouncementGroupPriceChange, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `announcementgrouppricechange.Intercept(f(g(h())))`.
+func (c *AnnouncementGroupPriceChangeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AnnouncementGroupPriceChange = append(c.inters.AnnouncementGroupPriceChange, interceptors...)
+}
+
+// Create returns a builder for creating a AnnouncementGroupPriceChange entity.
+func (c *AnnouncementGroupPriceChangeClient) Create() *AnnouncementGroupPriceChangeCreate {
+	mutation := newAnnouncementGroupPriceChangeMutation(c.config, OpCreate)
+	return &AnnouncementGroupPriceChangeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AnnouncementGroupPriceChange entities.
+func (c *AnnouncementGroupPriceChangeClient) CreateBulk(builders ...*AnnouncementGroupPriceChangeCreate) *AnnouncementGroupPriceChangeCreateBulk {
+	return &AnnouncementGroupPriceChangeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AnnouncementGroupPriceChangeClient) MapCreateBulk(slice any, setFunc func(*AnnouncementGroupPriceChangeCreate, int)) *AnnouncementGroupPriceChangeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AnnouncementGroupPriceChangeCreateBulk{err: fmt.Errorf("calling to AnnouncementGroupPriceChangeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AnnouncementGroupPriceChangeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AnnouncementGroupPriceChangeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AnnouncementGroupPriceChange.
+func (c *AnnouncementGroupPriceChangeClient) Update() *AnnouncementGroupPriceChangeUpdate {
+	mutation := newAnnouncementGroupPriceChangeMutation(c.config, OpUpdate)
+	return &AnnouncementGroupPriceChangeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AnnouncementGroupPriceChangeClient) UpdateOne(_m *AnnouncementGroupPriceChange) *AnnouncementGroupPriceChangeUpdateOne {
+	mutation := newAnnouncementGroupPriceChangeMutation(c.config, OpUpdateOne, withAnnouncementGroupPriceChange(_m))
+	return &AnnouncementGroupPriceChangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AnnouncementGroupPriceChangeClient) UpdateOneID(id int64) *AnnouncementGroupPriceChangeUpdateOne {
+	mutation := newAnnouncementGroupPriceChangeMutation(c.config, OpUpdateOne, withAnnouncementGroupPriceChangeID(id))
+	return &AnnouncementGroupPriceChangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AnnouncementGroupPriceChange.
+func (c *AnnouncementGroupPriceChangeClient) Delete() *AnnouncementGroupPriceChangeDelete {
+	mutation := newAnnouncementGroupPriceChangeMutation(c.config, OpDelete)
+	return &AnnouncementGroupPriceChangeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AnnouncementGroupPriceChangeClient) DeleteOne(_m *AnnouncementGroupPriceChange) *AnnouncementGroupPriceChangeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AnnouncementGroupPriceChangeClient) DeleteOneID(id int64) *AnnouncementGroupPriceChangeDeleteOne {
+	builder := c.Delete().Where(announcementgrouppricechange.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AnnouncementGroupPriceChangeDeleteOne{builder}
+}
+
+// Query returns a query builder for AnnouncementGroupPriceChange.
+func (c *AnnouncementGroupPriceChangeClient) Query() *AnnouncementGroupPriceChangeQuery {
+	return &AnnouncementGroupPriceChangeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAnnouncementGroupPriceChange},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AnnouncementGroupPriceChange entity by its id.
+func (c *AnnouncementGroupPriceChangeClient) Get(ctx context.Context, id int64) (*AnnouncementGroupPriceChange, error) {
+	return c.Query().Where(announcementgrouppricechange.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AnnouncementGroupPriceChangeClient) GetX(ctx context.Context, id int64) *AnnouncementGroupPriceChange {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAnnouncement queries the announcement edge of a AnnouncementGroupPriceChange.
+func (c *AnnouncementGroupPriceChangeClient) QueryAnnouncement(_m *AnnouncementGroupPriceChange) *AnnouncementQuery {
+	query := (&AnnouncementClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(announcementgrouppricechange.Table, announcementgrouppricechange.FieldID, id),
+			sqlgraph.To(announcement.Table, announcement.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, announcementgrouppricechange.AnnouncementTable, announcementgrouppricechange.AnnouncementColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AnnouncementGroupPriceChangeClient) Hooks() []Hook {
+	return c.hooks.AnnouncementGroupPriceChange
+}
+
+// Interceptors returns the client interceptors.
+func (c *AnnouncementGroupPriceChangeClient) Interceptors() []Interceptor {
+	return c.inters.AnnouncementGroupPriceChange
+}
+
+func (c *AnnouncementGroupPriceChangeClient) mutate(ctx context.Context, m *AnnouncementGroupPriceChangeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AnnouncementGroupPriceChangeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AnnouncementGroupPriceChangeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AnnouncementGroupPriceChangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AnnouncementGroupPriceChangeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AnnouncementGroupPriceChange mutation op: %q", m.Op())
+	}
+}
+
+// AnnouncementGroupPriceReadClient is a client for the AnnouncementGroupPriceRead schema.
+type AnnouncementGroupPriceReadClient struct {
+	config
+}
+
+// NewAnnouncementGroupPriceReadClient returns a client for the AnnouncementGroupPriceRead from the given config.
+func NewAnnouncementGroupPriceReadClient(c config) *AnnouncementGroupPriceReadClient {
+	return &AnnouncementGroupPriceReadClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `announcementgrouppriceread.Hooks(f(g(h())))`.
+func (c *AnnouncementGroupPriceReadClient) Use(hooks ...Hook) {
+	c.hooks.AnnouncementGroupPriceRead = append(c.hooks.AnnouncementGroupPriceRead, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `announcementgrouppriceread.Intercept(f(g(h())))`.
+func (c *AnnouncementGroupPriceReadClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AnnouncementGroupPriceRead = append(c.inters.AnnouncementGroupPriceRead, interceptors...)
+}
+
+// Create returns a builder for creating a AnnouncementGroupPriceRead entity.
+func (c *AnnouncementGroupPriceReadClient) Create() *AnnouncementGroupPriceReadCreate {
+	mutation := newAnnouncementGroupPriceReadMutation(c.config, OpCreate)
+	return &AnnouncementGroupPriceReadCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AnnouncementGroupPriceRead entities.
+func (c *AnnouncementGroupPriceReadClient) CreateBulk(builders ...*AnnouncementGroupPriceReadCreate) *AnnouncementGroupPriceReadCreateBulk {
+	return &AnnouncementGroupPriceReadCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AnnouncementGroupPriceReadClient) MapCreateBulk(slice any, setFunc func(*AnnouncementGroupPriceReadCreate, int)) *AnnouncementGroupPriceReadCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AnnouncementGroupPriceReadCreateBulk{err: fmt.Errorf("calling to AnnouncementGroupPriceReadClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AnnouncementGroupPriceReadCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AnnouncementGroupPriceReadCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AnnouncementGroupPriceRead.
+func (c *AnnouncementGroupPriceReadClient) Update() *AnnouncementGroupPriceReadUpdate {
+	mutation := newAnnouncementGroupPriceReadMutation(c.config, OpUpdate)
+	return &AnnouncementGroupPriceReadUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AnnouncementGroupPriceReadClient) UpdateOne(_m *AnnouncementGroupPriceRead) *AnnouncementGroupPriceReadUpdateOne {
+	mutation := newAnnouncementGroupPriceReadMutation(c.config, OpUpdateOne, withAnnouncementGroupPriceRead(_m))
+	return &AnnouncementGroupPriceReadUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AnnouncementGroupPriceReadClient) UpdateOneID(id int64) *AnnouncementGroupPriceReadUpdateOne {
+	mutation := newAnnouncementGroupPriceReadMutation(c.config, OpUpdateOne, withAnnouncementGroupPriceReadID(id))
+	return &AnnouncementGroupPriceReadUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AnnouncementGroupPriceRead.
+func (c *AnnouncementGroupPriceReadClient) Delete() *AnnouncementGroupPriceReadDelete {
+	mutation := newAnnouncementGroupPriceReadMutation(c.config, OpDelete)
+	return &AnnouncementGroupPriceReadDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AnnouncementGroupPriceReadClient) DeleteOne(_m *AnnouncementGroupPriceRead) *AnnouncementGroupPriceReadDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AnnouncementGroupPriceReadClient) DeleteOneID(id int64) *AnnouncementGroupPriceReadDeleteOne {
+	builder := c.Delete().Where(announcementgrouppriceread.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AnnouncementGroupPriceReadDeleteOne{builder}
+}
+
+// Query returns a query builder for AnnouncementGroupPriceRead.
+func (c *AnnouncementGroupPriceReadClient) Query() *AnnouncementGroupPriceReadQuery {
+	return &AnnouncementGroupPriceReadQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAnnouncementGroupPriceRead},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AnnouncementGroupPriceRead entity by its id.
+func (c *AnnouncementGroupPriceReadClient) Get(ctx context.Context, id int64) (*AnnouncementGroupPriceRead, error) {
+	return c.Query().Where(announcementgrouppriceread.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AnnouncementGroupPriceReadClient) GetX(ctx context.Context, id int64) *AnnouncementGroupPriceRead {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAnnouncement queries the announcement edge of a AnnouncementGroupPriceRead.
+func (c *AnnouncementGroupPriceReadClient) QueryAnnouncement(_m *AnnouncementGroupPriceRead) *AnnouncementQuery {
+	query := (&AnnouncementClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(announcementgrouppriceread.Table, announcementgrouppriceread.FieldID, id),
+			sqlgraph.To(announcement.Table, announcement.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, announcementgrouppriceread.AnnouncementTable, announcementgrouppriceread.AnnouncementColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a AnnouncementGroupPriceRead.
+func (c *AnnouncementGroupPriceReadClient) QueryUser(_m *AnnouncementGroupPriceRead) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(announcementgrouppriceread.Table, announcementgrouppriceread.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, announcementgrouppriceread.UserTable, announcementgrouppriceread.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AnnouncementGroupPriceReadClient) Hooks() []Hook {
+	return c.hooks.AnnouncementGroupPriceRead
+}
+
+// Interceptors returns the client interceptors.
+func (c *AnnouncementGroupPriceReadClient) Interceptors() []Interceptor {
+	return c.inters.AnnouncementGroupPriceRead
+}
+
+func (c *AnnouncementGroupPriceReadClient) mutate(ctx context.Context, m *AnnouncementGroupPriceReadMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AnnouncementGroupPriceReadCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AnnouncementGroupPriceReadUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AnnouncementGroupPriceReadUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AnnouncementGroupPriceReadDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AnnouncementGroupPriceRead mutation op: %q", m.Op())
 	}
 }
 
@@ -6372,6 +6736,22 @@ func (c *UserClient) QueryAnnouncementReads(_m *User) *AnnouncementReadQuery {
 	return query
 }
 
+// QueryAnnouncementGroupPriceReads queries the announcement_group_price_reads edge of a User.
+func (c *UserClient) QueryAnnouncementGroupPriceReads(_m *User) *AnnouncementGroupPriceReadQuery {
+	query := (&AnnouncementGroupPriceReadClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(announcementgrouppriceread.Table, announcementgrouppriceread.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.AnnouncementGroupPriceReadsTable, user.AnnouncementGroupPriceReadsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAllowedGroups queries the allowed_groups edge of a User.
 func (c *UserClient) QueryAllowedGroups(_m *User) *GroupQuery {
 	query := (&GroupClient{config: c.config}).Query()
@@ -7675,7 +8055,8 @@ func (c *UserTagAssignmentClient) mutate(ctx context.Context, m *UserTagAssignme
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, APIKeyGroup, Account, AccountGroup, Announcement, AnnouncementRead,
+		APIKey, APIKeyGroup, Account, AccountGroup, Announcement,
+		AnnouncementGroupPriceChange, AnnouncementGroupPriceRead, AnnouncementRead,
 		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
 		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
@@ -7688,7 +8069,8 @@ type (
 		UserTagAssignment []ent.Hook
 	}
 	inters struct {
-		APIKey, APIKeyGroup, Account, AccountGroup, Announcement, AnnouncementRead,
+		APIKey, APIKeyGroup, Account, AccountGroup, Announcement,
+		AnnouncementGroupPriceChange, AnnouncementGroupPriceRead, AnnouncementRead,
 		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
 		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,

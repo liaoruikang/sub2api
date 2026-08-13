@@ -55,6 +55,11 @@ func IDLTE(id int64) predicate.Announcement {
 	return predicate.Announcement(sql.FieldLTE(FieldID, id))
 }
 
+// Kind applies equality check predicate on the "kind" field. It's identical to KindEQ.
+func Kind(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldKind, v))
+}
+
 // Title applies equality check predicate on the "title" field. It's identical to TitleEQ.
 func Title(v string) predicate.Announcement {
 	return predicate.Announcement(sql.FieldEQ(FieldTitle, v))
@@ -103,6 +108,71 @@ func CreatedAt(v time.Time) predicate.Announcement {
 // UpdatedAt applies equality check predicate on the "updated_at" field. It's identical to UpdatedAtEQ.
 func UpdatedAt(v time.Time) predicate.Announcement {
 	return predicate.Announcement(sql.FieldEQ(FieldUpdatedAt, v))
+}
+
+// KindEQ applies the EQ predicate on the "kind" field.
+func KindEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldKind, v))
+}
+
+// KindNEQ applies the NEQ predicate on the "kind" field.
+func KindNEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNEQ(FieldKind, v))
+}
+
+// KindIn applies the In predicate on the "kind" field.
+func KindIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldIn(FieldKind, vs...))
+}
+
+// KindNotIn applies the NotIn predicate on the "kind" field.
+func KindNotIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNotIn(FieldKind, vs...))
+}
+
+// KindGT applies the GT predicate on the "kind" field.
+func KindGT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGT(FieldKind, v))
+}
+
+// KindGTE applies the GTE predicate on the "kind" field.
+func KindGTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGTE(FieldKind, v))
+}
+
+// KindLT applies the LT predicate on the "kind" field.
+func KindLT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLT(FieldKind, v))
+}
+
+// KindLTE applies the LTE predicate on the "kind" field.
+func KindLTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLTE(FieldKind, v))
+}
+
+// KindContains applies the Contains predicate on the "kind" field.
+func KindContains(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContains(FieldKind, v))
+}
+
+// KindHasPrefix applies the HasPrefix predicate on the "kind" field.
+func KindHasPrefix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasPrefix(FieldKind, v))
+}
+
+// KindHasSuffix applies the HasSuffix predicate on the "kind" field.
+func KindHasSuffix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasSuffix(FieldKind, v))
+}
+
+// KindEqualFold applies the EqualFold predicate on the "kind" field.
+func KindEqualFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEqualFold(FieldKind, v))
+}
+
+// KindContainsFold applies the ContainsFold predicate on the "kind" field.
+func KindContainsFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContainsFold(FieldKind, v))
 }
 
 // TitleEQ applies the EQ predicate on the "title" field.
@@ -670,6 +740,52 @@ func HasReads() predicate.Announcement {
 func HasReadsWith(preds ...predicate.AnnouncementRead) predicate.Announcement {
 	return predicate.Announcement(func(s *sql.Selector) {
 		step := newReadsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGroupPriceChanges applies the HasEdge predicate on the "group_price_changes" edge.
+func HasGroupPriceChanges() predicate.Announcement {
+	return predicate.Announcement(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupPriceChangesTable, GroupPriceChangesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupPriceChangesWith applies the HasEdge predicate on the "group_price_changes" edge with a given conditions (other predicates).
+func HasGroupPriceChangesWith(preds ...predicate.AnnouncementGroupPriceChange) predicate.Announcement {
+	return predicate.Announcement(func(s *sql.Selector) {
+		step := newGroupPriceChangesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGroupPriceReads applies the HasEdge predicate on the "group_price_reads" edge.
+func HasGroupPriceReads() predicate.Announcement {
+	return predicate.Announcement(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupPriceReadsTable, GroupPriceReadsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupPriceReadsWith applies the HasEdge predicate on the "group_price_reads" edge with a given conditions (other predicates).
+func HasGroupPriceReadsWith(preds ...predicate.AnnouncementGroupPriceRead) predicate.Announcement {
+	return predicate.Announcement(func(s *sql.Selector) {
+		step := newGroupPriceReadsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -19,6 +19,8 @@ type Announcement struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int64 `json:"id,omitempty"`
+	// 公告类型: manual, group_price_change
+	Kind string `json:"kind,omitempty"`
 	// 公告标题
 	Title string `json:"title,omitempty"`
 	// 公告内容（支持 Markdown）
@@ -51,9 +53,13 @@ type Announcement struct {
 type AnnouncementEdges struct {
 	// Reads holds the value of the reads edge.
 	Reads []*AnnouncementRead `json:"reads,omitempty"`
+	// GroupPriceChanges holds the value of the group_price_changes edge.
+	GroupPriceChanges []*AnnouncementGroupPriceChange `json:"group_price_changes,omitempty"`
+	// GroupPriceReads holds the value of the group_price_reads edge.
+	GroupPriceReads []*AnnouncementGroupPriceRead `json:"group_price_reads,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
 }
 
 // ReadsOrErr returns the Reads value or an error if the edge
@@ -65,6 +71,24 @@ func (e AnnouncementEdges) ReadsOrErr() ([]*AnnouncementRead, error) {
 	return nil, &NotLoadedError{edge: "reads"}
 }
 
+// GroupPriceChangesOrErr returns the GroupPriceChanges value or an error if the edge
+// was not loaded in eager-loading.
+func (e AnnouncementEdges) GroupPriceChangesOrErr() ([]*AnnouncementGroupPriceChange, error) {
+	if e.loadedTypes[1] {
+		return e.GroupPriceChanges, nil
+	}
+	return nil, &NotLoadedError{edge: "group_price_changes"}
+}
+
+// GroupPriceReadsOrErr returns the GroupPriceReads value or an error if the edge
+// was not loaded in eager-loading.
+func (e AnnouncementEdges) GroupPriceReadsOrErr() ([]*AnnouncementGroupPriceRead, error) {
+	if e.loadedTypes[2] {
+		return e.GroupPriceReads, nil
+	}
+	return nil, &NotLoadedError{edge: "group_price_reads"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Announcement) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -74,7 +98,7 @@ func (*Announcement) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case announcement.FieldID, announcement.FieldCreatedBy, announcement.FieldUpdatedBy:
 			values[i] = new(sql.NullInt64)
-		case announcement.FieldTitle, announcement.FieldContent, announcement.FieldStatus, announcement.FieldNotifyMode:
+		case announcement.FieldKind, announcement.FieldTitle, announcement.FieldContent, announcement.FieldStatus, announcement.FieldNotifyMode:
 			values[i] = new(sql.NullString)
 		case announcement.FieldStartsAt, announcement.FieldEndsAt, announcement.FieldCreatedAt, announcement.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -99,6 +123,12 @@ func (_m *Announcement) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
 			_m.ID = int64(value.Int64)
+		case announcement.FieldKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field kind", values[i])
+			} else if value.Valid {
+				_m.Kind = value.String
+			}
 		case announcement.FieldTitle:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field title", values[i])
@@ -189,6 +219,16 @@ func (_m *Announcement) QueryReads() *AnnouncementReadQuery {
 	return NewAnnouncementClient(_m.config).QueryReads(_m)
 }
 
+// QueryGroupPriceChanges queries the "group_price_changes" edge of the Announcement entity.
+func (_m *Announcement) QueryGroupPriceChanges() *AnnouncementGroupPriceChangeQuery {
+	return NewAnnouncementClient(_m.config).QueryGroupPriceChanges(_m)
+}
+
+// QueryGroupPriceReads queries the "group_price_reads" edge of the Announcement entity.
+func (_m *Announcement) QueryGroupPriceReads() *AnnouncementGroupPriceReadQuery {
+	return NewAnnouncementClient(_m.config).QueryGroupPriceReads(_m)
+}
+
 // Update returns a builder for updating this Announcement.
 // Note that you need to call Announcement.Unwrap() before calling this method if this Announcement
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -212,6 +252,9 @@ func (_m *Announcement) String() string {
 	var builder strings.Builder
 	builder.WriteString("Announcement(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
+	builder.WriteString("kind=")
+	builder.WriteString(_m.Kind)
+	builder.WriteString(", ")
 	builder.WriteString("title=")
 	builder.WriteString(_m.Title)
 	builder.WriteString(", ")

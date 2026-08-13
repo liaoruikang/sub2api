@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -27,6 +29,20 @@ type AnnouncementUpdate struct {
 // Where appends a list predicates to the AnnouncementUpdate builder.
 func (_u *AnnouncementUpdate) Where(ps ...predicate.Announcement) *AnnouncementUpdate {
 	_u.mutation.Where(ps...)
+	return _u
+}
+
+// SetKind sets the "kind" field.
+func (_u *AnnouncementUpdate) SetKind(v string) *AnnouncementUpdate {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *AnnouncementUpdate) SetNillableKind(v *string) *AnnouncementUpdate {
+	if v != nil {
+		_u.SetKind(*v)
+	}
 	return _u
 }
 
@@ -221,6 +237,36 @@ func (_u *AnnouncementUpdate) AddReads(v ...*AnnouncementRead) *AnnouncementUpda
 	return _u.AddReadIDs(ids...)
 }
 
+// AddGroupPriceChangeIDs adds the "group_price_changes" edge to the AnnouncementGroupPriceChange entity by IDs.
+func (_u *AnnouncementUpdate) AddGroupPriceChangeIDs(ids ...int64) *AnnouncementUpdate {
+	_u.mutation.AddGroupPriceChangeIDs(ids...)
+	return _u
+}
+
+// AddGroupPriceChanges adds the "group_price_changes" edges to the AnnouncementGroupPriceChange entity.
+func (_u *AnnouncementUpdate) AddGroupPriceChanges(v ...*AnnouncementGroupPriceChange) *AnnouncementUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupPriceChangeIDs(ids...)
+}
+
+// AddGroupPriceReadIDs adds the "group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (_u *AnnouncementUpdate) AddGroupPriceReadIDs(ids ...int64) *AnnouncementUpdate {
+	_u.mutation.AddGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// AddGroupPriceReads adds the "group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *AnnouncementUpdate) AddGroupPriceReads(v ...*AnnouncementGroupPriceRead) *AnnouncementUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupPriceReadIDs(ids...)
+}
+
 // Mutation returns the AnnouncementMutation object of the builder.
 func (_u *AnnouncementUpdate) Mutation() *AnnouncementMutation {
 	return _u.mutation
@@ -245,6 +291,48 @@ func (_u *AnnouncementUpdate) RemoveReads(v ...*AnnouncementRead) *AnnouncementU
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveReadIDs(ids...)
+}
+
+// ClearGroupPriceChanges clears all "group_price_changes" edges to the AnnouncementGroupPriceChange entity.
+func (_u *AnnouncementUpdate) ClearGroupPriceChanges() *AnnouncementUpdate {
+	_u.mutation.ClearGroupPriceChanges()
+	return _u
+}
+
+// RemoveGroupPriceChangeIDs removes the "group_price_changes" edge to AnnouncementGroupPriceChange entities by IDs.
+func (_u *AnnouncementUpdate) RemoveGroupPriceChangeIDs(ids ...int64) *AnnouncementUpdate {
+	_u.mutation.RemoveGroupPriceChangeIDs(ids...)
+	return _u
+}
+
+// RemoveGroupPriceChanges removes "group_price_changes" edges to AnnouncementGroupPriceChange entities.
+func (_u *AnnouncementUpdate) RemoveGroupPriceChanges(v ...*AnnouncementGroupPriceChange) *AnnouncementUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupPriceChangeIDs(ids...)
+}
+
+// ClearGroupPriceReads clears all "group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *AnnouncementUpdate) ClearGroupPriceReads() *AnnouncementUpdate {
+	_u.mutation.ClearGroupPriceReads()
+	return _u
+}
+
+// RemoveGroupPriceReadIDs removes the "group_price_reads" edge to AnnouncementGroupPriceRead entities by IDs.
+func (_u *AnnouncementUpdate) RemoveGroupPriceReadIDs(ids ...int64) *AnnouncementUpdate {
+	_u.mutation.RemoveGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// RemoveGroupPriceReads removes "group_price_reads" edges to AnnouncementGroupPriceRead entities.
+func (_u *AnnouncementUpdate) RemoveGroupPriceReads(v ...*AnnouncementGroupPriceRead) *AnnouncementUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupPriceReadIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -285,6 +373,11 @@ func (_u *AnnouncementUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AnnouncementUpdate) check() error {
+	if v, ok := _u.mutation.Kind(); ok {
+		if err := announcement.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Announcement.kind": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Title(); ok {
 		if err := announcement.TitleValidator(v); err != nil {
 			return &ValidationError{Name: "title", err: fmt.Errorf(`ent: validator failed for field "Announcement.title": %w`, err)}
@@ -319,6 +412,9 @@ func (_u *AnnouncementUpdate) sqlSave(ctx context.Context) (_node int, err error
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(announcement.FieldKind, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(announcement.FieldTitle, field.TypeString, value)
@@ -416,6 +512,96 @@ func (_u *AnnouncementUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.GroupPriceChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceChangesTable,
+			Columns: []string{announcement.GroupPriceChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppricechange.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupPriceChangesIDs(); len(nodes) > 0 && !_u.mutation.GroupPriceChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceChangesTable,
+			Columns: []string{announcement.GroupPriceChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppricechange.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupPriceChangesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceChangesTable,
+			Columns: []string{announcement.GroupPriceChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppricechange.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceReadsTable,
+			Columns: []string{announcement.GroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupPriceReadsIDs(); len(nodes) > 0 && !_u.mutation.GroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceReadsTable,
+			Columns: []string{announcement.GroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupPriceReadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceReadsTable,
+			Columns: []string{announcement.GroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{announcement.Label}
@@ -434,6 +620,20 @@ type AnnouncementUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *AnnouncementMutation
+}
+
+// SetKind sets the "kind" field.
+func (_u *AnnouncementUpdateOne) SetKind(v string) *AnnouncementUpdateOne {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *AnnouncementUpdateOne) SetNillableKind(v *string) *AnnouncementUpdateOne {
+	if v != nil {
+		_u.SetKind(*v)
+	}
+	return _u
 }
 
 // SetTitle sets the "title" field.
@@ -627,6 +827,36 @@ func (_u *AnnouncementUpdateOne) AddReads(v ...*AnnouncementRead) *AnnouncementU
 	return _u.AddReadIDs(ids...)
 }
 
+// AddGroupPriceChangeIDs adds the "group_price_changes" edge to the AnnouncementGroupPriceChange entity by IDs.
+func (_u *AnnouncementUpdateOne) AddGroupPriceChangeIDs(ids ...int64) *AnnouncementUpdateOne {
+	_u.mutation.AddGroupPriceChangeIDs(ids...)
+	return _u
+}
+
+// AddGroupPriceChanges adds the "group_price_changes" edges to the AnnouncementGroupPriceChange entity.
+func (_u *AnnouncementUpdateOne) AddGroupPriceChanges(v ...*AnnouncementGroupPriceChange) *AnnouncementUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupPriceChangeIDs(ids...)
+}
+
+// AddGroupPriceReadIDs adds the "group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (_u *AnnouncementUpdateOne) AddGroupPriceReadIDs(ids ...int64) *AnnouncementUpdateOne {
+	_u.mutation.AddGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// AddGroupPriceReads adds the "group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *AnnouncementUpdateOne) AddGroupPriceReads(v ...*AnnouncementGroupPriceRead) *AnnouncementUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupPriceReadIDs(ids...)
+}
+
 // Mutation returns the AnnouncementMutation object of the builder.
 func (_u *AnnouncementUpdateOne) Mutation() *AnnouncementMutation {
 	return _u.mutation
@@ -651,6 +881,48 @@ func (_u *AnnouncementUpdateOne) RemoveReads(v ...*AnnouncementRead) *Announceme
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveReadIDs(ids...)
+}
+
+// ClearGroupPriceChanges clears all "group_price_changes" edges to the AnnouncementGroupPriceChange entity.
+func (_u *AnnouncementUpdateOne) ClearGroupPriceChanges() *AnnouncementUpdateOne {
+	_u.mutation.ClearGroupPriceChanges()
+	return _u
+}
+
+// RemoveGroupPriceChangeIDs removes the "group_price_changes" edge to AnnouncementGroupPriceChange entities by IDs.
+func (_u *AnnouncementUpdateOne) RemoveGroupPriceChangeIDs(ids ...int64) *AnnouncementUpdateOne {
+	_u.mutation.RemoveGroupPriceChangeIDs(ids...)
+	return _u
+}
+
+// RemoveGroupPriceChanges removes "group_price_changes" edges to AnnouncementGroupPriceChange entities.
+func (_u *AnnouncementUpdateOne) RemoveGroupPriceChanges(v ...*AnnouncementGroupPriceChange) *AnnouncementUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupPriceChangeIDs(ids...)
+}
+
+// ClearGroupPriceReads clears all "group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *AnnouncementUpdateOne) ClearGroupPriceReads() *AnnouncementUpdateOne {
+	_u.mutation.ClearGroupPriceReads()
+	return _u
+}
+
+// RemoveGroupPriceReadIDs removes the "group_price_reads" edge to AnnouncementGroupPriceRead entities by IDs.
+func (_u *AnnouncementUpdateOne) RemoveGroupPriceReadIDs(ids ...int64) *AnnouncementUpdateOne {
+	_u.mutation.RemoveGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// RemoveGroupPriceReads removes "group_price_reads" edges to AnnouncementGroupPriceRead entities.
+func (_u *AnnouncementUpdateOne) RemoveGroupPriceReads(v ...*AnnouncementGroupPriceRead) *AnnouncementUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupPriceReadIDs(ids...)
 }
 
 // Where appends a list predicates to the AnnouncementUpdate builder.
@@ -704,6 +976,11 @@ func (_u *AnnouncementUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AnnouncementUpdateOne) check() error {
+	if v, ok := _u.mutation.Kind(); ok {
+		if err := announcement.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Announcement.kind": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Title(); ok {
 		if err := announcement.TitleValidator(v); err != nil {
 			return &ValidationError{Name: "title", err: fmt.Errorf(`ent: validator failed for field "Announcement.title": %w`, err)}
@@ -755,6 +1032,9 @@ func (_u *AnnouncementUpdateOne) sqlSave(ctx context.Context) (_node *Announceme
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(announcement.FieldKind, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(announcement.FieldTitle, field.TypeString, value)
@@ -845,6 +1125,96 @@ func (_u *AnnouncementUpdateOne) sqlSave(ctx context.Context) (_node *Announceme
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(announcementread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupPriceChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceChangesTable,
+			Columns: []string{announcement.GroupPriceChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppricechange.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupPriceChangesIDs(); len(nodes) > 0 && !_u.mutation.GroupPriceChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceChangesTable,
+			Columns: []string{announcement.GroupPriceChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppricechange.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupPriceChangesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceChangesTable,
+			Columns: []string{announcement.GroupPriceChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppricechange.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceReadsTable,
+			Columns: []string{announcement.GroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupPriceReadsIDs(); len(nodes) > 0 && !_u.mutation.GroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceReadsTable,
+			Columns: []string{announcement.GroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupPriceReadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceReadsTable,
+			Columns: []string{announcement.GroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

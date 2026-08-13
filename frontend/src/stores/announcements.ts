@@ -34,7 +34,19 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     try {
       loading.value = true
       const all = await announcementsAPI.list(false)
-      announcements.value = all.slice(0, 20)
+      const next = all.slice(0, 20)
+      const previousById = new Map(announcements.value.map((item) => [item.id, item]))
+      for (const item of next) {
+        if (previousById.get(item.id)?.read_at && !item.read_at) {
+          shownPopupIds.delete(item.id)
+        }
+      }
+      const visibleIds = new Set(next.map((item) => item.id))
+      popupQueue.value = popupQueue.value.filter((item) => visibleIds.has(item.id))
+      if (currentPopup.value && !visibleIds.has(currentPopup.value.id)) {
+        currentPopup.value = null
+      }
+      announcements.value = next
       enqueueNewPopups()
     } catch (err: any) {
       // Revert throttle timestamp on failure so retry is allowed

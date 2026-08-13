@@ -11,6 +11,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeygroup"
@@ -244,6 +246,60 @@ func (f TraverseAnnouncement) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.AnnouncementQuery", q)
+}
+
+// The AnnouncementGroupPriceChangeFunc type is an adapter to allow the use of ordinary function as a Querier.
+type AnnouncementGroupPriceChangeFunc func(context.Context, *ent.AnnouncementGroupPriceChangeQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f AnnouncementGroupPriceChangeFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.AnnouncementGroupPriceChangeQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.AnnouncementGroupPriceChangeQuery", q)
+}
+
+// The TraverseAnnouncementGroupPriceChange type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAnnouncementGroupPriceChange func(context.Context, *ent.AnnouncementGroupPriceChangeQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAnnouncementGroupPriceChange) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAnnouncementGroupPriceChange) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.AnnouncementGroupPriceChangeQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.AnnouncementGroupPriceChangeQuery", q)
+}
+
+// The AnnouncementGroupPriceReadFunc type is an adapter to allow the use of ordinary function as a Querier.
+type AnnouncementGroupPriceReadFunc func(context.Context, *ent.AnnouncementGroupPriceReadQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f AnnouncementGroupPriceReadFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.AnnouncementGroupPriceReadQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.AnnouncementGroupPriceReadQuery", q)
+}
+
+// The TraverseAnnouncementGroupPriceRead type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAnnouncementGroupPriceRead func(context.Context, *ent.AnnouncementGroupPriceReadQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAnnouncementGroupPriceRead) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAnnouncementGroupPriceRead) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.AnnouncementGroupPriceReadQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.AnnouncementGroupPriceReadQuery", q)
 }
 
 // The AnnouncementReadFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1312,6 +1368,10 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.AccountGroupQuery, predicate.AccountGroup, accountgroup.OrderOption]{typ: ent.TypeAccountGroup, tq: q}, nil
 	case *ent.AnnouncementQuery:
 		return &query[*ent.AnnouncementQuery, predicate.Announcement, announcement.OrderOption]{typ: ent.TypeAnnouncement, tq: q}, nil
+	case *ent.AnnouncementGroupPriceChangeQuery:
+		return &query[*ent.AnnouncementGroupPriceChangeQuery, predicate.AnnouncementGroupPriceChange, announcementgrouppricechange.OrderOption]{typ: ent.TypeAnnouncementGroupPriceChange, tq: q}, nil
+	case *ent.AnnouncementGroupPriceReadQuery:
+		return &query[*ent.AnnouncementGroupPriceReadQuery, predicate.AnnouncementGroupPriceRead, announcementgrouppriceread.OrderOption]{typ: ent.TypeAnnouncementGroupPriceRead, tq: q}, nil
 	case *ent.AnnouncementReadQuery:
 		return &query[*ent.AnnouncementReadQuery, predicate.AnnouncementRead, announcementread.OrderOption]{typ: ent.TypeAnnouncementRead, tq: q}, nil
 	case *ent.AuthIdentityQuery:

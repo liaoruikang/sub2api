@@ -14,6 +14,8 @@ const (
 	Label = "announcement"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldKind holds the string denoting the kind field in the database.
+	FieldKind = "kind"
 	// FieldTitle holds the string denoting the title field in the database.
 	FieldTitle = "title"
 	// FieldContent holds the string denoting the content field in the database.
@@ -38,6 +40,10 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// EdgeReads holds the string denoting the reads edge name in mutations.
 	EdgeReads = "reads"
+	// EdgeGroupPriceChanges holds the string denoting the group_price_changes edge name in mutations.
+	EdgeGroupPriceChanges = "group_price_changes"
+	// EdgeGroupPriceReads holds the string denoting the group_price_reads edge name in mutations.
+	EdgeGroupPriceReads = "group_price_reads"
 	// Table holds the table name of the announcement in the database.
 	Table = "announcements"
 	// ReadsTable is the table that holds the reads relation/edge.
@@ -47,11 +53,26 @@ const (
 	ReadsInverseTable = "announcement_reads"
 	// ReadsColumn is the table column denoting the reads relation/edge.
 	ReadsColumn = "announcement_id"
+	// GroupPriceChangesTable is the table that holds the group_price_changes relation/edge.
+	GroupPriceChangesTable = "announcement_group_price_changes"
+	// GroupPriceChangesInverseTable is the table name for the AnnouncementGroupPriceChange entity.
+	// It exists in this package in order to avoid circular dependency with the "announcementgrouppricechange" package.
+	GroupPriceChangesInverseTable = "announcement_group_price_changes"
+	// GroupPriceChangesColumn is the table column denoting the group_price_changes relation/edge.
+	GroupPriceChangesColumn = "announcement_id"
+	// GroupPriceReadsTable is the table that holds the group_price_reads relation/edge.
+	GroupPriceReadsTable = "announcement_group_price_reads"
+	// GroupPriceReadsInverseTable is the table name for the AnnouncementGroupPriceRead entity.
+	// It exists in this package in order to avoid circular dependency with the "announcementgrouppriceread" package.
+	GroupPriceReadsInverseTable = "announcement_group_price_reads"
+	// GroupPriceReadsColumn is the table column denoting the group_price_reads relation/edge.
+	GroupPriceReadsColumn = "announcement_id"
 )
 
 // Columns holds all SQL columns for announcement fields.
 var Columns = []string{
 	FieldID,
+	FieldKind,
 	FieldTitle,
 	FieldContent,
 	FieldStatus,
@@ -76,6 +97,10 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultKind holds the default value on creation for the "kind" field.
+	DefaultKind string
+	// KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	KindValidator func(string) error
 	// TitleValidator is a validator for the "title" field. It is called by the builders before save.
 	TitleValidator func(string) error
 	// ContentValidator is a validator for the "content" field. It is called by the builders before save.
@@ -102,6 +127,11 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByKind orders the results by the kind field.
+func ByKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKind, opts...).ToFunc()
 }
 
 // ByTitle orders the results by the title field.
@@ -167,10 +197,52 @@ func ByReads(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newReadsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByGroupPriceChangesCount orders the results by group_price_changes count.
+func ByGroupPriceChangesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupPriceChangesStep(), opts...)
+	}
+}
+
+// ByGroupPriceChanges orders the results by group_price_changes terms.
+func ByGroupPriceChanges(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupPriceChangesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGroupPriceReadsCount orders the results by group_price_reads count.
+func ByGroupPriceReadsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupPriceReadsStep(), opts...)
+	}
+}
+
+// ByGroupPriceReads orders the results by group_price_reads terms.
+func ByGroupPriceReads(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupPriceReadsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newReadsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ReadsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ReadsTable, ReadsColumn),
+	)
+}
+func newGroupPriceChangesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupPriceChangesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupPriceChangesTable, GroupPriceChangesColumn),
+	)
+}
+func newGroupPriceReadsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupPriceReadsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupPriceReadsTable, GroupPriceReadsColumn),
 	)
 }

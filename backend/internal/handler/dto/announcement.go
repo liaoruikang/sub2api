@@ -8,6 +8,7 @@ import (
 
 type Announcement struct {
 	ID         int64  `json:"id"`
+	Kind       string `json:"kind"`
 	Title      string `json:"title"`
 	Content    string `json:"content"`
 	Status     string `json:"status"`
@@ -27,6 +28,7 @@ type Announcement struct {
 
 type UserAnnouncement struct {
 	ID         int64  `json:"id"`
+	Kind       string `json:"kind"`
 	Title      string `json:"title"`
 	Content    string `json:"content"`
 	NotifyMode string `json:"notify_mode"`
@@ -34,7 +36,8 @@ type UserAnnouncement struct {
 	StartsAt *time.Time `json:"starts_at,omitempty"`
 	EndsAt   *time.Time `json:"ends_at,omitempty"`
 
-	ReadAt *time.Time `json:"read_at,omitempty"`
+	ReadAt    *time.Time `json:"read_at,omitempty"`
+	CreatedBy *int64     `json:"created_by,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -46,6 +49,7 @@ func AnnouncementFromService(a *service.Announcement) *Announcement {
 	}
 	return &Announcement{
 		ID:         a.ID,
+		Kind:       a.Kind,
 		Title:      a.Title,
 		Content:    a.Content,
 		Status:     a.Status,
@@ -66,12 +70,14 @@ func UserAnnouncementFromService(a *service.UserAnnouncement) *UserAnnouncement 
 	}
 	return &UserAnnouncement{
 		ID:         a.Announcement.ID,
+		Kind:       a.Announcement.Kind,
 		Title:      a.Announcement.Title,
 		Content:    a.Announcement.Content,
 		NotifyMode: a.Announcement.NotifyMode,
 		StartsAt:   a.Announcement.StartsAt,
 		EndsAt:     a.Announcement.EndsAt,
 		ReadAt:     a.ReadAt,
+		CreatedBy:  a.Announcement.CreatedBy,
 		CreatedAt:  a.Announcement.CreatedAt,
 		UpdatedAt:  a.Announcement.UpdatedAt,
 	}

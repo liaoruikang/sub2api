@@ -787,6 +787,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		return nil, err
 	}
 	previousPlatform := group.Platform
+	previousRateMultiplier := group.RateMultiplier
 
 	if input.Name != "" {
 		group.Name = input.Name
@@ -1093,6 +1094,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 
 	if err := s.groupRepo.Update(ctx, group); err != nil {
 		return nil, err
+	}
+	if s.groupPriceChangeObserver != nil && previousRateMultiplier != group.RateMultiplier {
+		s.groupPriceChangeObserver.RecordGroupPriceChange(group.ID, group.Name, previousRateMultiplier, group.RateMultiplier)
 	}
 
 	if input.TagIDs != nil || !group.IsExclusive || group.IsSubscriptionType() {

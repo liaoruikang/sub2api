@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -508,6 +509,21 @@ func (_u *UserUpdate) AddAnnouncementReads(v ...*AnnouncementRead) *UserUpdate {
 	return _u.AddAnnouncementReadIDs(ids...)
 }
 
+// AddAnnouncementGroupPriceReadIDs adds the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (_u *UserUpdate) AddAnnouncementGroupPriceReadIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddAnnouncementGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// AddAnnouncementGroupPriceReads adds the "announcement_group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *UserUpdate) AddAnnouncementGroupPriceReads(v ...*AnnouncementGroupPriceRead) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAnnouncementGroupPriceReadIDs(ids...)
+}
+
 // AddAllowedGroupIDs adds the "allowed_groups" edge to the Group entity by IDs.
 func (_u *UserUpdate) AddAllowedGroupIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAllowedGroupIDs(ids...)
@@ -751,6 +767,27 @@ func (_u *UserUpdate) RemoveAnnouncementReads(v ...*AnnouncementRead) *UserUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAnnouncementReadIDs(ids...)
+}
+
+// ClearAnnouncementGroupPriceReads clears all "announcement_group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *UserUpdate) ClearAnnouncementGroupPriceReads() *UserUpdate {
+	_u.mutation.ClearAnnouncementGroupPriceReads()
+	return _u
+}
+
+// RemoveAnnouncementGroupPriceReadIDs removes the "announcement_group_price_reads" edge to AnnouncementGroupPriceRead entities by IDs.
+func (_u *UserUpdate) RemoveAnnouncementGroupPriceReadIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveAnnouncementGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// RemoveAnnouncementGroupPriceReads removes "announcement_group_price_reads" edges to AnnouncementGroupPriceRead entities.
+func (_u *UserUpdate) RemoveAnnouncementGroupPriceReads(v ...*AnnouncementGroupPriceRead) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAnnouncementGroupPriceReadIDs(ids...)
 }
 
 // ClearAllowedGroups clears all "allowed_groups" edges to the Group entity.
@@ -1354,6 +1391,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(announcementread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AnnouncementGroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AnnouncementGroupPriceReadsTable,
+			Columns: []string{user.AnnouncementGroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAnnouncementGroupPriceReadsIDs(); len(nodes) > 0 && !_u.mutation.AnnouncementGroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AnnouncementGroupPriceReadsTable,
+			Columns: []string{user.AnnouncementGroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AnnouncementGroupPriceReadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AnnouncementGroupPriceReadsTable,
+			Columns: []string{user.AnnouncementGroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -2277,6 +2359,21 @@ func (_u *UserUpdateOne) AddAnnouncementReads(v ...*AnnouncementRead) *UserUpdat
 	return _u.AddAnnouncementReadIDs(ids...)
 }
 
+// AddAnnouncementGroupPriceReadIDs adds the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (_u *UserUpdateOne) AddAnnouncementGroupPriceReadIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddAnnouncementGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// AddAnnouncementGroupPriceReads adds the "announcement_group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *UserUpdateOne) AddAnnouncementGroupPriceReads(v ...*AnnouncementGroupPriceRead) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAnnouncementGroupPriceReadIDs(ids...)
+}
+
 // AddAllowedGroupIDs adds the "allowed_groups" edge to the Group entity by IDs.
 func (_u *UserUpdateOne) AddAllowedGroupIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAllowedGroupIDs(ids...)
@@ -2520,6 +2617,27 @@ func (_u *UserUpdateOne) RemoveAnnouncementReads(v ...*AnnouncementRead) *UserUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAnnouncementReadIDs(ids...)
+}
+
+// ClearAnnouncementGroupPriceReads clears all "announcement_group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_u *UserUpdateOne) ClearAnnouncementGroupPriceReads() *UserUpdateOne {
+	_u.mutation.ClearAnnouncementGroupPriceReads()
+	return _u
+}
+
+// RemoveAnnouncementGroupPriceReadIDs removes the "announcement_group_price_reads" edge to AnnouncementGroupPriceRead entities by IDs.
+func (_u *UserUpdateOne) RemoveAnnouncementGroupPriceReadIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveAnnouncementGroupPriceReadIDs(ids...)
+	return _u
+}
+
+// RemoveAnnouncementGroupPriceReads removes "announcement_group_price_reads" edges to AnnouncementGroupPriceRead entities.
+func (_u *UserUpdateOne) RemoveAnnouncementGroupPriceReads(v ...*AnnouncementGroupPriceRead) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAnnouncementGroupPriceReadIDs(ids...)
 }
 
 // ClearAllowedGroups clears all "allowed_groups" edges to the Group entity.
@@ -3153,6 +3271,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(announcementread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AnnouncementGroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AnnouncementGroupPriceReadsTable,
+			Columns: []string{user.AnnouncementGroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAnnouncementGroupPriceReadsIDs(); len(nodes) > 0 && !_u.mutation.AnnouncementGroupPriceReadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AnnouncementGroupPriceReadsTable,
+			Columns: []string{user.AnnouncementGroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AnnouncementGroupPriceReadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AnnouncementGroupPriceReadsTable,
+			Columns: []string{user.AnnouncementGroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

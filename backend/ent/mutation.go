@@ -15,6 +15,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeygroup"
@@ -74,6 +76,8 @@ const (
 	TypeAccount                       = "Account"
 	TypeAccountGroup                  = "AccountGroup"
 	TypeAnnouncement                  = "Announcement"
+	TypeAnnouncementGroupPriceChange  = "AnnouncementGroupPriceChange"
+	TypeAnnouncementGroupPriceRead    = "AnnouncementGroupPriceRead"
 	TypeAnnouncementRead              = "AnnouncementRead"
 	TypeAuthIdentity                  = "AuthIdentity"
 	TypeAuthIdentityChannel           = "AuthIdentityChannel"
@@ -6151,29 +6155,36 @@ func (m *AccountGroupMutation) ResetEdge(name string) error {
 // AnnouncementMutation represents an operation that mutates the Announcement nodes in the graph.
 type AnnouncementMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int64
-	title         *string
-	content       *string
-	status        *string
-	notify_mode   *string
-	targeting     *domain.AnnouncementTargeting
-	starts_at     *time.Time
-	ends_at       *time.Time
-	created_by    *int64
-	addcreated_by *int64
-	updated_by    *int64
-	addupdated_by *int64
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	reads         map[int64]struct{}
-	removedreads  map[int64]struct{}
-	clearedreads  bool
-	done          bool
-	oldValue      func(context.Context) (*Announcement, error)
-	predicates    []predicate.Announcement
+	op                         Op
+	typ                        string
+	id                         *int64
+	kind                       *string
+	title                      *string
+	content                    *string
+	status                     *string
+	notify_mode                *string
+	targeting                  *domain.AnnouncementTargeting
+	starts_at                  *time.Time
+	ends_at                    *time.Time
+	created_by                 *int64
+	addcreated_by              *int64
+	updated_by                 *int64
+	addupdated_by              *int64
+	created_at                 *time.Time
+	updated_at                 *time.Time
+	clearedFields              map[string]struct{}
+	reads                      map[int64]struct{}
+	removedreads               map[int64]struct{}
+	clearedreads               bool
+	group_price_changes        map[int64]struct{}
+	removedgroup_price_changes map[int64]struct{}
+	clearedgroup_price_changes bool
+	group_price_reads          map[int64]struct{}
+	removedgroup_price_reads   map[int64]struct{}
+	clearedgroup_price_reads   bool
+	done                       bool
+	oldValue                   func(context.Context) (*Announcement, error)
+	predicates                 []predicate.Announcement
 }
 
 var _ ent.Mutation = (*AnnouncementMutation)(nil)
@@ -6272,6 +6283,42 @@ func (m *AnnouncementMutation) IDs(ctx context.Context) ([]int64, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetKind sets the "kind" field.
+func (m *AnnouncementMutation) SetKind(s string) {
+	m.kind = &s
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *AnnouncementMutation) Kind() (r string, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the Announcement entity.
+// If the Announcement object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementMutation) OldKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *AnnouncementMutation) ResetKind() {
+	m.kind = nil
 }
 
 // SetTitle sets the "title" field.
@@ -6831,6 +6878,114 @@ func (m *AnnouncementMutation) ResetReads() {
 	m.removedreads = nil
 }
 
+// AddGroupPriceChangeIDs adds the "group_price_changes" edge to the AnnouncementGroupPriceChange entity by ids.
+func (m *AnnouncementMutation) AddGroupPriceChangeIDs(ids ...int64) {
+	if m.group_price_changes == nil {
+		m.group_price_changes = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.group_price_changes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearGroupPriceChanges clears the "group_price_changes" edge to the AnnouncementGroupPriceChange entity.
+func (m *AnnouncementMutation) ClearGroupPriceChanges() {
+	m.clearedgroup_price_changes = true
+}
+
+// GroupPriceChangesCleared reports if the "group_price_changes" edge to the AnnouncementGroupPriceChange entity was cleared.
+func (m *AnnouncementMutation) GroupPriceChangesCleared() bool {
+	return m.clearedgroup_price_changes
+}
+
+// RemoveGroupPriceChangeIDs removes the "group_price_changes" edge to the AnnouncementGroupPriceChange entity by IDs.
+func (m *AnnouncementMutation) RemoveGroupPriceChangeIDs(ids ...int64) {
+	if m.removedgroup_price_changes == nil {
+		m.removedgroup_price_changes = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.group_price_changes, ids[i])
+		m.removedgroup_price_changes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedGroupPriceChanges returns the removed IDs of the "group_price_changes" edge to the AnnouncementGroupPriceChange entity.
+func (m *AnnouncementMutation) RemovedGroupPriceChangesIDs() (ids []int64) {
+	for id := range m.removedgroup_price_changes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// GroupPriceChangesIDs returns the "group_price_changes" edge IDs in the mutation.
+func (m *AnnouncementMutation) GroupPriceChangesIDs() (ids []int64) {
+	for id := range m.group_price_changes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetGroupPriceChanges resets all changes to the "group_price_changes" edge.
+func (m *AnnouncementMutation) ResetGroupPriceChanges() {
+	m.group_price_changes = nil
+	m.clearedgroup_price_changes = false
+	m.removedgroup_price_changes = nil
+}
+
+// AddGroupPriceReadIDs adds the "group_price_reads" edge to the AnnouncementGroupPriceRead entity by ids.
+func (m *AnnouncementMutation) AddGroupPriceReadIDs(ids ...int64) {
+	if m.group_price_reads == nil {
+		m.group_price_reads = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.group_price_reads[ids[i]] = struct{}{}
+	}
+}
+
+// ClearGroupPriceReads clears the "group_price_reads" edge to the AnnouncementGroupPriceRead entity.
+func (m *AnnouncementMutation) ClearGroupPriceReads() {
+	m.clearedgroup_price_reads = true
+}
+
+// GroupPriceReadsCleared reports if the "group_price_reads" edge to the AnnouncementGroupPriceRead entity was cleared.
+func (m *AnnouncementMutation) GroupPriceReadsCleared() bool {
+	return m.clearedgroup_price_reads
+}
+
+// RemoveGroupPriceReadIDs removes the "group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (m *AnnouncementMutation) RemoveGroupPriceReadIDs(ids ...int64) {
+	if m.removedgroup_price_reads == nil {
+		m.removedgroup_price_reads = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.group_price_reads, ids[i])
+		m.removedgroup_price_reads[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedGroupPriceReads returns the removed IDs of the "group_price_reads" edge to the AnnouncementGroupPriceRead entity.
+func (m *AnnouncementMutation) RemovedGroupPriceReadsIDs() (ids []int64) {
+	for id := range m.removedgroup_price_reads {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// GroupPriceReadsIDs returns the "group_price_reads" edge IDs in the mutation.
+func (m *AnnouncementMutation) GroupPriceReadsIDs() (ids []int64) {
+	for id := range m.group_price_reads {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetGroupPriceReads resets all changes to the "group_price_reads" edge.
+func (m *AnnouncementMutation) ResetGroupPriceReads() {
+	m.group_price_reads = nil
+	m.clearedgroup_price_reads = false
+	m.removedgroup_price_reads = nil
+}
+
 // Where appends a list predicates to the AnnouncementMutation builder.
 func (m *AnnouncementMutation) Where(ps ...predicate.Announcement) {
 	m.predicates = append(m.predicates, ps...)
@@ -6865,7 +7020,10 @@ func (m *AnnouncementMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AnnouncementMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
+	if m.kind != nil {
+		fields = append(fields, announcement.FieldKind)
+	}
 	if m.title != nil {
 		fields = append(fields, announcement.FieldTitle)
 	}
@@ -6907,6 +7065,8 @@ func (m *AnnouncementMutation) Fields() []string {
 // schema.
 func (m *AnnouncementMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case announcement.FieldKind:
+		return m.Kind()
 	case announcement.FieldTitle:
 		return m.Title()
 	case announcement.FieldContent:
@@ -6938,6 +7098,8 @@ func (m *AnnouncementMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *AnnouncementMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case announcement.FieldKind:
+		return m.OldKind(ctx)
 	case announcement.FieldTitle:
 		return m.OldTitle(ctx)
 	case announcement.FieldContent:
@@ -6969,6 +7131,13 @@ func (m *AnnouncementMutation) OldField(ctx context.Context, name string) (ent.V
 // type.
 func (m *AnnouncementMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case announcement.FieldKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
+		return nil
 	case announcement.FieldTitle:
 		v, ok := value.(string)
 		if !ok {
@@ -7155,6 +7324,9 @@ func (m *AnnouncementMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *AnnouncementMutation) ResetField(name string) error {
 	switch name {
+	case announcement.FieldKind:
+		m.ResetKind()
+		return nil
 	case announcement.FieldTitle:
 		m.ResetTitle()
 		return nil
@@ -7194,9 +7366,15 @@ func (m *AnnouncementMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AnnouncementMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.reads != nil {
 		edges = append(edges, announcement.EdgeReads)
+	}
+	if m.group_price_changes != nil {
+		edges = append(edges, announcement.EdgeGroupPriceChanges)
+	}
+	if m.group_price_reads != nil {
+		edges = append(edges, announcement.EdgeGroupPriceReads)
 	}
 	return edges
 }
@@ -7211,15 +7389,33 @@ func (m *AnnouncementMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case announcement.EdgeGroupPriceChanges:
+		ids := make([]ent.Value, 0, len(m.group_price_changes))
+		for id := range m.group_price_changes {
+			ids = append(ids, id)
+		}
+		return ids
+	case announcement.EdgeGroupPriceReads:
+		ids := make([]ent.Value, 0, len(m.group_price_reads))
+		for id := range m.group_price_reads {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AnnouncementMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.removedreads != nil {
 		edges = append(edges, announcement.EdgeReads)
+	}
+	if m.removedgroup_price_changes != nil {
+		edges = append(edges, announcement.EdgeGroupPriceChanges)
+	}
+	if m.removedgroup_price_reads != nil {
+		edges = append(edges, announcement.EdgeGroupPriceReads)
 	}
 	return edges
 }
@@ -7234,15 +7430,33 @@ func (m *AnnouncementMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case announcement.EdgeGroupPriceChanges:
+		ids := make([]ent.Value, 0, len(m.removedgroup_price_changes))
+		for id := range m.removedgroup_price_changes {
+			ids = append(ids, id)
+		}
+		return ids
+	case announcement.EdgeGroupPriceReads:
+		ids := make([]ent.Value, 0, len(m.removedgroup_price_reads))
+		for id := range m.removedgroup_price_reads {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AnnouncementMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.clearedreads {
 		edges = append(edges, announcement.EdgeReads)
+	}
+	if m.clearedgroup_price_changes {
+		edges = append(edges, announcement.EdgeGroupPriceChanges)
+	}
+	if m.clearedgroup_price_reads {
+		edges = append(edges, announcement.EdgeGroupPriceReads)
 	}
 	return edges
 }
@@ -7253,6 +7467,10 @@ func (m *AnnouncementMutation) EdgeCleared(name string) bool {
 	switch name {
 	case announcement.EdgeReads:
 		return m.clearedreads
+	case announcement.EdgeGroupPriceChanges:
+		return m.clearedgroup_price_changes
+	case announcement.EdgeGroupPriceReads:
+		return m.clearedgroup_price_reads
 	}
 	return false
 }
@@ -7272,8 +7490,1531 @@ func (m *AnnouncementMutation) ResetEdge(name string) error {
 	case announcement.EdgeReads:
 		m.ResetReads()
 		return nil
+	case announcement.EdgeGroupPriceChanges:
+		m.ResetGroupPriceChanges()
+		return nil
+	case announcement.EdgeGroupPriceReads:
+		m.ResetGroupPriceReads()
+		return nil
 	}
 	return fmt.Errorf("unknown Announcement edge %s", name)
+}
+
+// AnnouncementGroupPriceChangeMutation represents an operation that mutates the AnnouncementGroupPriceChange nodes in the graph.
+type AnnouncementGroupPriceChangeMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	group_id            *int64
+	addgroup_id         *int64
+	group_name          *string
+	old_rate            *float64
+	addold_rate         *float64
+	new_rate            *float64
+	addnew_rate         *float64
+	sequence            *int
+	addsequence         *int
+	created_at          *time.Time
+	clearedFields       map[string]struct{}
+	announcement        *int64
+	clearedannouncement bool
+	done                bool
+	oldValue            func(context.Context) (*AnnouncementGroupPriceChange, error)
+	predicates          []predicate.AnnouncementGroupPriceChange
+}
+
+var _ ent.Mutation = (*AnnouncementGroupPriceChangeMutation)(nil)
+
+// announcementgrouppricechangeOption allows management of the mutation configuration using functional options.
+type announcementgrouppricechangeOption func(*AnnouncementGroupPriceChangeMutation)
+
+// newAnnouncementGroupPriceChangeMutation creates new mutation for the AnnouncementGroupPriceChange entity.
+func newAnnouncementGroupPriceChangeMutation(c config, op Op, opts ...announcementgrouppricechangeOption) *AnnouncementGroupPriceChangeMutation {
+	m := &AnnouncementGroupPriceChangeMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAnnouncementGroupPriceChange,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAnnouncementGroupPriceChangeID sets the ID field of the mutation.
+func withAnnouncementGroupPriceChangeID(id int64) announcementgrouppricechangeOption {
+	return func(m *AnnouncementGroupPriceChangeMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AnnouncementGroupPriceChange
+		)
+		m.oldValue = func(ctx context.Context) (*AnnouncementGroupPriceChange, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AnnouncementGroupPriceChange.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAnnouncementGroupPriceChange sets the old AnnouncementGroupPriceChange of the mutation.
+func withAnnouncementGroupPriceChange(node *AnnouncementGroupPriceChange) announcementgrouppricechangeOption {
+	return func(m *AnnouncementGroupPriceChangeMutation) {
+		m.oldValue = func(context.Context) (*AnnouncementGroupPriceChange, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AnnouncementGroupPriceChangeMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AnnouncementGroupPriceChangeMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AnnouncementGroupPriceChangeMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AnnouncementGroupPriceChange.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAnnouncementID sets the "announcement_id" field.
+func (m *AnnouncementGroupPriceChangeMutation) SetAnnouncementID(i int64) {
+	m.announcement = &i
+}
+
+// AnnouncementID returns the value of the "announcement_id" field in the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AnnouncementID() (r int64, exists bool) {
+	v := m.announcement
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAnnouncementID returns the old "announcement_id" field's value of the AnnouncementGroupPriceChange entity.
+// If the AnnouncementGroupPriceChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceChangeMutation) OldAnnouncementID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAnnouncementID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAnnouncementID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAnnouncementID: %w", err)
+	}
+	return oldValue.AnnouncementID, nil
+}
+
+// ResetAnnouncementID resets all changes to the "announcement_id" field.
+func (m *AnnouncementGroupPriceChangeMutation) ResetAnnouncementID() {
+	m.announcement = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *AnnouncementGroupPriceChangeMutation) SetGroupID(i int64) {
+	m.group_id = &i
+	m.addgroup_id = nil
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) GroupID() (r int64, exists bool) {
+	v := m.group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the AnnouncementGroupPriceChange entity.
+// If the AnnouncementGroupPriceChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceChangeMutation) OldGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// AddGroupID adds i to the "group_id" field.
+func (m *AnnouncementGroupPriceChangeMutation) AddGroupID(i int64) {
+	if m.addgroup_id != nil {
+		*m.addgroup_id += i
+	} else {
+		m.addgroup_id = &i
+	}
+}
+
+// AddedGroupID returns the value that was added to the "group_id" field in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AddedGroupID() (r int64, exists bool) {
+	v := m.addgroup_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *AnnouncementGroupPriceChangeMutation) ResetGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+}
+
+// SetGroupName sets the "group_name" field.
+func (m *AnnouncementGroupPriceChangeMutation) SetGroupName(s string) {
+	m.group_name = &s
+}
+
+// GroupName returns the value of the "group_name" field in the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) GroupName() (r string, exists bool) {
+	v := m.group_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupName returns the old "group_name" field's value of the AnnouncementGroupPriceChange entity.
+// If the AnnouncementGroupPriceChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceChangeMutation) OldGroupName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupName: %w", err)
+	}
+	return oldValue.GroupName, nil
+}
+
+// ResetGroupName resets all changes to the "group_name" field.
+func (m *AnnouncementGroupPriceChangeMutation) ResetGroupName() {
+	m.group_name = nil
+}
+
+// SetOldRate sets the "old_rate" field.
+func (m *AnnouncementGroupPriceChangeMutation) SetOldRate(f float64) {
+	m.old_rate = &f
+	m.addold_rate = nil
+}
+
+// OldRate returns the value of the "old_rate" field in the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) OldRate() (r float64, exists bool) {
+	v := m.old_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOldRate returns the old "old_rate" field's value of the AnnouncementGroupPriceChange entity.
+// If the AnnouncementGroupPriceChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceChangeMutation) OldOldRate(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOldRate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOldRate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOldRate: %w", err)
+	}
+	return oldValue.OldRate, nil
+}
+
+// AddOldRate adds f to the "old_rate" field.
+func (m *AnnouncementGroupPriceChangeMutation) AddOldRate(f float64) {
+	if m.addold_rate != nil {
+		*m.addold_rate += f
+	} else {
+		m.addold_rate = &f
+	}
+}
+
+// AddedOldRate returns the value that was added to the "old_rate" field in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AddedOldRate() (r float64, exists bool) {
+	v := m.addold_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOldRate resets all changes to the "old_rate" field.
+func (m *AnnouncementGroupPriceChangeMutation) ResetOldRate() {
+	m.old_rate = nil
+	m.addold_rate = nil
+}
+
+// SetNewRate sets the "new_rate" field.
+func (m *AnnouncementGroupPriceChangeMutation) SetNewRate(f float64) {
+	m.new_rate = &f
+	m.addnew_rate = nil
+}
+
+// NewRate returns the value of the "new_rate" field in the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) NewRate() (r float64, exists bool) {
+	v := m.new_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNewRate returns the old "new_rate" field's value of the AnnouncementGroupPriceChange entity.
+// If the AnnouncementGroupPriceChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceChangeMutation) OldNewRate(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNewRate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNewRate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNewRate: %w", err)
+	}
+	return oldValue.NewRate, nil
+}
+
+// AddNewRate adds f to the "new_rate" field.
+func (m *AnnouncementGroupPriceChangeMutation) AddNewRate(f float64) {
+	if m.addnew_rate != nil {
+		*m.addnew_rate += f
+	} else {
+		m.addnew_rate = &f
+	}
+}
+
+// AddedNewRate returns the value that was added to the "new_rate" field in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AddedNewRate() (r float64, exists bool) {
+	v := m.addnew_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetNewRate resets all changes to the "new_rate" field.
+func (m *AnnouncementGroupPriceChangeMutation) ResetNewRate() {
+	m.new_rate = nil
+	m.addnew_rate = nil
+}
+
+// SetSequence sets the "sequence" field.
+func (m *AnnouncementGroupPriceChangeMutation) SetSequence(i int) {
+	m.sequence = &i
+	m.addsequence = nil
+}
+
+// Sequence returns the value of the "sequence" field in the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) Sequence() (r int, exists bool) {
+	v := m.sequence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSequence returns the old "sequence" field's value of the AnnouncementGroupPriceChange entity.
+// If the AnnouncementGroupPriceChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceChangeMutation) OldSequence(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSequence is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSequence requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSequence: %w", err)
+	}
+	return oldValue.Sequence, nil
+}
+
+// AddSequence adds i to the "sequence" field.
+func (m *AnnouncementGroupPriceChangeMutation) AddSequence(i int) {
+	if m.addsequence != nil {
+		*m.addsequence += i
+	} else {
+		m.addsequence = &i
+	}
+}
+
+// AddedSequence returns the value that was added to the "sequence" field in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AddedSequence() (r int, exists bool) {
+	v := m.addsequence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSequence resets all changes to the "sequence" field.
+func (m *AnnouncementGroupPriceChangeMutation) ResetSequence() {
+	m.sequence = nil
+	m.addsequence = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AnnouncementGroupPriceChangeMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AnnouncementGroupPriceChangeMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AnnouncementGroupPriceChange entity.
+// If the AnnouncementGroupPriceChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceChangeMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AnnouncementGroupPriceChangeMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearAnnouncement clears the "announcement" edge to the Announcement entity.
+func (m *AnnouncementGroupPriceChangeMutation) ClearAnnouncement() {
+	m.clearedannouncement = true
+	m.clearedFields[announcementgrouppricechange.FieldAnnouncementID] = struct{}{}
+}
+
+// AnnouncementCleared reports if the "announcement" edge to the Announcement entity was cleared.
+func (m *AnnouncementGroupPriceChangeMutation) AnnouncementCleared() bool {
+	return m.clearedannouncement
+}
+
+// AnnouncementIDs returns the "announcement" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AnnouncementID instead. It exists only for internal usage by the builders.
+func (m *AnnouncementGroupPriceChangeMutation) AnnouncementIDs() (ids []int64) {
+	if id := m.announcement; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAnnouncement resets all changes to the "announcement" edge.
+func (m *AnnouncementGroupPriceChangeMutation) ResetAnnouncement() {
+	m.announcement = nil
+	m.clearedannouncement = false
+}
+
+// Where appends a list predicates to the AnnouncementGroupPriceChangeMutation builder.
+func (m *AnnouncementGroupPriceChangeMutation) Where(ps ...predicate.AnnouncementGroupPriceChange) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AnnouncementGroupPriceChangeMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AnnouncementGroupPriceChangeMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AnnouncementGroupPriceChange, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AnnouncementGroupPriceChangeMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AnnouncementGroupPriceChangeMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AnnouncementGroupPriceChange).
+func (m *AnnouncementGroupPriceChangeMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AnnouncementGroupPriceChangeMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.announcement != nil {
+		fields = append(fields, announcementgrouppricechange.FieldAnnouncementID)
+	}
+	if m.group_id != nil {
+		fields = append(fields, announcementgrouppricechange.FieldGroupID)
+	}
+	if m.group_name != nil {
+		fields = append(fields, announcementgrouppricechange.FieldGroupName)
+	}
+	if m.old_rate != nil {
+		fields = append(fields, announcementgrouppricechange.FieldOldRate)
+	}
+	if m.new_rate != nil {
+		fields = append(fields, announcementgrouppricechange.FieldNewRate)
+	}
+	if m.sequence != nil {
+		fields = append(fields, announcementgrouppricechange.FieldSequence)
+	}
+	if m.created_at != nil {
+		fields = append(fields, announcementgrouppricechange.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AnnouncementGroupPriceChangeMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case announcementgrouppricechange.FieldAnnouncementID:
+		return m.AnnouncementID()
+	case announcementgrouppricechange.FieldGroupID:
+		return m.GroupID()
+	case announcementgrouppricechange.FieldGroupName:
+		return m.GroupName()
+	case announcementgrouppricechange.FieldOldRate:
+		return m.OldRate()
+	case announcementgrouppricechange.FieldNewRate:
+		return m.NewRate()
+	case announcementgrouppricechange.FieldSequence:
+		return m.Sequence()
+	case announcementgrouppricechange.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AnnouncementGroupPriceChangeMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case announcementgrouppricechange.FieldAnnouncementID:
+		return m.OldAnnouncementID(ctx)
+	case announcementgrouppricechange.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case announcementgrouppricechange.FieldGroupName:
+		return m.OldGroupName(ctx)
+	case announcementgrouppricechange.FieldOldRate:
+		return m.OldOldRate(ctx)
+	case announcementgrouppricechange.FieldNewRate:
+		return m.OldNewRate(ctx)
+	case announcementgrouppricechange.FieldSequence:
+		return m.OldSequence(ctx)
+	case announcementgrouppricechange.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AnnouncementGroupPriceChange field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AnnouncementGroupPriceChangeMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case announcementgrouppricechange.FieldAnnouncementID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAnnouncementID(v)
+		return nil
+	case announcementgrouppricechange.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case announcementgrouppricechange.FieldGroupName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupName(v)
+		return nil
+	case announcementgrouppricechange.FieldOldRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOldRate(v)
+		return nil
+	case announcementgrouppricechange.FieldNewRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNewRate(v)
+		return nil
+	case announcementgrouppricechange.FieldSequence:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSequence(v)
+		return nil
+	case announcementgrouppricechange.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceChange field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AddedFields() []string {
+	var fields []string
+	if m.addgroup_id != nil {
+		fields = append(fields, announcementgrouppricechange.FieldGroupID)
+	}
+	if m.addold_rate != nil {
+		fields = append(fields, announcementgrouppricechange.FieldOldRate)
+	}
+	if m.addnew_rate != nil {
+		fields = append(fields, announcementgrouppricechange.FieldNewRate)
+	}
+	if m.addsequence != nil {
+		fields = append(fields, announcementgrouppricechange.FieldSequence)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AnnouncementGroupPriceChangeMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case announcementgrouppricechange.FieldGroupID:
+		return m.AddedGroupID()
+	case announcementgrouppricechange.FieldOldRate:
+		return m.AddedOldRate()
+	case announcementgrouppricechange.FieldNewRate:
+		return m.AddedNewRate()
+	case announcementgrouppricechange.FieldSequence:
+		return m.AddedSequence()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AnnouncementGroupPriceChangeMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case announcementgrouppricechange.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupID(v)
+		return nil
+	case announcementgrouppricechange.FieldOldRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOldRate(v)
+		return nil
+	case announcementgrouppricechange.FieldNewRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddNewRate(v)
+		return nil
+	case announcementgrouppricechange.FieldSequence:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSequence(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceChange numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AnnouncementGroupPriceChangeMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AnnouncementGroupPriceChangeMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown AnnouncementGroupPriceChange nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AnnouncementGroupPriceChangeMutation) ResetField(name string) error {
+	switch name {
+	case announcementgrouppricechange.FieldAnnouncementID:
+		m.ResetAnnouncementID()
+		return nil
+	case announcementgrouppricechange.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case announcementgrouppricechange.FieldGroupName:
+		m.ResetGroupName()
+		return nil
+	case announcementgrouppricechange.FieldOldRate:
+		m.ResetOldRate()
+		return nil
+	case announcementgrouppricechange.FieldNewRate:
+		m.ResetNewRate()
+		return nil
+	case announcementgrouppricechange.FieldSequence:
+		m.ResetSequence()
+		return nil
+	case announcementgrouppricechange.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceChange field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.announcement != nil {
+		edges = append(edges, announcementgrouppricechange.EdgeAnnouncement)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case announcementgrouppricechange.EdgeAnnouncement:
+		if id := m.announcement; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedannouncement {
+		edges = append(edges, announcementgrouppricechange.EdgeAnnouncement)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AnnouncementGroupPriceChangeMutation) EdgeCleared(name string) bool {
+	switch name {
+	case announcementgrouppricechange.EdgeAnnouncement:
+		return m.clearedannouncement
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AnnouncementGroupPriceChangeMutation) ClearEdge(name string) error {
+	switch name {
+	case announcementgrouppricechange.EdgeAnnouncement:
+		m.ClearAnnouncement()
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceChange unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AnnouncementGroupPriceChangeMutation) ResetEdge(name string) error {
+	switch name {
+	case announcementgrouppricechange.EdgeAnnouncement:
+		m.ResetAnnouncement()
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceChange edge %s", name)
+}
+
+// AnnouncementGroupPriceReadMutation represents an operation that mutates the AnnouncementGroupPriceRead nodes in the graph.
+type AnnouncementGroupPriceReadMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	group_id            *int64
+	addgroup_id         *int64
+	read_at             *time.Time
+	created_at          *time.Time
+	clearedFields       map[string]struct{}
+	announcement        *int64
+	clearedannouncement bool
+	user                *int64
+	cleareduser         bool
+	done                bool
+	oldValue            func(context.Context) (*AnnouncementGroupPriceRead, error)
+	predicates          []predicate.AnnouncementGroupPriceRead
+}
+
+var _ ent.Mutation = (*AnnouncementGroupPriceReadMutation)(nil)
+
+// announcementgrouppricereadOption allows management of the mutation configuration using functional options.
+type announcementgrouppricereadOption func(*AnnouncementGroupPriceReadMutation)
+
+// newAnnouncementGroupPriceReadMutation creates new mutation for the AnnouncementGroupPriceRead entity.
+func newAnnouncementGroupPriceReadMutation(c config, op Op, opts ...announcementgrouppricereadOption) *AnnouncementGroupPriceReadMutation {
+	m := &AnnouncementGroupPriceReadMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAnnouncementGroupPriceRead,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAnnouncementGroupPriceReadID sets the ID field of the mutation.
+func withAnnouncementGroupPriceReadID(id int64) announcementgrouppricereadOption {
+	return func(m *AnnouncementGroupPriceReadMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AnnouncementGroupPriceRead
+		)
+		m.oldValue = func(ctx context.Context) (*AnnouncementGroupPriceRead, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AnnouncementGroupPriceRead.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAnnouncementGroupPriceRead sets the old AnnouncementGroupPriceRead of the mutation.
+func withAnnouncementGroupPriceRead(node *AnnouncementGroupPriceRead) announcementgrouppricereadOption {
+	return func(m *AnnouncementGroupPriceReadMutation) {
+		m.oldValue = func(context.Context) (*AnnouncementGroupPriceRead, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AnnouncementGroupPriceReadMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AnnouncementGroupPriceReadMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AnnouncementGroupPriceReadMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AnnouncementGroupPriceReadMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AnnouncementGroupPriceRead.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAnnouncementID sets the "announcement_id" field.
+func (m *AnnouncementGroupPriceReadMutation) SetAnnouncementID(i int64) {
+	m.announcement = &i
+}
+
+// AnnouncementID returns the value of the "announcement_id" field in the mutation.
+func (m *AnnouncementGroupPriceReadMutation) AnnouncementID() (r int64, exists bool) {
+	v := m.announcement
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAnnouncementID returns the old "announcement_id" field's value of the AnnouncementGroupPriceRead entity.
+// If the AnnouncementGroupPriceRead object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceReadMutation) OldAnnouncementID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAnnouncementID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAnnouncementID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAnnouncementID: %w", err)
+	}
+	return oldValue.AnnouncementID, nil
+}
+
+// ResetAnnouncementID resets all changes to the "announcement_id" field.
+func (m *AnnouncementGroupPriceReadMutation) ResetAnnouncementID() {
+	m.announcement = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *AnnouncementGroupPriceReadMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *AnnouncementGroupPriceReadMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the AnnouncementGroupPriceRead entity.
+// If the AnnouncementGroupPriceRead object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceReadMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *AnnouncementGroupPriceReadMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *AnnouncementGroupPriceReadMutation) SetGroupID(i int64) {
+	m.group_id = &i
+	m.addgroup_id = nil
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *AnnouncementGroupPriceReadMutation) GroupID() (r int64, exists bool) {
+	v := m.group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the AnnouncementGroupPriceRead entity.
+// If the AnnouncementGroupPriceRead object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceReadMutation) OldGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// AddGroupID adds i to the "group_id" field.
+func (m *AnnouncementGroupPriceReadMutation) AddGroupID(i int64) {
+	if m.addgroup_id != nil {
+		*m.addgroup_id += i
+	} else {
+		m.addgroup_id = &i
+	}
+}
+
+// AddedGroupID returns the value that was added to the "group_id" field in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) AddedGroupID() (r int64, exists bool) {
+	v := m.addgroup_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *AnnouncementGroupPriceReadMutation) ResetGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+}
+
+// SetReadAt sets the "read_at" field.
+func (m *AnnouncementGroupPriceReadMutation) SetReadAt(t time.Time) {
+	m.read_at = &t
+}
+
+// ReadAt returns the value of the "read_at" field in the mutation.
+func (m *AnnouncementGroupPriceReadMutation) ReadAt() (r time.Time, exists bool) {
+	v := m.read_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReadAt returns the old "read_at" field's value of the AnnouncementGroupPriceRead entity.
+// If the AnnouncementGroupPriceRead object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceReadMutation) OldReadAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReadAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReadAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReadAt: %w", err)
+	}
+	return oldValue.ReadAt, nil
+}
+
+// ResetReadAt resets all changes to the "read_at" field.
+func (m *AnnouncementGroupPriceReadMutation) ResetReadAt() {
+	m.read_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AnnouncementGroupPriceReadMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AnnouncementGroupPriceReadMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AnnouncementGroupPriceRead entity.
+// If the AnnouncementGroupPriceRead object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementGroupPriceReadMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AnnouncementGroupPriceReadMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearAnnouncement clears the "announcement" edge to the Announcement entity.
+func (m *AnnouncementGroupPriceReadMutation) ClearAnnouncement() {
+	m.clearedannouncement = true
+	m.clearedFields[announcementgrouppriceread.FieldAnnouncementID] = struct{}{}
+}
+
+// AnnouncementCleared reports if the "announcement" edge to the Announcement entity was cleared.
+func (m *AnnouncementGroupPriceReadMutation) AnnouncementCleared() bool {
+	return m.clearedannouncement
+}
+
+// AnnouncementIDs returns the "announcement" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AnnouncementID instead. It exists only for internal usage by the builders.
+func (m *AnnouncementGroupPriceReadMutation) AnnouncementIDs() (ids []int64) {
+	if id := m.announcement; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAnnouncement resets all changes to the "announcement" edge.
+func (m *AnnouncementGroupPriceReadMutation) ResetAnnouncement() {
+	m.announcement = nil
+	m.clearedannouncement = false
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *AnnouncementGroupPriceReadMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[announcementgrouppriceread.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *AnnouncementGroupPriceReadMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *AnnouncementGroupPriceReadMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *AnnouncementGroupPriceReadMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the AnnouncementGroupPriceReadMutation builder.
+func (m *AnnouncementGroupPriceReadMutation) Where(ps ...predicate.AnnouncementGroupPriceRead) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AnnouncementGroupPriceReadMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AnnouncementGroupPriceReadMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AnnouncementGroupPriceRead, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AnnouncementGroupPriceReadMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AnnouncementGroupPriceReadMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AnnouncementGroupPriceRead).
+func (m *AnnouncementGroupPriceReadMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AnnouncementGroupPriceReadMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.announcement != nil {
+		fields = append(fields, announcementgrouppriceread.FieldAnnouncementID)
+	}
+	if m.user != nil {
+		fields = append(fields, announcementgrouppriceread.FieldUserID)
+	}
+	if m.group_id != nil {
+		fields = append(fields, announcementgrouppriceread.FieldGroupID)
+	}
+	if m.read_at != nil {
+		fields = append(fields, announcementgrouppriceread.FieldReadAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, announcementgrouppriceread.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AnnouncementGroupPriceReadMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case announcementgrouppriceread.FieldAnnouncementID:
+		return m.AnnouncementID()
+	case announcementgrouppriceread.FieldUserID:
+		return m.UserID()
+	case announcementgrouppriceread.FieldGroupID:
+		return m.GroupID()
+	case announcementgrouppriceread.FieldReadAt:
+		return m.ReadAt()
+	case announcementgrouppriceread.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AnnouncementGroupPriceReadMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case announcementgrouppriceread.FieldAnnouncementID:
+		return m.OldAnnouncementID(ctx)
+	case announcementgrouppriceread.FieldUserID:
+		return m.OldUserID(ctx)
+	case announcementgrouppriceread.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case announcementgrouppriceread.FieldReadAt:
+		return m.OldReadAt(ctx)
+	case announcementgrouppriceread.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AnnouncementGroupPriceRead field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AnnouncementGroupPriceReadMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case announcementgrouppriceread.FieldAnnouncementID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAnnouncementID(v)
+		return nil
+	case announcementgrouppriceread.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case announcementgrouppriceread.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case announcementgrouppriceread.FieldReadAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReadAt(v)
+		return nil
+	case announcementgrouppriceread.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceRead field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AnnouncementGroupPriceReadMutation) AddedFields() []string {
+	var fields []string
+	if m.addgroup_id != nil {
+		fields = append(fields, announcementgrouppriceread.FieldGroupID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AnnouncementGroupPriceReadMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case announcementgrouppriceread.FieldGroupID:
+		return m.AddedGroupID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AnnouncementGroupPriceReadMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case announcementgrouppriceread.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceRead numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AnnouncementGroupPriceReadMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AnnouncementGroupPriceReadMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown AnnouncementGroupPriceRead nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AnnouncementGroupPriceReadMutation) ResetField(name string) error {
+	switch name {
+	case announcementgrouppriceread.FieldAnnouncementID:
+		m.ResetAnnouncementID()
+		return nil
+	case announcementgrouppriceread.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case announcementgrouppriceread.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case announcementgrouppriceread.FieldReadAt:
+		m.ResetReadAt()
+		return nil
+	case announcementgrouppriceread.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceRead field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.announcement != nil {
+		edges = append(edges, announcementgrouppriceread.EdgeAnnouncement)
+	}
+	if m.user != nil {
+		edges = append(edges, announcementgrouppriceread.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case announcementgrouppriceread.EdgeAnnouncement:
+		if id := m.announcement; id != nil {
+			return []ent.Value{*id}
+		}
+	case announcementgrouppriceread.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedannouncement {
+		edges = append(edges, announcementgrouppriceread.EdgeAnnouncement)
+	}
+	if m.cleareduser {
+		edges = append(edges, announcementgrouppriceread.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AnnouncementGroupPriceReadMutation) EdgeCleared(name string) bool {
+	switch name {
+	case announcementgrouppriceread.EdgeAnnouncement:
+		return m.clearedannouncement
+	case announcementgrouppriceread.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AnnouncementGroupPriceReadMutation) ClearEdge(name string) error {
+	switch name {
+	case announcementgrouppriceread.EdgeAnnouncement:
+		m.ClearAnnouncement()
+		return nil
+	case announcementgrouppriceread.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceRead unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AnnouncementGroupPriceReadMutation) ResetEdge(name string) error {
+	switch name {
+	case announcementgrouppriceread.EdgeAnnouncement:
+		m.ResetAnnouncement()
+		return nil
+	case announcementgrouppriceread.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown AnnouncementGroupPriceRead edge %s", name)
 }
 
 // AnnouncementReadMutation represents an operation that mutates the AnnouncementRead nodes in the graph.
@@ -52206,85 +53947,88 @@ func (m *UsageLogMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *int64
-	created_at                    *time.Time
-	updated_at                    *time.Time
-	deleted_at                    *time.Time
-	email                         *string
-	password_hash                 *string
-	role                          *string
-	balance                       *float64
-	addbalance                    *float64
-	frozen_balance                *float64
-	addfrozen_balance             *float64
-	concurrency                   *int
-	addconcurrency                *int
-	status                        *string
-	username                      *string
-	notes                         *string
-	totp_secret_encrypted         *string
-	totp_enabled                  *bool
-	totp_enabled_at               *time.Time
-	signup_source                 *string
-	last_login_at                 *time.Time
-	last_active_at                *time.Time
-	balance_notify_enabled        *bool
-	balance_notify_threshold_type *string
-	balance_notify_threshold      *float64
-	addbalance_notify_threshold   *float64
-	balance_notify_extra_emails   *string
-	total_recharged               *float64
-	addtotal_recharged            *float64
-	rpm_limit                     *int
-	addrpm_limit                  *int
-	clearedFields                 map[string]struct{}
-	api_keys                      map[int64]struct{}
-	removedapi_keys               map[int64]struct{}
-	clearedapi_keys               bool
-	redeem_codes                  map[int64]struct{}
-	removedredeem_codes           map[int64]struct{}
-	clearedredeem_codes           bool
-	subscriptions                 map[int64]struct{}
-	removedsubscriptions          map[int64]struct{}
-	clearedsubscriptions          bool
-	assigned_subscriptions        map[int64]struct{}
-	removedassigned_subscriptions map[int64]struct{}
-	clearedassigned_subscriptions bool
-	announcement_reads            map[int64]struct{}
-	removedannouncement_reads     map[int64]struct{}
-	clearedannouncement_reads     bool
-	allowed_groups                map[int64]struct{}
-	removedallowed_groups         map[int64]struct{}
-	clearedallowed_groups         bool
-	tags                          map[int64]struct{}
-	removedtags                   map[int64]struct{}
-	clearedtags                   bool
-	usage_logs                    map[int64]struct{}
-	removedusage_logs             map[int64]struct{}
-	clearedusage_logs             bool
-	attribute_values              map[int64]struct{}
-	removedattribute_values       map[int64]struct{}
-	clearedattribute_values       bool
-	promo_code_usages             map[int64]struct{}
-	removedpromo_code_usages      map[int64]struct{}
-	clearedpromo_code_usages      bool
-	payment_orders                map[int64]struct{}
-	removedpayment_orders         map[int64]struct{}
-	clearedpayment_orders         bool
-	auth_identities               map[int64]struct{}
-	removedauth_identities        map[int64]struct{}
-	clearedauth_identities        bool
-	pending_auth_sessions         map[int64]struct{}
-	removedpending_auth_sessions  map[int64]struct{}
-	clearedpending_auth_sessions  bool
-	platform_quotas               map[int64]struct{}
-	removedplatform_quotas        map[int64]struct{}
-	clearedplatform_quotas        bool
-	done                          bool
-	oldValue                      func(context.Context) (*User, error)
-	predicates                    []predicate.User
+	op                                    Op
+	typ                                   string
+	id                                    *int64
+	created_at                            *time.Time
+	updated_at                            *time.Time
+	deleted_at                            *time.Time
+	email                                 *string
+	password_hash                         *string
+	role                                  *string
+	balance                               *float64
+	addbalance                            *float64
+	frozen_balance                        *float64
+	addfrozen_balance                     *float64
+	concurrency                           *int
+	addconcurrency                        *int
+	status                                *string
+	username                              *string
+	notes                                 *string
+	totp_secret_encrypted                 *string
+	totp_enabled                          *bool
+	totp_enabled_at                       *time.Time
+	signup_source                         *string
+	last_login_at                         *time.Time
+	last_active_at                        *time.Time
+	balance_notify_enabled                *bool
+	balance_notify_threshold_type         *string
+	balance_notify_threshold              *float64
+	addbalance_notify_threshold           *float64
+	balance_notify_extra_emails           *string
+	total_recharged                       *float64
+	addtotal_recharged                    *float64
+	rpm_limit                             *int
+	addrpm_limit                          *int
+	clearedFields                         map[string]struct{}
+	api_keys                              map[int64]struct{}
+	removedapi_keys                       map[int64]struct{}
+	clearedapi_keys                       bool
+	redeem_codes                          map[int64]struct{}
+	removedredeem_codes                   map[int64]struct{}
+	clearedredeem_codes                   bool
+	subscriptions                         map[int64]struct{}
+	removedsubscriptions                  map[int64]struct{}
+	clearedsubscriptions                  bool
+	assigned_subscriptions                map[int64]struct{}
+	removedassigned_subscriptions         map[int64]struct{}
+	clearedassigned_subscriptions         bool
+	announcement_reads                    map[int64]struct{}
+	removedannouncement_reads             map[int64]struct{}
+	clearedannouncement_reads             bool
+	announcement_group_price_reads        map[int64]struct{}
+	removedannouncement_group_price_reads map[int64]struct{}
+	clearedannouncement_group_price_reads bool
+	allowed_groups                        map[int64]struct{}
+	removedallowed_groups                 map[int64]struct{}
+	clearedallowed_groups                 bool
+	tags                                  map[int64]struct{}
+	removedtags                           map[int64]struct{}
+	clearedtags                           bool
+	usage_logs                            map[int64]struct{}
+	removedusage_logs                     map[int64]struct{}
+	clearedusage_logs                     bool
+	attribute_values                      map[int64]struct{}
+	removedattribute_values               map[int64]struct{}
+	clearedattribute_values               bool
+	promo_code_usages                     map[int64]struct{}
+	removedpromo_code_usages              map[int64]struct{}
+	clearedpromo_code_usages              bool
+	payment_orders                        map[int64]struct{}
+	removedpayment_orders                 map[int64]struct{}
+	clearedpayment_orders                 bool
+	auth_identities                       map[int64]struct{}
+	removedauth_identities                map[int64]struct{}
+	clearedauth_identities                bool
+	pending_auth_sessions                 map[int64]struct{}
+	removedpending_auth_sessions          map[int64]struct{}
+	clearedpending_auth_sessions          bool
+	platform_quotas                       map[int64]struct{}
+	removedplatform_quotas                map[int64]struct{}
+	clearedplatform_quotas                bool
+	done                                  bool
+	oldValue                              func(context.Context) (*User, error)
+	predicates                            []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -53718,6 +55462,60 @@ func (m *UserMutation) ResetAnnouncementReads() {
 	m.removedannouncement_reads = nil
 }
 
+// AddAnnouncementGroupPriceReadIDs adds the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity by ids.
+func (m *UserMutation) AddAnnouncementGroupPriceReadIDs(ids ...int64) {
+	if m.announcement_group_price_reads == nil {
+		m.announcement_group_price_reads = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.announcement_group_price_reads[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAnnouncementGroupPriceReads clears the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity.
+func (m *UserMutation) ClearAnnouncementGroupPriceReads() {
+	m.clearedannouncement_group_price_reads = true
+}
+
+// AnnouncementGroupPriceReadsCleared reports if the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity was cleared.
+func (m *UserMutation) AnnouncementGroupPriceReadsCleared() bool {
+	return m.clearedannouncement_group_price_reads
+}
+
+// RemoveAnnouncementGroupPriceReadIDs removes the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (m *UserMutation) RemoveAnnouncementGroupPriceReadIDs(ids ...int64) {
+	if m.removedannouncement_group_price_reads == nil {
+		m.removedannouncement_group_price_reads = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.announcement_group_price_reads, ids[i])
+		m.removedannouncement_group_price_reads[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAnnouncementGroupPriceReads returns the removed IDs of the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity.
+func (m *UserMutation) RemovedAnnouncementGroupPriceReadsIDs() (ids []int64) {
+	for id := range m.removedannouncement_group_price_reads {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AnnouncementGroupPriceReadsIDs returns the "announcement_group_price_reads" edge IDs in the mutation.
+func (m *UserMutation) AnnouncementGroupPriceReadsIDs() (ids []int64) {
+	for id := range m.announcement_group_price_reads {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAnnouncementGroupPriceReads resets all changes to the "announcement_group_price_reads" edge.
+func (m *UserMutation) ResetAnnouncementGroupPriceReads() {
+	m.announcement_group_price_reads = nil
+	m.clearedannouncement_group_price_reads = false
+	m.removedannouncement_group_price_reads = nil
+}
+
 // AddAllowedGroupIDs adds the "allowed_groups" edge to the Group entity by ids.
 func (m *UserMutation) AddAllowedGroupIDs(ids ...int64) {
 	if m.allowed_groups == nil {
@@ -54842,7 +56640,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -54857,6 +56655,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.announcement_reads != nil {
 		edges = append(edges, user.EdgeAnnouncementReads)
+	}
+	if m.announcement_group_price_reads != nil {
+		edges = append(edges, user.EdgeAnnouncementGroupPriceReads)
 	}
 	if m.allowed_groups != nil {
 		edges = append(edges, user.EdgeAllowedGroups)
@@ -54922,6 +56723,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeAnnouncementGroupPriceReads:
+		ids := make([]ent.Value, 0, len(m.announcement_group_price_reads))
+		for id := range m.announcement_group_price_reads {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAllowedGroups:
 		ids := make([]ent.Value, 0, len(m.allowed_groups))
 		for id := range m.allowed_groups {
@@ -54982,7 +56789,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -54997,6 +56804,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedannouncement_reads != nil {
 		edges = append(edges, user.EdgeAnnouncementReads)
+	}
+	if m.removedannouncement_group_price_reads != nil {
+		edges = append(edges, user.EdgeAnnouncementGroupPriceReads)
 	}
 	if m.removedallowed_groups != nil {
 		edges = append(edges, user.EdgeAllowedGroups)
@@ -55062,6 +56872,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeAnnouncementGroupPriceReads:
+		ids := make([]ent.Value, 0, len(m.removedannouncement_group_price_reads))
+		for id := range m.removedannouncement_group_price_reads {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAllowedGroups:
 		ids := make([]ent.Value, 0, len(m.removedallowed_groups))
 		for id := range m.removedallowed_groups {
@@ -55122,7 +56938,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -55137,6 +56953,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedannouncement_reads {
 		edges = append(edges, user.EdgeAnnouncementReads)
+	}
+	if m.clearedannouncement_group_price_reads {
+		edges = append(edges, user.EdgeAnnouncementGroupPriceReads)
 	}
 	if m.clearedallowed_groups {
 		edges = append(edges, user.EdgeAllowedGroups)
@@ -55182,6 +57001,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedassigned_subscriptions
 	case user.EdgeAnnouncementReads:
 		return m.clearedannouncement_reads
+	case user.EdgeAnnouncementGroupPriceReads:
+		return m.clearedannouncement_group_price_reads
 	case user.EdgeAllowedGroups:
 		return m.clearedallowed_groups
 	case user.EdgeTags:
@@ -55230,6 +57051,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeAnnouncementReads:
 		m.ResetAnnouncementReads()
+		return nil
+	case user.EdgeAnnouncementGroupPriceReads:
+		m.ResetAnnouncementGroupPriceReads()
 		return nil
 	case user.EdgeAllowedGroups:
 		m.ResetAllowedGroups()

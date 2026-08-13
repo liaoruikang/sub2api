@@ -69,6 +69,30 @@ func (f AnnouncementFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AnnouncementMutation", m)
 }
 
+// The AnnouncementGroupPriceChangeFunc type is an adapter to allow the use of ordinary
+// function as AnnouncementGroupPriceChange mutator.
+type AnnouncementGroupPriceChangeFunc func(context.Context, *ent.AnnouncementGroupPriceChangeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AnnouncementGroupPriceChangeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AnnouncementGroupPriceChangeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AnnouncementGroupPriceChangeMutation", m)
+}
+
+// The AnnouncementGroupPriceReadFunc type is an adapter to allow the use of ordinary
+// function as AnnouncementGroupPriceRead mutator.
+type AnnouncementGroupPriceReadFunc func(context.Context, *ent.AnnouncementGroupPriceReadMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AnnouncementGroupPriceReadFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AnnouncementGroupPriceReadMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AnnouncementGroupPriceReadMutation", m)
+}
+
 // The AnnouncementReadFunc type is an adapter to allow the use of ordinary
 // function as AnnouncementRead mutator.
 type AnnouncementReadFunc func(context.Context, *ent.AnnouncementReadMutation) (ent.Value, error)

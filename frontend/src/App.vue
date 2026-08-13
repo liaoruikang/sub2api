@@ -55,7 +55,7 @@ watch(
 // Watch for authentication state and manage subscription data + announcements
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
-    announcementStore.fetchAnnouncements()
+    announcementStore.fetchAnnouncements(true)
   }
 }
 

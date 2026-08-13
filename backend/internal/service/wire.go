@@ -717,6 +717,17 @@ func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupReposit
 	return svc
 }
 
+func ProvideGroupPriceMonitorService(settingRepo SettingRepository, groupRepo GroupRepository, announcementRepo AnnouncementRepository, adminService AdminService) *GroupPriceMonitorService {
+	svc := NewGroupPriceMonitorService(settingRepo, groupRepo, announcementRepo)
+	if registrar, ok := adminService.(interface {
+		SetGroupPriceChangeObserver(GroupPriceChangeObserver)
+	}); ok {
+		registrar.SetGroupPriceChangeObserver(svc)
+	}
+	svc.Start()
+	return svc
+}
+
 // ProvideBillingCacheService wires BillingCacheService with its RPM dependencies.
 func ProvideBillingCacheService(
 	cache BillingCache,
@@ -785,6 +796,7 @@ var ProviderSet = wire.NewSet(
 	NewBillingService,
 	ProvideBillingCacheService,
 	NewAnnouncementService,
+	ProvideGroupPriceMonitorService,
 	ProvideAdminService,
 	NewHighestSchedulingRotationReconciler,
 	NewGatewayService,

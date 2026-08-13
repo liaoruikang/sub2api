@@ -10,6 +10,10 @@
       <slot name="filters" />
     </div>
 
+    <div v-if="$slots['before-table']" class="layout-section-fixed">
+      <slot name="before-table" />
+    </div>
+
     <!-- 滚动区域：表格 -->
     <div class="layout-section-scrollable">
       <div class="card table-scroll-container">

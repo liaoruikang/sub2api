@@ -39,11 +39,22 @@
               </h2>
 
               <!-- Time -->
-              <div class="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+              <div class="flex flex-wrap items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <time>{{ formatRelativeWithDateTime(displayedAnnouncement.created_at) }}</time>
+                <span class="text-gray-300 dark:text-dark-600">·</span>
+                <span
+                  :class="[
+                    'inline-flex rounded-md px-2 py-1 text-xs font-medium',
+                    displayedAnnouncement.created_by == null
+                      ? 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
+                      : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                  ]"
+                >
+                  {{ displayedAnnouncement.created_by == null ? '系统发布' : '管理员发布' }}
+                </span>
               </div>
             </div>
           </div>
@@ -97,7 +108,7 @@ import { formatRelativeWithDateTime } from '@/utils/format'
 import type { Announcement, UserAnnouncement } from '@/types'
 import '@/styles/announcement-markdown.css'
 
-type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
+type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at' | 'created_by'>
 
 const props = withDefaults(defineProps<{
   announcement?: PreviewAnnouncement | null

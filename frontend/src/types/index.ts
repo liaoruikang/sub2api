@@ -348,6 +348,7 @@ export interface AnnouncementTargeting {
 
 export interface Announcement {
   id: number
+  kind: 'manual' | 'group_price_change'
   title: string
   content: string
   status: AnnouncementStatus
@@ -363,12 +364,14 @@ export interface Announcement {
 
 export interface UserAnnouncement {
   id: number
+  kind: 'manual' | 'group_price_change'
   title: string
   content: string
   notify_mode: AnnouncementNotifyMode
   starts_at?: string
   ends_at?: string
   read_at?: string
+  created_by?: number
   created_at: string
   updated_at: string
 }
@@ -391,6 +394,20 @@ export interface UpdateAnnouncementRequest {
   targeting?: AnnouncementTargeting
   starts_at?: number
   ends_at?: number
+}
+
+export interface GroupPriceMonitorConfig {
+  enabled: boolean
+  group_ids: number[]
+  interval_seconds: number
+  status: AnnouncementStatus
+  notify_mode: AnnouncementNotifyMode
+  duration_days: number
+  starts_at?: string
+  ends_at?: string
+  targeting: AnnouncementTargeting
+  next_check_at?: string
+  server_time?: string
 }
 
 export interface AnnouncementUserReadStatus {

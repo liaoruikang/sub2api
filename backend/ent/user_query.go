@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -35,27 +36,28 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx                       *QueryContext
-	order                     []user.OrderOption
-	inters                    []Interceptor
-	predicates                []predicate.User
-	withAPIKeys               *APIKeyQuery
-	withRedeemCodes           *RedeemCodeQuery
-	withSubscriptions         *UserSubscriptionQuery
-	withAssignedSubscriptions *UserSubscriptionQuery
-	withAnnouncementReads     *AnnouncementReadQuery
-	withAllowedGroups         *GroupQuery
-	withTags                  *UserTagQuery
-	withUsageLogs             *UsageLogQuery
-	withAttributeValues       *UserAttributeValueQuery
-	withPromoCodeUsages       *PromoCodeUsageQuery
-	withPaymentOrders         *PaymentOrderQuery
-	withAuthIdentities        *AuthIdentityQuery
-	withPendingAuthSessions   *PendingAuthSessionQuery
-	withPlatformQuotas        *UserPlatformQuotaQuery
-	withUserAllowedGroups     *UserAllowedGroupQuery
-	withUserTagAssignments    *UserTagAssignmentQuery
-	modifiers                 []func(*sql.Selector)
+	ctx                             *QueryContext
+	order                           []user.OrderOption
+	inters                          []Interceptor
+	predicates                      []predicate.User
+	withAPIKeys                     *APIKeyQuery
+	withRedeemCodes                 *RedeemCodeQuery
+	withSubscriptions               *UserSubscriptionQuery
+	withAssignedSubscriptions       *UserSubscriptionQuery
+	withAnnouncementReads           *AnnouncementReadQuery
+	withAnnouncementGroupPriceReads *AnnouncementGroupPriceReadQuery
+	withAllowedGroups               *GroupQuery
+	withTags                        *UserTagQuery
+	withUsageLogs                   *UsageLogQuery
+	withAttributeValues             *UserAttributeValueQuery
+	withPromoCodeUsages             *PromoCodeUsageQuery
+	withPaymentOrders               *PaymentOrderQuery
+	withAuthIdentities              *AuthIdentityQuery
+	withPendingAuthSessions         *PendingAuthSessionQuery
+	withPlatformQuotas              *UserPlatformQuotaQuery
+	withUserAllowedGroups           *UserAllowedGroupQuery
+	withUserTagAssignments          *UserTagAssignmentQuery
+	modifiers                       []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -195,6 +197,28 @@ func (_q *UserQuery) QueryAnnouncementReads() *AnnouncementReadQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(announcementread.Table, announcementread.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.AnnouncementReadsTable, user.AnnouncementReadsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAnnouncementGroupPriceReads chains the current query on the "announcement_group_price_reads" edge.
+func (_q *UserQuery) QueryAnnouncementGroupPriceReads() *AnnouncementGroupPriceReadQuery {
+	query := (&AnnouncementGroupPriceReadClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(announcementgrouppriceread.Table, announcementgrouppriceread.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.AnnouncementGroupPriceReadsTable, user.AnnouncementGroupPriceReadsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -631,27 +655,28 @@ func (_q *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:                    _q.config,
-		ctx:                       _q.ctx.Clone(),
-		order:                     append([]user.OrderOption{}, _q.order...),
-		inters:                    append([]Interceptor{}, _q.inters...),
-		predicates:                append([]predicate.User{}, _q.predicates...),
-		withAPIKeys:               _q.withAPIKeys.Clone(),
-		withRedeemCodes:           _q.withRedeemCodes.Clone(),
-		withSubscriptions:         _q.withSubscriptions.Clone(),
-		withAssignedSubscriptions: _q.withAssignedSubscriptions.Clone(),
-		withAnnouncementReads:     _q.withAnnouncementReads.Clone(),
-		withAllowedGroups:         _q.withAllowedGroups.Clone(),
-		withTags:                  _q.withTags.Clone(),
-		withUsageLogs:             _q.withUsageLogs.Clone(),
-		withAttributeValues:       _q.withAttributeValues.Clone(),
-		withPromoCodeUsages:       _q.withPromoCodeUsages.Clone(),
-		withPaymentOrders:         _q.withPaymentOrders.Clone(),
-		withAuthIdentities:        _q.withAuthIdentities.Clone(),
-		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
-		withPlatformQuotas:        _q.withPlatformQuotas.Clone(),
-		withUserAllowedGroups:     _q.withUserAllowedGroups.Clone(),
-		withUserTagAssignments:    _q.withUserTagAssignments.Clone(),
+		config:                          _q.config,
+		ctx:                             _q.ctx.Clone(),
+		order:                           append([]user.OrderOption{}, _q.order...),
+		inters:                          append([]Interceptor{}, _q.inters...),
+		predicates:                      append([]predicate.User{}, _q.predicates...),
+		withAPIKeys:                     _q.withAPIKeys.Clone(),
+		withRedeemCodes:                 _q.withRedeemCodes.Clone(),
+		withSubscriptions:               _q.withSubscriptions.Clone(),
+		withAssignedSubscriptions:       _q.withAssignedSubscriptions.Clone(),
+		withAnnouncementReads:           _q.withAnnouncementReads.Clone(),
+		withAnnouncementGroupPriceReads: _q.withAnnouncementGroupPriceReads.Clone(),
+		withAllowedGroups:               _q.withAllowedGroups.Clone(),
+		withTags:                        _q.withTags.Clone(),
+		withUsageLogs:                   _q.withUsageLogs.Clone(),
+		withAttributeValues:             _q.withAttributeValues.Clone(),
+		withPromoCodeUsages:             _q.withPromoCodeUsages.Clone(),
+		withPaymentOrders:               _q.withPaymentOrders.Clone(),
+		withAuthIdentities:              _q.withAuthIdentities.Clone(),
+		withPendingAuthSessions:         _q.withPendingAuthSessions.Clone(),
+		withPlatformQuotas:              _q.withPlatformQuotas.Clone(),
+		withUserAllowedGroups:           _q.withUserAllowedGroups.Clone(),
+		withUserTagAssignments:          _q.withUserTagAssignments.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -710,6 +735,17 @@ func (_q *UserQuery) WithAnnouncementReads(opts ...func(*AnnouncementReadQuery))
 		opt(query)
 	}
 	_q.withAnnouncementReads = query
+	return _q
+}
+
+// WithAnnouncementGroupPriceReads tells the query-builder to eager-load the nodes that are connected to
+// the "announcement_group_price_reads" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithAnnouncementGroupPriceReads(opts ...func(*AnnouncementGroupPriceReadQuery)) *UserQuery {
+	query := (&AnnouncementGroupPriceReadClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAnnouncementGroupPriceReads = query
 	return _q
 }
 
@@ -912,12 +948,13 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [16]bool{
+		loadedTypes = [17]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
 			_q.withAssignedSubscriptions != nil,
 			_q.withAnnouncementReads != nil,
+			_q.withAnnouncementGroupPriceReads != nil,
 			_q.withAllowedGroups != nil,
 			_q.withTags != nil,
 			_q.withUsageLogs != nil,
@@ -986,6 +1023,15 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadAnnouncementReads(ctx, query, nodes,
 			func(n *User) { n.Edges.AnnouncementReads = []*AnnouncementRead{} },
 			func(n *User, e *AnnouncementRead) { n.Edges.AnnouncementReads = append(n.Edges.AnnouncementReads, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAnnouncementGroupPriceReads; query != nil {
+		if err := _q.loadAnnouncementGroupPriceReads(ctx, query, nodes,
+			func(n *User) { n.Edges.AnnouncementGroupPriceReads = []*AnnouncementGroupPriceRead{} },
+			func(n *User, e *AnnouncementGroupPriceRead) {
+				n.Edges.AnnouncementGroupPriceReads = append(n.Edges.AnnouncementGroupPriceReads, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1214,6 +1260,36 @@ func (_q *UserQuery) loadAnnouncementReads(ctx context.Context, query *Announcem
 	}
 	query.Where(predicate.AnnouncementRead(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.AnnouncementReadsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadAnnouncementGroupPriceReads(ctx context.Context, query *AnnouncementGroupPriceReadQuery, nodes []*User, init func(*User), assign func(*User, *AnnouncementGroupPriceRead)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(announcementgrouppriceread.FieldUserID)
+	}
+	query.Where(predicate.AnnouncementGroupPriceRead(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.AnnouncementGroupPriceReadsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

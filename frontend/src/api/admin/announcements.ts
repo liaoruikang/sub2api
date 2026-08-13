@@ -8,7 +8,8 @@ import type {
   AnnouncementUserReadStatus,
   BasePaginationResponse,
   CreateAnnouncementRequest,
-  UpdateAnnouncementRequest
+  UpdateAnnouncementRequest,
+  GroupPriceMonitorConfig
 } from '@/types'
 
 export async function list(
@@ -74,13 +75,25 @@ export async function getReadStatus(
   return data
 }
 
+export async function getPriceMonitor(): Promise<GroupPriceMonitorConfig> {
+  const { data } = await apiClient.get<GroupPriceMonitorConfig>('/admin/announcements/price-monitor')
+  return data
+}
+
+export async function updatePriceMonitor(config: GroupPriceMonitorConfig): Promise<GroupPriceMonitorConfig> {
+  const { data } = await apiClient.put<GroupPriceMonitorConfig>('/admin/announcements/price-monitor', config)
+  return data
+}
+
 const announcementsAPI = {
   list,
   getById,
   create,
   update,
   delete: deleteAnnouncement,
-  getReadStatus
+  getReadStatus,
+  getPriceMonitor,
+  updatePriceMonitor
 }
 
 export default announcementsAPI

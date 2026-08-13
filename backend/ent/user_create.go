@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -428,6 +429,21 @@ func (_c *UserCreate) AddAnnouncementReads(v ...*AnnouncementRead) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAnnouncementReadIDs(ids...)
+}
+
+// AddAnnouncementGroupPriceReadIDs adds the "announcement_group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (_c *UserCreate) AddAnnouncementGroupPriceReadIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddAnnouncementGroupPriceReadIDs(ids...)
+	return _c
+}
+
+// AddAnnouncementGroupPriceReads adds the "announcement_group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_c *UserCreate) AddAnnouncementGroupPriceReads(v ...*AnnouncementGroupPriceRead) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAnnouncementGroupPriceReadIDs(ids...)
 }
 
 // AddAllowedGroupIDs adds the "allowed_groups" edge to the Group entity by IDs.
@@ -957,6 +973,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(announcementread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AnnouncementGroupPriceReadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AnnouncementGroupPriceReadsTable,
+			Columns: []string{user.AnnouncementGroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

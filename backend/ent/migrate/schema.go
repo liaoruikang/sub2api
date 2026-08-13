@@ -301,6 +301,7 @@ var (
 	// AnnouncementsColumns holds the columns for the "announcements" table.
 	AnnouncementsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "kind", Type: field.TypeString, Size: 30, Default: "manual"},
 		{Name: "title", Type: field.TypeString, Size: 200},
 		{Name: "content", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "draft"},
@@ -322,22 +323,110 @@ var (
 			{
 				Name:    "announcement_status",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[3]},
+				Columns: []*schema.Column{AnnouncementsColumns[4]},
+			},
+			{
+				Name:    "announcement_kind",
+				Unique:  false,
+				Columns: []*schema.Column{AnnouncementsColumns[1]},
 			},
 			{
 				Name:    "announcement_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[10]},
+				Columns: []*schema.Column{AnnouncementsColumns[11]},
 			},
 			{
 				Name:    "announcement_starts_at",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[6]},
+				Columns: []*schema.Column{AnnouncementsColumns[7]},
 			},
 			{
 				Name:    "announcement_ends_at",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[7]},
+				Columns: []*schema.Column{AnnouncementsColumns[8]},
+			},
+		},
+	}
+	// AnnouncementGroupPriceChangesColumns holds the columns for the "announcement_group_price_changes" table.
+	AnnouncementGroupPriceChangesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "group_name", Type: field.TypeString, Size: 100},
+		{Name: "old_rate", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "new_rate", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "sequence", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "announcement_id", Type: field.TypeInt64},
+	}
+	// AnnouncementGroupPriceChangesTable holds the schema information for the "announcement_group_price_changes" table.
+	AnnouncementGroupPriceChangesTable = &schema.Table{
+		Name:       "announcement_group_price_changes",
+		Columns:    AnnouncementGroupPriceChangesColumns,
+		PrimaryKey: []*schema.Column{AnnouncementGroupPriceChangesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "announcement_group_price_changes_announcements_group_price_changes",
+				Columns:    []*schema.Column{AnnouncementGroupPriceChangesColumns[7]},
+				RefColumns: []*schema.Column{AnnouncementsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "announcementgrouppricechange_announcement_id_sequence",
+				Unique:  false,
+				Columns: []*schema.Column{AnnouncementGroupPriceChangesColumns[7], AnnouncementGroupPriceChangesColumns[5]},
+			},
+			{
+				Name:    "announcementgrouppricechange_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{AnnouncementGroupPriceChangesColumns[1]},
+			},
+		},
+	}
+	// AnnouncementGroupPriceReadsColumns holds the columns for the "announcement_group_price_reads" table.
+	AnnouncementGroupPriceReadsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "read_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "announcement_id", Type: field.TypeInt64},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// AnnouncementGroupPriceReadsTable holds the schema information for the "announcement_group_price_reads" table.
+	AnnouncementGroupPriceReadsTable = &schema.Table{
+		Name:       "announcement_group_price_reads",
+		Columns:    AnnouncementGroupPriceReadsColumns,
+		PrimaryKey: []*schema.Column{AnnouncementGroupPriceReadsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "announcement_group_price_reads_announcements_group_price_reads",
+				Columns:    []*schema.Column{AnnouncementGroupPriceReadsColumns[4]},
+				RefColumns: []*schema.Column{AnnouncementsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "announcement_group_price_reads_users_announcement_group_price_reads",
+				Columns:    []*schema.Column{AnnouncementGroupPriceReadsColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "announcementgrouppriceread_user_id_announcement_id",
+				Unique:  false,
+				Columns: []*schema.Column{AnnouncementGroupPriceReadsColumns[5], AnnouncementGroupPriceReadsColumns[4]},
+			},
+			{
+				Name:    "announcementgrouppriceread_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{AnnouncementGroupPriceReadsColumns[1]},
+			},
+			{
+				Name:    "announcementgrouppriceread_announcement_id_user_id_group_id",
+				Unique:  true,
+				Columns: []*schema.Column{AnnouncementGroupPriceReadsColumns[4], AnnouncementGroupPriceReadsColumns[5], AnnouncementGroupPriceReadsColumns[1]},
 			},
 		},
 	}
@@ -2283,6 +2372,8 @@ var (
 		AccountsTable,
 		AccountGroupsTable,
 		AnnouncementsTable,
+		AnnouncementGroupPriceChangesTable,
+		AnnouncementGroupPriceReadsTable,
 		AnnouncementReadsTable,
 		AuthIdentitiesTable,
 		AuthIdentityChannelsTable,
@@ -2348,6 +2439,15 @@ func init() {
 	}
 	AnnouncementsTable.Annotation = &entsql.Annotation{
 		Table: "announcements",
+	}
+	AnnouncementGroupPriceChangesTable.ForeignKeys[0].RefTable = AnnouncementsTable
+	AnnouncementGroupPriceChangesTable.Annotation = &entsql.Annotation{
+		Table: "announcement_group_price_changes",
+	}
+	AnnouncementGroupPriceReadsTable.ForeignKeys[0].RefTable = AnnouncementsTable
+	AnnouncementGroupPriceReadsTable.ForeignKeys[1].RefTable = UsersTable
+	AnnouncementGroupPriceReadsTable.Annotation = &entsql.Annotation{
+		Table: "announcement_group_price_reads",
 	}
 	AnnouncementReadsTable.ForeignKeys[0].RefTable = AnnouncementsTable
 	AnnouncementReadsTable.ForeignKeys[1].RefTable = UsersTable

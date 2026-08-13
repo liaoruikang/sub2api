@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
@@ -21,12 +23,14 @@ import (
 // AnnouncementQuery is the builder for querying Announcement entities.
 type AnnouncementQuery struct {
 	config
-	ctx        *QueryContext
-	order      []announcement.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Announcement
-	withReads  *AnnouncementReadQuery
-	modifiers  []func(*sql.Selector)
+	ctx                   *QueryContext
+	order                 []announcement.OrderOption
+	inters                []Interceptor
+	predicates            []predicate.Announcement
+	withReads             *AnnouncementReadQuery
+	withGroupPriceChanges *AnnouncementGroupPriceChangeQuery
+	withGroupPriceReads   *AnnouncementGroupPriceReadQuery
+	modifiers             []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -78,6 +82,50 @@ func (_q *AnnouncementQuery) QueryReads() *AnnouncementReadQuery {
 			sqlgraph.From(announcement.Table, announcement.FieldID, selector),
 			sqlgraph.To(announcementread.Table, announcementread.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, announcement.ReadsTable, announcement.ReadsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupPriceChanges chains the current query on the "group_price_changes" edge.
+func (_q *AnnouncementQuery) QueryGroupPriceChanges() *AnnouncementGroupPriceChangeQuery {
+	query := (&AnnouncementGroupPriceChangeClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(announcement.Table, announcement.FieldID, selector),
+			sqlgraph.To(announcementgrouppricechange.Table, announcementgrouppricechange.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, announcement.GroupPriceChangesTable, announcement.GroupPriceChangesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupPriceReads chains the current query on the "group_price_reads" edge.
+func (_q *AnnouncementQuery) QueryGroupPriceReads() *AnnouncementGroupPriceReadQuery {
+	query := (&AnnouncementGroupPriceReadClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(announcement.Table, announcement.FieldID, selector),
+			sqlgraph.To(announcementgrouppriceread.Table, announcementgrouppriceread.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, announcement.GroupPriceReadsTable, announcement.GroupPriceReadsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -272,12 +320,14 @@ func (_q *AnnouncementQuery) Clone() *AnnouncementQuery {
 		return nil
 	}
 	return &AnnouncementQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]announcement.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Announcement{}, _q.predicates...),
-		withReads:  _q.withReads.Clone(),
+		config:                _q.config,
+		ctx:                   _q.ctx.Clone(),
+		order:                 append([]announcement.OrderOption{}, _q.order...),
+		inters:                append([]Interceptor{}, _q.inters...),
+		predicates:            append([]predicate.Announcement{}, _q.predicates...),
+		withReads:             _q.withReads.Clone(),
+		withGroupPriceChanges: _q.withGroupPriceChanges.Clone(),
+		withGroupPriceReads:   _q.withGroupPriceReads.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -295,18 +345,40 @@ func (_q *AnnouncementQuery) WithReads(opts ...func(*AnnouncementReadQuery)) *An
 	return _q
 }
 
+// WithGroupPriceChanges tells the query-builder to eager-load the nodes that are connected to
+// the "group_price_changes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AnnouncementQuery) WithGroupPriceChanges(opts ...func(*AnnouncementGroupPriceChangeQuery)) *AnnouncementQuery {
+	query := (&AnnouncementGroupPriceChangeClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupPriceChanges = query
+	return _q
+}
+
+// WithGroupPriceReads tells the query-builder to eager-load the nodes that are connected to
+// the "group_price_reads" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AnnouncementQuery) WithGroupPriceReads(opts ...func(*AnnouncementGroupPriceReadQuery)) *AnnouncementQuery {
+	query := (&AnnouncementGroupPriceReadClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupPriceReads = query
+	return _q
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
 // Example:
 //
 //	var v []struct {
-//		Title string `json:"title,omitempty"`
+//		Kind string `json:"kind,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Announcement.Query().
-//		GroupBy(announcement.FieldTitle).
+//		GroupBy(announcement.FieldKind).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *AnnouncementQuery) GroupBy(field string, fields ...string) *AnnouncementGroupBy {
@@ -324,11 +396,11 @@ func (_q *AnnouncementQuery) GroupBy(field string, fields ...string) *Announceme
 // Example:
 //
 //	var v []struct {
-//		Title string `json:"title,omitempty"`
+//		Kind string `json:"kind,omitempty"`
 //	}
 //
 //	client.Announcement.Query().
-//		Select(announcement.FieldTitle).
+//		Select(announcement.FieldKind).
 //		Scan(ctx, &v)
 func (_q *AnnouncementQuery) Select(fields ...string) *AnnouncementSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
@@ -373,8 +445,10 @@ func (_q *AnnouncementQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*Announcement{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [3]bool{
 			_q.withReads != nil,
+			_q.withGroupPriceChanges != nil,
+			_q.withGroupPriceReads != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -405,6 +479,24 @@ func (_q *AnnouncementQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 			return nil, err
 		}
 	}
+	if query := _q.withGroupPriceChanges; query != nil {
+		if err := _q.loadGroupPriceChanges(ctx, query, nodes,
+			func(n *Announcement) { n.Edges.GroupPriceChanges = []*AnnouncementGroupPriceChange{} },
+			func(n *Announcement, e *AnnouncementGroupPriceChange) {
+				n.Edges.GroupPriceChanges = append(n.Edges.GroupPriceChanges, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupPriceReads; query != nil {
+		if err := _q.loadGroupPriceReads(ctx, query, nodes,
+			func(n *Announcement) { n.Edges.GroupPriceReads = []*AnnouncementGroupPriceRead{} },
+			func(n *Announcement, e *AnnouncementGroupPriceRead) {
+				n.Edges.GroupPriceReads = append(n.Edges.GroupPriceReads, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
 }
 
@@ -423,6 +515,66 @@ func (_q *AnnouncementQuery) loadReads(ctx context.Context, query *AnnouncementR
 	}
 	query.Where(predicate.AnnouncementRead(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(announcement.ReadsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AnnouncementID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "announcement_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AnnouncementQuery) loadGroupPriceChanges(ctx context.Context, query *AnnouncementGroupPriceChangeQuery, nodes []*Announcement, init func(*Announcement), assign func(*Announcement, *AnnouncementGroupPriceChange)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Announcement)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(announcementgrouppricechange.FieldAnnouncementID)
+	}
+	query.Where(predicate.AnnouncementGroupPriceChange(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(announcement.GroupPriceChangesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AnnouncementID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "announcement_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AnnouncementQuery) loadGroupPriceReads(ctx context.Context, query *AnnouncementGroupPriceReadQuery, nodes []*Announcement, init func(*Announcement), assign func(*Announcement, *AnnouncementGroupPriceRead)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Announcement)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(announcementgrouppriceread.FieldAnnouncementID)
+	}
+	query.Where(predicate.AnnouncementGroupPriceRead(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(announcement.GroupPriceReadsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

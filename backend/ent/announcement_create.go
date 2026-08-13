@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
+	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppriceread"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
@@ -22,6 +24,20 @@ type AnnouncementCreate struct {
 	mutation *AnnouncementMutation
 	hooks    []Hook
 	conflict []sql.ConflictOption
+}
+
+// SetKind sets the "kind" field.
+func (_c *AnnouncementCreate) SetKind(v string) *AnnouncementCreate {
+	_c.mutation.SetKind(v)
+	return _c
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_c *AnnouncementCreate) SetNillableKind(v *string) *AnnouncementCreate {
+	if v != nil {
+		_c.SetKind(*v)
+	}
+	return _c
 }
 
 // SetTitle sets the "title" field.
@@ -177,6 +193,36 @@ func (_c *AnnouncementCreate) AddReads(v ...*AnnouncementRead) *AnnouncementCrea
 	return _c.AddReadIDs(ids...)
 }
 
+// AddGroupPriceChangeIDs adds the "group_price_changes" edge to the AnnouncementGroupPriceChange entity by IDs.
+func (_c *AnnouncementCreate) AddGroupPriceChangeIDs(ids ...int64) *AnnouncementCreate {
+	_c.mutation.AddGroupPriceChangeIDs(ids...)
+	return _c
+}
+
+// AddGroupPriceChanges adds the "group_price_changes" edges to the AnnouncementGroupPriceChange entity.
+func (_c *AnnouncementCreate) AddGroupPriceChanges(v ...*AnnouncementGroupPriceChange) *AnnouncementCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupPriceChangeIDs(ids...)
+}
+
+// AddGroupPriceReadIDs adds the "group_price_reads" edge to the AnnouncementGroupPriceRead entity by IDs.
+func (_c *AnnouncementCreate) AddGroupPriceReadIDs(ids ...int64) *AnnouncementCreate {
+	_c.mutation.AddGroupPriceReadIDs(ids...)
+	return _c
+}
+
+// AddGroupPriceReads adds the "group_price_reads" edges to the AnnouncementGroupPriceRead entity.
+func (_c *AnnouncementCreate) AddGroupPriceReads(v ...*AnnouncementGroupPriceRead) *AnnouncementCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupPriceReadIDs(ids...)
+}
+
 // Mutation returns the AnnouncementMutation object of the builder.
 func (_c *AnnouncementCreate) Mutation() *AnnouncementMutation {
 	return _c.mutation
@@ -212,6 +258,10 @@ func (_c *AnnouncementCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AnnouncementCreate) defaults() {
+	if _, ok := _c.mutation.Kind(); !ok {
+		v := announcement.DefaultKind
+		_c.mutation.SetKind(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := announcement.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -232,6 +282,14 @@ func (_c *AnnouncementCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *AnnouncementCreate) check() error {
+	if _, ok := _c.mutation.Kind(); !ok {
+		return &ValidationError{Name: "kind", err: errors.New(`ent: missing required field "Announcement.kind"`)}
+	}
+	if v, ok := _c.mutation.Kind(); ok {
+		if err := announcement.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Announcement.kind": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Title(); !ok {
 		return &ValidationError{Name: "title", err: errors.New(`ent: missing required field "Announcement.title"`)}
 	}
@@ -297,6 +355,10 @@ func (_c *AnnouncementCreate) createSpec() (*Announcement, *sqlgraph.CreateSpec)
 		_spec = sqlgraph.NewCreateSpec(announcement.Table, sqlgraph.NewFieldSpec(announcement.FieldID, field.TypeInt64))
 	)
 	_spec.OnConflict = _c.conflict
+	if value, ok := _c.mutation.Kind(); ok {
+		_spec.SetField(announcement.FieldKind, field.TypeString, value)
+		_node.Kind = value
+	}
 	if value, ok := _c.mutation.Title(); ok {
 		_spec.SetField(announcement.FieldTitle, field.TypeString, value)
 		_node.Title = value
@@ -357,6 +419,38 @@ func (_c *AnnouncementCreate) createSpec() (*Announcement, *sqlgraph.CreateSpec)
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.GroupPriceChangesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceChangesTable,
+			Columns: []string{announcement.GroupPriceChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppricechange.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GroupPriceReadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   announcement.GroupPriceReadsTable,
+			Columns: []string{announcement.GroupPriceReadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(announcementgrouppriceread.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	return _node, _spec
 }
 
@@ -364,7 +458,7 @@ func (_c *AnnouncementCreate) createSpec() (*Announcement, *sqlgraph.CreateSpec)
 // of the `INSERT` statement. For example:
 //
 //	client.Announcement.Create().
-//		SetTitle(v).
+//		SetKind(v).
 //		OnConflict(
 //			// Update the row with the new values
 //			// the was proposed for insertion.
@@ -373,7 +467,7 @@ func (_c *AnnouncementCreate) createSpec() (*Announcement, *sqlgraph.CreateSpec)
 //		// Override some of the fields with custom
 //		// update values.
 //		Update(func(u *ent.AnnouncementUpsert) {
-//			SetTitle(v+v).
+//			SetKind(v+v).
 //		}).
 //		Exec(ctx)
 func (_c *AnnouncementCreate) OnConflict(opts ...sql.ConflictOption) *AnnouncementUpsertOne {
@@ -408,6 +502,18 @@ type (
 		*sql.UpdateSet
 	}
 )
+
+// SetKind sets the "kind" field.
+func (u *AnnouncementUpsert) SetKind(v string) *AnnouncementUpsert {
+	u.Set(announcement.FieldKind, v)
+	return u
+}
+
+// UpdateKind sets the "kind" field to the value that was provided on create.
+func (u *AnnouncementUpsert) UpdateKind() *AnnouncementUpsert {
+	u.SetExcluded(announcement.FieldKind)
+	return u
+}
 
 // SetTitle sets the "title" field.
 func (u *AnnouncementUpsert) SetTitle(v string) *AnnouncementUpsert {
@@ -614,6 +720,20 @@ func (u *AnnouncementUpsertOne) Update(set func(*AnnouncementUpsert)) *Announcem
 		set(&AnnouncementUpsert{UpdateSet: update})
 	}))
 	return u
+}
+
+// SetKind sets the "kind" field.
+func (u *AnnouncementUpsertOne) SetKind(v string) *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetKind(v)
+	})
+}
+
+// UpdateKind sets the "kind" field to the value that was provided on create.
+func (u *AnnouncementUpsertOne) UpdateKind() *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateKind()
+	})
 }
 
 // SetTitle sets the "title" field.
@@ -940,7 +1060,7 @@ func (_c *AnnouncementCreateBulk) ExecX(ctx context.Context) {
 //		// Override some of the fields with custom
 //		// update values.
 //		Update(func(u *ent.AnnouncementUpsert) {
-//			SetTitle(v+v).
+//			SetKind(v+v).
 //		}).
 //		Exec(ctx)
 func (_c *AnnouncementCreateBulk) OnConflict(opts ...sql.ConflictOption) *AnnouncementUpsertBulk {
@@ -1014,6 +1134,20 @@ func (u *AnnouncementUpsertBulk) Update(set func(*AnnouncementUpsert)) *Announce
 		set(&AnnouncementUpsert{UpdateSet: update})
 	}))
 	return u
+}
+
+// SetKind sets the "kind" field.
+func (u *AnnouncementUpsertBulk) SetKind(v string) *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetKind(v)
+	})
+}
+
+// UpdateKind sets the "kind" field to the value that was provided on create.
+func (u *AnnouncementUpsertBulk) UpdateKind() *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateKind()
+	})
 }
 
 // SetTitle sets the "title" field.

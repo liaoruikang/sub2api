@@ -16,6 +16,11 @@ const (
 )
 
 const (
+	AnnouncementKindManual           = domain.AnnouncementKindManual
+	AnnouncementKindGroupPriceChange = domain.AnnouncementKindGroupPriceChange
+)
+
+const (
 	AnnouncementNotifyModeSilent = domain.AnnouncementNotifyModeSilent
 	AnnouncementNotifyModePopup  = domain.AnnouncementNotifyModePopup
 )
@@ -62,6 +67,16 @@ type AnnouncementCondition = domain.AnnouncementCondition
 
 type Announcement = domain.Announcement
 
+type AnnouncementGroupPriceChange struct {
+	ID             int64
+	AnnouncementID int64
+	GroupID        int64
+	GroupName      string
+	OldRate        float64
+	NewRate        float64
+	Sequence       int
+}
+
 type AnnouncementListFilters struct {
 	Status string
 	Search string
@@ -69,12 +84,15 @@ type AnnouncementListFilters struct {
 
 type AnnouncementRepository interface {
 	Create(ctx context.Context, a *Announcement) error
+	CreateWithGroupPriceChanges(ctx context.Context, a *Announcement, changes []AnnouncementGroupPriceChange) error
 	GetByID(ctx context.Context, id int64) (*Announcement, error)
 	Update(ctx context.Context, a *Announcement) error
 	Delete(ctx context.Context, id int64) error
 
 	List(ctx context.Context, params pagination.PaginationParams, filters AnnouncementListFilters) ([]Announcement, *pagination.PaginationResult, error)
 	ListActive(ctx context.Context, now time.Time) ([]Announcement, error)
+	ListActivePage(ctx context.Context, now time.Time, beforeID int64, limit int) ([]Announcement, error)
+	ListGroupPriceChanges(ctx context.Context, announcementIDs []int64) (map[int64][]AnnouncementGroupPriceChange, error)
 }
 
 type AnnouncementReadRepository interface {
@@ -82,4 +100,6 @@ type AnnouncementReadRepository interface {
 	GetReadMapByUser(ctx context.Context, userID int64, announcementIDs []int64) (map[int64]time.Time, error)
 	GetReadMapByUsers(ctx context.Context, announcementID int64, userIDs []int64) (map[int64]time.Time, error)
 	CountByAnnouncementID(ctx context.Context, announcementID int64) (int64, error)
+	MarkGroupPriceChangesRead(ctx context.Context, announcementID, userID int64, groupIDs []int64, readAt time.Time) error
+	GetGroupPriceReadMapByUser(ctx context.Context, userID int64, announcementIDs []int64) (map[int64]map[int64]time.Time, error)
 }

@@ -29,6 +29,10 @@ func (Announcement) Annotations() []schema.Annotation {
 
 func (Announcement) Fields() []ent.Field {
 	return []ent.Field{
+		field.String("kind").
+			MaxLen(30).
+			Default(domain.AnnouncementKindManual).
+			Comment("公告类型: manual, group_price_change"),
 		field.String("title").
 			MaxLen(200).
 			NotEmpty().
@@ -81,12 +85,15 @@ func (Announcement) Fields() []ent.Field {
 func (Announcement) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("reads", AnnouncementRead.Type),
+		edge.To("group_price_changes", AnnouncementGroupPriceChange.Type),
+		edge.To("group_price_reads", AnnouncementGroupPriceRead.Type),
 	}
 }
 
 func (Announcement) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("status"),
+		index.Fields("kind"),
 		index.Fields("created_at"),
 		index.Fields("starts_at"),
 		index.Fields("ends_at"),

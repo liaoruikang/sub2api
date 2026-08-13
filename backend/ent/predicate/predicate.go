@@ -21,6 +21,12 @@ type AccountGroup func(*sql.Selector)
 // Announcement is the predicate function for announcement builders.
 type Announcement func(*sql.Selector)
 
+// AnnouncementGroupPriceChange is the predicate function for announcementgrouppricechange builders.
+type AnnouncementGroupPriceChange func(*sql.Selector)
+
+// AnnouncementGroupPriceRead is the predicate function for announcementgrouppriceread builders.
+type AnnouncementGroupPriceRead func(*sql.Selector)
+
 // AnnouncementRead is the predicate function for announcementread builders.
 type AnnouncementRead func(*sql.Selector)
 

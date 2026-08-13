@@ -16,6 +16,8 @@ type AnnouncementService struct {
 	readRepo         AnnouncementReadRepository
 	userRepo         UserRepository
 	userSubRepo      UserSubscriptionRepository
+	groupRepo        GroupRepository
+	userTagRepo      UserTagRepository
 }
 
 func NewAnnouncementService(
@@ -23,12 +25,16 @@ func NewAnnouncementService(
 	readRepo AnnouncementReadRepository,
 	userRepo UserRepository,
 	userSubRepo UserSubscriptionRepository,
+	groupRepo GroupRepository,
+	userTagRepo UserTagRepository,
 ) *AnnouncementService {
 	return &AnnouncementService{
 		announcementRepo: announcementRepo,
 		readRepo:         readRepo,
 		userRepo:         userRepo,
 		userSubRepo:      userSubRepo,
+		groupRepo:        groupRepo,
+		userTagRepo:      userTagRepo,
 	}
 }
 
@@ -110,6 +116,7 @@ func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncem
 	}
 
 	a := &Announcement{
+		Kind:       AnnouncementKindManual,
 		Title:      title,
 		Content:    content,
 		Status:     status,
@@ -229,40 +236,92 @@ func (s *AnnouncementService) ListForUser(ctx context.Context, userID int64, unr
 	for i := range activeSubs {
 		activeGroupIDs[activeSubs[i].GroupID] = struct{}{}
 	}
-
 	now := time.Now()
-	anns, err := s.announcementRepo.ListActive(ctx, now)
-	if err != nil {
-		return nil, fmt.Errorf("list active announcements: %w", err)
-	}
+	visible := make([]Announcement, 0, 200)
+	visiblePriceGroups := make(map[int64][]int64)
+	var groupAccess map[int64]struct{}
+	beforeID := int64(0)
+	for len(visible) < 200 {
+		anns, err := s.announcementRepo.ListActivePage(ctx, now, beforeID, 200)
+		if err != nil {
+			return nil, fmt.Errorf("list active announcements: %w", err)
+		}
+		if len(anns) == 0 {
+			break
+		}
+		beforeID = anns[len(anns)-1].ID
 
-	visible := make([]Announcement, 0, len(anns))
-	ids := make([]int64, 0, len(anns))
-	for i := range anns {
-		a := anns[i]
-		if !a.IsActiveAt(now) {
-			continue
+		priceIDs := make([]int64, 0)
+		for i := range anns {
+			if anns[i].Kind == AnnouncementKindGroupPriceChange {
+				priceIDs = append(priceIDs, anns[i].ID)
+			}
 		}
-		if !a.Targeting.Matches(user.Balance, activeGroupIDs) {
-			continue
+		priceChanges, err := s.announcementRepo.ListGroupPriceChanges(ctx, priceIDs)
+		if err != nil {
+			return nil, fmt.Errorf("list announcement group price changes: %w", err)
 		}
-		visible = append(visible, a)
-		ids = append(ids, a.ID)
+		if len(priceIDs) > 0 && groupAccess == nil {
+			groupAccess, err = s.resolveCurrentGroupAccess(ctx, user, activeGroupIDs)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		for i := range anns {
+			a := anns[i]
+			if !a.IsActiveAt(now) || !a.Targeting.Matches(user.Balance, activeGroupIDs) {
+				continue
+			}
+			if a.Kind == AnnouncementKindGroupPriceChange {
+				allowedChanges := filterVisibleGroupPriceChanges(priceChanges[a.ID], groupAccess)
+				if len(allowedChanges) == 0 {
+					continue
+				}
+				a.Content = renderAnnouncementGroupPriceChanges(allowedChanges)
+				visiblePriceGroups[a.ID] = uniqueGroupIDs(allowedChanges)
+			}
+			visible = append(visible, a)
+			if len(visible) == 200 {
+				break
+			}
+		}
+		if len(anns) < 200 {
+			break
+		}
 	}
 
 	if len(visible) == 0 {
 		return []UserAnnouncement{}, nil
 	}
 
+	ids := make([]int64, 0, len(visible))
+	priceIDs := make([]int64, 0, len(visiblePriceGroups))
+	for i := range visible {
+		ids = append(ids, visible[i].ID)
+		if visible[i].Kind == AnnouncementKindGroupPriceChange {
+			priceIDs = append(priceIDs, visible[i].ID)
+		}
+	}
 	readMap, err := s.readRepo.GetReadMapByUser(ctx, userID, ids)
 	if err != nil {
 		return nil, fmt.Errorf("get read map: %w", err)
+	}
+	priceReadMap := make(map[int64]map[int64]time.Time)
+	if len(priceIDs) > 0 {
+		priceReadMap, err = s.readRepo.GetGroupPriceReadMapByUser(ctx, userID, priceIDs)
+		if err != nil {
+			return nil, fmt.Errorf("get group price read map: %w", err)
+		}
 	}
 
 	out := make([]UserAnnouncement, 0, len(visible))
 	for i := range visible {
 		a := visible[i]
 		readAt, ok := readMap[a.ID]
+		if a.Kind == AnnouncementKindGroupPriceChange {
+			readAt, ok = allVisibleGroupsReadAt(visiblePriceGroups[a.ID], priceReadMap[a.ID])
+		}
 		if unreadOnly && ok {
 			continue
 		}
@@ -318,11 +377,113 @@ func (s *AnnouncementService) MarkRead(ctx context.Context, userID, announcement
 	if !a.Targeting.Matches(user.Balance, activeGroupIDs) {
 		return ErrAnnouncementNotFound
 	}
+	if a.Kind == AnnouncementKindGroupPriceChange {
+		groupAccess, err := s.resolveCurrentGroupAccess(ctx, user, activeGroupIDs)
+		if err != nil {
+			return err
+		}
+		changesByAnnouncement, err := s.announcementRepo.ListGroupPriceChanges(ctx, []int64{a.ID})
+		if err != nil {
+			return fmt.Errorf("list announcement group price changes: %w", err)
+		}
+		visibleChanges := filterVisibleGroupPriceChanges(changesByAnnouncement[a.ID], groupAccess)
+		if len(visibleChanges) == 0 {
+			return ErrAnnouncementNotFound
+		}
+		if err := s.readRepo.MarkGroupPriceChangesRead(ctx, announcementID, userID, uniqueGroupIDs(visibleChanges), now); err != nil {
+			return fmt.Errorf("mark group price changes read: %w", err)
+		}
+		return nil
+	}
 
 	if err := s.readRepo.MarkRead(ctx, announcementID, userID, now); err != nil {
 		return fmt.Errorf("mark read: %w", err)
 	}
 	return nil
+}
+
+func (s *AnnouncementService) resolveCurrentGroupAccess(ctx context.Context, user *User, activeSubscriptionGroupIDs map[int64]struct{}) (map[int64]struct{}, error) {
+	if s.groupRepo == nil || s.userTagRepo == nil {
+		return nil, fmt.Errorf("announcement group access dependencies are not configured")
+	}
+	tagDerived, err := s.userTagRepo.GetGroupIDsByUserID(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get tag-derived announcement groups: %w", err)
+	}
+	manual := make(map[int64]struct{}, len(user.AllowedGroups))
+	for _, groupID := range user.AllowedGroups {
+		manual[groupID] = struct{}{}
+	}
+	tagged := make(map[int64]struct{}, len(tagDerived))
+	for _, groupID := range tagDerived {
+		tagged[groupID] = struct{}{}
+	}
+	groups, err := s.groupRepo.ListActive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list active groups for announcement access: %w", err)
+	}
+	allowed := make(map[int64]struct{}, len(groups))
+	for i := range groups {
+		group := groups[i]
+		if group.IsSubscriptionType() {
+			if _, ok := activeSubscriptionGroupIDs[group.ID]; ok {
+				allowed[group.ID] = struct{}{}
+			}
+			continue
+		}
+		if !group.IsExclusive {
+			allowed[group.ID] = struct{}{}
+			continue
+		}
+		if _, ok := manual[group.ID]; ok {
+			allowed[group.ID] = struct{}{}
+			continue
+		}
+		if _, ok := tagged[group.ID]; ok {
+			allowed[group.ID] = struct{}{}
+		}
+	}
+	return allowed, nil
+}
+
+func filterVisibleGroupPriceChanges(changes []AnnouncementGroupPriceChange, allowed map[int64]struct{}) []AnnouncementGroupPriceChange {
+	visible := make([]AnnouncementGroupPriceChange, 0, len(changes))
+	for _, change := range changes {
+		if _, ok := allowed[change.GroupID]; ok {
+			visible = append(visible, change)
+		}
+	}
+	return visible
+}
+
+func uniqueGroupIDs(changes []AnnouncementGroupPriceChange) []int64 {
+	seen := make(map[int64]struct{}, len(changes))
+	groupIDs := make([]int64, 0, len(changes))
+	for _, change := range changes {
+		if _, ok := seen[change.GroupID]; ok {
+			continue
+		}
+		seen[change.GroupID] = struct{}{}
+		groupIDs = append(groupIDs, change.GroupID)
+	}
+	return groupIDs
+}
+
+func allVisibleGroupsReadAt(groupIDs []int64, readMap map[int64]time.Time) (time.Time, bool) {
+	var latest time.Time
+	if len(groupIDs) == 0 {
+		return latest, false
+	}
+	for _, groupID := range groupIDs {
+		readAt, ok := readMap[groupID]
+		if !ok {
+			return time.Time{}, false
+		}
+		if readAt.After(latest) {
+			latest = readAt
+		}
+	}
+	return latest, true
 }
 
 func (s *AnnouncementService) ListUserReadStatus(
@@ -334,6 +495,14 @@ func (s *AnnouncementService) ListUserReadStatus(
 	ann, err := s.announcementRepo.GetByID(ctx, announcementID)
 	if err != nil {
 		return nil, nil, err
+	}
+	var priceChanges []AnnouncementGroupPriceChange
+	if ann.Kind == AnnouncementKindGroupPriceChange {
+		changesByAnnouncement, err := s.announcementRepo.ListGroupPriceChanges(ctx, []int64{announcementID})
+		if err != nil {
+			return nil, nil, fmt.Errorf("list announcement group price changes: %w", err)
+		}
+		priceChanges = changesByAnnouncement[announcementID]
 	}
 
 	filters := UserListFilters{
@@ -366,8 +535,24 @@ func (s *AnnouncementService) ListUserReadStatus(
 		for j := range subs {
 			activeGroupIDs[subs[j].GroupID] = struct{}{}
 		}
+		eligible := domain.AnnouncementTargeting(ann.Targeting).Matches(u.Balance, activeGroupIDs)
 
 		readAt, ok := readMap[u.ID]
+		if eligible && ann.Kind == AnnouncementKindGroupPriceChange {
+			groupAccess, accessErr := s.resolveCurrentGroupAccess(ctx, &u, activeGroupIDs)
+			if accessErr != nil {
+				return nil, nil, accessErr
+			}
+			visibleChanges := filterVisibleGroupPriceChanges(priceChanges, groupAccess)
+			eligible = len(visibleChanges) > 0
+			if eligible {
+				groupReads, readErr := s.readRepo.GetGroupPriceReadMapByUser(ctx, u.ID, []int64{announcementID})
+				if readErr != nil {
+					return nil, nil, fmt.Errorf("get group price read map: %w", readErr)
+				}
+				readAt, ok = allVisibleGroupsReadAt(uniqueGroupIDs(visibleChanges), groupReads[announcementID])
+			}
+		}
 		var ptr *time.Time
 		if ok {
 			t := readAt
@@ -379,7 +564,7 @@ func (s *AnnouncementService) ListUserReadStatus(
 			Email:    u.Email,
 			Username: u.Username,
 			Balance:  u.Balance,
-			Eligible: domain.AnnouncementTargeting(ann.Targeting).Matches(u.Balance, activeGroupIDs),
+			Eligible: eligible,
 			ReadAt:   ptr,
 		})
 	}

@@ -73,6 +73,8 @@ const (
 	EdgeAssignedSubscriptions = "assigned_subscriptions"
 	// EdgeAnnouncementReads holds the string denoting the announcement_reads edge name in mutations.
 	EdgeAnnouncementReads = "announcement_reads"
+	// EdgeAnnouncementGroupPriceReads holds the string denoting the announcement_group_price_reads edge name in mutations.
+	EdgeAnnouncementGroupPriceReads = "announcement_group_price_reads"
 	// EdgeAllowedGroups holds the string denoting the allowed_groups edge name in mutations.
 	EdgeAllowedGroups = "allowed_groups"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
@@ -132,6 +134,13 @@ const (
 	AnnouncementReadsInverseTable = "announcement_reads"
 	// AnnouncementReadsColumn is the table column denoting the announcement_reads relation/edge.
 	AnnouncementReadsColumn = "user_id"
+	// AnnouncementGroupPriceReadsTable is the table that holds the announcement_group_price_reads relation/edge.
+	AnnouncementGroupPriceReadsTable = "announcement_group_price_reads"
+	// AnnouncementGroupPriceReadsInverseTable is the table name for the AnnouncementGroupPriceRead entity.
+	// It exists in this package in order to avoid circular dependency with the "announcementgrouppriceread" package.
+	AnnouncementGroupPriceReadsInverseTable = "announcement_group_price_reads"
+	// AnnouncementGroupPriceReadsColumn is the table column denoting the announcement_group_price_reads relation/edge.
+	AnnouncementGroupPriceReadsColumn = "user_id"
 	// AllowedGroupsTable is the table that holds the allowed_groups relation/edge. The primary key declared below.
 	AllowedGroupsTable = "user_allowed_groups"
 	// AllowedGroupsInverseTable is the table name for the Group entity.
@@ -509,6 +518,20 @@ func ByAnnouncementReads(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 	}
 }
 
+// ByAnnouncementGroupPriceReadsCount orders the results by announcement_group_price_reads count.
+func ByAnnouncementGroupPriceReadsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAnnouncementGroupPriceReadsStep(), opts...)
+	}
+}
+
+// ByAnnouncementGroupPriceReads orders the results by announcement_group_price_reads terms.
+func ByAnnouncementGroupPriceReads(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAnnouncementGroupPriceReadsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAllowedGroupsCount orders the results by allowed_groups count.
 func ByAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -695,6 +718,13 @@ func newAnnouncementReadsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AnnouncementReadsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AnnouncementReadsTable, AnnouncementReadsColumn),
+	)
+}
+func newAnnouncementGroupPriceReadsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AnnouncementGroupPriceReadsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AnnouncementGroupPriceReadsTable, AnnouncementGroupPriceReadsColumn),
 	)
 }
 func newAllowedGroupsStep() *sqlgraph.Step {
