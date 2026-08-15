@@ -98,7 +98,7 @@ func NewGroupHandler(adminService service.AdminService, dashboardService *servic
 type CreateGroupRequest struct {
 	Name                                 string                        `json:"name" binding:"required"`
 	Description                          string                        `json:"description"`
-	Platform                             string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok composite"`
+	Platform                             string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok seedance composite"`
 	RateMultiplier                       float64                       `json:"rate_multiplier"`
 	LimitedTimeMultiplierEnabled         bool                          `json:"limited_time_multiplier_enabled"`
 	LimitedTimeMultiplierCron            string                        `json:"limited_time_multiplier_cron"`
@@ -177,7 +177,7 @@ type CreateGroupRequest struct {
 type UpdateGroupRequest struct {
 	Name                                 string                         `json:"name"`
 	Description                          *string                        `json:"description"`
-	Platform                             string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok composite"`
+	Platform                             string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok seedance composite"`
 	RateMultiplier                       *float64                       `json:"rate_multiplier"`
 	LimitedTimeMultiplierEnabled         *bool                          `json:"limited_time_multiplier_enabled"`
 	LimitedTimeMultiplierCron            *string                        `json:"limited_time_multiplier_cron"`

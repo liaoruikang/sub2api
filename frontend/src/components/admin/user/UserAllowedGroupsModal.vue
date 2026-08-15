@@ -64,12 +64,11 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="text-base font-semibold text-gray-900 dark:text-white">{{ config.groupName }}</span>
-                    <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
-                      {{ t('admin.groups.exclusive') }}
-                    </span>
-                    <span v-if="config.tagMatched" class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                      {{ config.tagNames.join(', ') }} + {{ t('admin.groups.exclusive') }}
-                    </span>
+                    <GroupAuthorizationBadge
+                      :is-exclusive="config.isExclusive"
+                      :authorization-tag-names="config.tagMatched ? config.tagNames : []"
+                      :authorization-tag-count="config.tagMatched ? config.tagNames.length : 0"
+                    />
                   </div>
                   <div class="mt-1.5 flex items-center gap-3 text-sm">
                     <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
@@ -193,6 +192,7 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, Group, GroupPlatform, UserTag } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import GroupAuthorizationBadge from '@/components/common/GroupAuthorizationBadge.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 
 interface GroupRateConfig {

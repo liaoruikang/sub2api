@@ -812,6 +812,33 @@ func (r *groupRepository) DeleteAccountGroupsByGroupID(ctx context.Context, grou
 	return affected, nil
 }
 
+func (r *groupRepository) ListGroupAnnouncementAudienceUserIDs(ctx context.Context, groupID int64) ([]int64, error) {
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT user_id FROM user_allowed_groups WHERE group_id = $1
+		UNION
+		SELECT user_id
+		FROM user_subscriptions
+		WHERE group_id = $1
+		  AND deleted_at IS NULL
+		  AND status = $2
+		  AND expires_at > NOW()
+		ORDER BY user_id
+	`, groupID, service.SubscriptionStatusActive)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	userIDs := make([]int64, 0)
+	for rows.Next() {
+		var userID int64
+		if err := rows.Scan(&userID); err != nil {
+			return nil, err
+		}
+		userIDs = append(userIDs, userID)
+	}
+	return userIDs, rows.Err()
+}
+
 func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64, error) {
 	g, err := r.client.Group.Query().Where(group.IDEQ(id)).Only(ctx)
 	if err != nil {

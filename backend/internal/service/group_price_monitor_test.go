@@ -81,7 +81,7 @@ func TestRenderGroupPriceChangesHighlightsDirectionAndValues(t *testing.T) {
 	content := renderGroupPriceChanges([]GroupPriceChange{{GroupName: "GPT Pro", Old: 0.08, New: 0.07}, {GroupName: "Grok Heavy", Old: 0.07, New: 0.08}})
 	require.Contains(t, content, "降价")
 	require.Contains(t, content, "涨价")
-	require.Contains(t, content, "> 本次共检测到 **2** 项倍率调整")
+	require.Contains(t, content, "> 本周期共检测到 **2** 项变更")
 	require.Contains(t, content, "| 分组 | 调整类型 | 调整前 | 调整后 |")
 	require.Contains(t, content, "**▼ 降价**")
 	require.Contains(t, content, "**▲ 涨价**")
@@ -89,6 +89,83 @@ func TestRenderGroupPriceChangesHighlightsDirectionAndValues(t *testing.T) {
 	require.Contains(t, content, "| Grok Heavy | **▲ 涨价** | `0.07` | **`0.08`** |")
 	require.NotContains(t, content, "**GPT Pro**")
 	require.NotContains(t, content, "**Grok Heavy**")
+}
+
+func TestRenderGroupMonitorChangesCombinesPriceAndStatusTables(t *testing.T) {
+	content := renderAnnouncementGroupPriceChanges([]AnnouncementGroupPriceChange{
+		{ChangeType: GroupMonitorChangeTypePrice, GroupName: "GPT Pro", OldRate: 0.08, NewRate: 0.07},
+		{ChangeType: GroupMonitorEventTypeCreated, GroupName: "Seedance", NewStatus: StatusActive},
+		{ChangeType: GroupMonitorEventTypeStatus, GroupName: "Grok Heavy", OldStatus: StatusActive, NewStatus: "inactive"},
+		{ChangeType: GroupMonitorEventTypeDeleted, GroupName: "Legacy", OldStatus: "inactive", NewStatus: groupMonitorDeletedStatus},
+	})
+
+	require.Contains(t, content, "价格变化 **1** 项、状态变化 **3** 项")
+	require.Contains(t, content, "### 价格变化")
+	require.Contains(t, content, "### 状态变化")
+	require.Contains(t, content, "| Seedance | **新增** | — | **`已启用`** |")
+	require.Contains(t, content, "| Grok Heavy | **停用** | `已启用` | **`已停用`** |")
+	require.Contains(t, content, "| Legacy | **删除** | `已停用` | **`已删除`** |")
+}
+
+func TestGroupPriceMonitorLegacyConfigDefaultsToPriceChanges(t *testing.T) {
+	settings := &groupPriceMonitorSettingStub{value: `{"enabled":false,"interval_seconds":60,"status":"active","notify_mode":"popup"}`}
+	svc := NewGroupPriceMonitorService(settings, &groupPriceMonitorGroupStub{}, &announcementRepoStub{})
+
+	cfg, err := svc.GetConfig(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{GroupMonitorChangeTypePrice}, cfg.ChangeTypes)
+}
+
+func TestGroupPriceMonitorRejectsEmptyChangeTypes(t *testing.T) {
+	settings := &groupPriceMonitorSettingStub{}
+	svc := NewGroupPriceMonitorService(settings, &groupPriceMonitorGroupStub{}, &announcementRepoStub{})
+	cfg := &GroupPriceMonitorConfig{
+		ChangeTypes: []string{}, IntervalSeconds: 5, DurationDays: 3,
+		Status: AnnouncementStatusActive, NotifyMode: AnnouncementNotifyModePopup,
+	}
+
+	_, err := svc.SetConfig(context.Background(), cfg)
+	require.ErrorContains(t, err, "change_types must contain at least one item")
+}
+
+func TestFilterGroupMonitorChangesUsesSelectedTypes(t *testing.T) {
+	changes := []GroupMonitorChange{
+		{ChangeType: GroupMonitorChangeTypePrice, GroupID: 1},
+		{ChangeType: GroupMonitorEventTypeStatus, GroupID: 1},
+	}
+
+	require.Equal(t, changes[:1], filterGroupMonitorChanges(changes, nil, []string{GroupMonitorChangeTypePrice}))
+	require.Equal(t, changes[1:], filterGroupMonitorChanges(changes, nil, []string{GroupMonitorChangeTypeStatus}))
+}
+
+func TestGroupPriceMonitorPublishesPriceAndStatusInOneAnnouncement(t *testing.T) {
+	settings := &groupPriceMonitorSettingStub{}
+	groups := &groupPriceMonitorGroupStub{groups: []Group{
+		{ID: 1, Name: "GPT Pro", Status: StatusActive, RateMultiplier: 0.08},
+		{ID: 2, Name: "Seedance", Status: StatusActive, RateMultiplier: 1},
+	}}
+	announcements := &announcementRepoStub{}
+	svc := NewGroupPriceMonitorService(settings, groups, announcements)
+	cfg := &GroupPriceMonitorConfig{
+		Enabled: true, ChangeTypes: []string{GroupMonitorChangeTypePrice, GroupMonitorChangeTypeStatus},
+		DurationDays: 3, IntervalSeconds: 5, Status: AnnouncementStatusActive, NotifyMode: AnnouncementNotifyModePopup,
+	}
+	require.NoError(t, func() error { _, err := svc.SetConfig(context.Background(), cfg); return err }())
+
+	svc.RecordGroupPriceChange(1, "GPT Pro", 0.08, 0.07)
+	groups.groups[0].RateMultiplier = 0.07
+	svc.RecordGroupStatusChange(GroupMonitorChange{
+		ChangeType: GroupMonitorEventTypeCreated, GroupID: 2, GroupName: "Seedance",
+		NewRate: 1, NewStatus: StatusActive, SubscriptionType: SubscriptionTypeStandard,
+	})
+	require.NoError(t, svc.check(context.Background(), cfg))
+
+	require.Equal(t, 1, announcements.createWithGroupPriceChangesCalls)
+	require.NotNil(t, announcements.item)
+	require.Equal(t, GroupPriceStatusMonitorTitle, announcements.item.Title)
+	require.Contains(t, announcements.item.Content, "### 价格变化")
+	require.Contains(t, announcements.item.Content, "### 状态变化")
+	require.Len(t, announcements.changes[announcements.item.ID], 2)
 }
 
 func TestGroupPriceMonitorSetConfigCapturesBaselineBeforeFirstChange(t *testing.T) {

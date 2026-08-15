@@ -47,6 +47,7 @@ func TestBuildV1ModelsURL(t *testing.T) {
 	require.Equal(t, "https://api.anthropic.com/v1/models", buildV1ModelsURL("https://api.anthropic.com/v1"))
 	require.Equal(t, "https://api.anthropic.com/v1/models", buildV1ModelsURL("https://api.anthropic.com/v1/models"))
 	require.Equal(t, "https://gateway.example.com/antigravity/v1/models", buildV1ModelsURL("https://gateway.example.com/antigravity/"))
+	require.Equal(t, "https://model.service-inference.ai/v1/models", buildV1ModelsURL("https://model.service-inference.ai"))
 }
 
 func TestBuildOpenAIModelsURL(t *testing.T) {
@@ -245,6 +246,18 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "https://gateway.example.com/antigravity/v1/models", antigravityReq.URL.String())
 	require.Equal(t, "antigravity-key", antigravityReq.Header.Get("x-api-key"))
+
+	seedanceReq, err := svc.buildUpstreamModelsRequest(ctx, &Account{
+		Platform: PlatformSeedance,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "seedance-key",
+			"base_url": "https://model.service-inference.ai",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "https://model.service-inference.ai/v1/models", seedanceReq.URL.String())
+	require.Equal(t, "Bearer seedance-key", seedanceReq.Header.Get("Authorization"))
 }
 
 func TestBuildUpstreamModelsRequestSupportsGrokOAuth(t *testing.T) {
@@ -340,6 +353,36 @@ func TestFetchUpstreamSupportedModelsParsesOpenAIResponse(t *testing.T) {
 	require.Equal(t, []string{"gpt-5", "o3"}, models)
 	require.Equal(t, "https://openai.example.com/v1/models", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer openai-key", upstream.lastReq.Header.Get("Authorization"))
+}
+
+func TestFetchUpstreamSupportedModelsParsesSeedanceNewAPIResponse(t *testing.T) {
+	t.Parallel()
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(strings.NewReader(
+			`{"object":"list","data":[{"id":"dreamina-seedance-2-0-hc","object":"model"},{"id":"dreamina-seedance-2-0-fast-hc","object":"model"},{"id":"dreamina-seedance-2-0-hc","object":"model"}]}`,
+		)),
+	}}
+	svc := &AccountTestService{
+		httpUpstream: upstream,
+		cfg:          upstreamModelSyncTestConfig(),
+	}
+
+	models, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{
+		ID:       28906,
+		Platform: PlatformSeedance,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "seedance-key",
+			"base_url": "https://model.service-inference.ai",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"dreamina-seedance-2-0-fast-hc", "dreamina-seedance-2-0-hc"}, models)
+	require.Equal(t, "https://model.service-inference.ai/v1/models", upstream.lastReq.URL.String())
+	require.Equal(t, "Bearer seedance-key", upstream.lastReq.Header.Get("Authorization"))
 }
 
 func TestFetchUpstreamSupportedModelsParsesGrokAPIKeyResponse(t *testing.T) {

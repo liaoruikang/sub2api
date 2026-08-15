@@ -920,6 +920,7 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        seedance: 'Seedance',
         composite: 'Composite',
       },
       saving: '保存中...',

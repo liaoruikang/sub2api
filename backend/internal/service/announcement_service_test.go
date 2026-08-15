@@ -10,8 +10,9 @@ import (
 )
 
 type announcementRepoStub struct {
-	item    *Announcement
-	changes map[int64][]AnnouncementGroupPriceChange
+	item                             *Announcement
+	changes                          map[int64][]AnnouncementGroupPriceChange
+	createWithGroupPriceChangesCalls int
 }
 
 func (s *announcementRepoStub) Create(_ context.Context, a *Announcement) error {
@@ -19,8 +20,13 @@ func (s *announcementRepoStub) Create(_ context.Context, a *Announcement) error 
 	return nil
 }
 
-func (s *announcementRepoStub) CreateWithGroupPriceChanges(_ context.Context, a *Announcement, _ []AnnouncementGroupPriceChange) error {
+func (s *announcementRepoStub) CreateWithGroupPriceChanges(_ context.Context, a *Announcement, changes []AnnouncementGroupPriceChange) error {
 	s.item = a
+	s.createWithGroupPriceChangesCalls++
+	if s.changes == nil {
+		s.changes = make(map[int64][]AnnouncementGroupPriceChange)
+	}
+	s.changes[a.ID] = append([]AnnouncementGroupPriceChange(nil), changes...)
 	return nil
 }
 
@@ -98,10 +104,19 @@ func (s *announcementVisibilityGroupRepoStub) ListActive(context.Context) ([]Gro
 type announcementVisibilityTagRepoStub struct {
 	UserTagRepository
 	groupIDs []int64
+	tagIDs   []int64
 }
 
 func (s *announcementVisibilityTagRepoStub) GetGroupIDsByUserID(context.Context, int64) ([]int64, error) {
 	return append([]int64(nil), s.groupIDs...), nil
+}
+
+func (s *announcementVisibilityTagRepoStub) GetByUserID(context.Context, int64) ([]UserTag, error) {
+	tags := make([]UserTag, 0, len(s.tagIDs))
+	for _, tagID := range s.tagIDs {
+		tags = append(tags, UserTag{ID: tagID})
+	}
+	return tags, nil
 }
 
 type announcementVisibilitySubRepoStub struct {
@@ -274,4 +289,74 @@ func TestGroupPriceAnnouncementHiddenWhenUserHasNoCurrentGroupAccess(t *testing.
 	require.NoError(t, err)
 	require.Empty(t, items)
 	require.ErrorIs(t, svc.MarkRead(context.Background(), 7, 102), ErrAnnouncementNotFound)
+}
+
+func TestGroupStatusAnnouncementUsesDeletedAudienceAndTagSnapshots(t *testing.T) {
+	now := time.Now()
+	repo := &announcementVisibilityRepoStub{announcementRepoStub: announcementRepoStub{
+		item: &Announcement{
+			ID: 103, Kind: AnnouncementKindGroupPriceChange, Title: GroupStatusMonitorTitle,
+			Status: AnnouncementStatusActive, StartsAt: &now,
+		},
+		changes: map[int64][]AnnouncementGroupPriceChange{103: {
+			{AnnouncementID: 103, GroupID: 1, GroupName: "Public deleted", ChangeType: GroupMonitorEventTypeDeleted, OldStatus: StatusActive, NewStatus: groupMonitorDeletedStatus, SubscriptionType: SubscriptionTypeStandard},
+			{AnnouncementID: 103, GroupID: 2, GroupName: "Manual deleted", ChangeType: GroupMonitorEventTypeDeleted, OldStatus: StatusActive, NewStatus: groupMonitorDeletedStatus, IsExclusive: true, SubscriptionType: SubscriptionTypeStandard, AccessUserIDs: []int64{7}},
+			{AnnouncementID: 103, GroupID: 3, GroupName: "Tagged deleted", ChangeType: GroupMonitorEventTypeDeleted, OldStatus: StatusActive, NewStatus: groupMonitorDeletedStatus, IsExclusive: true, SubscriptionType: SubscriptionTypeStandard, TagIDs: []int64{9}},
+			{AnnouncementID: 103, GroupID: 4, GroupName: "Hidden deleted", ChangeType: GroupMonitorEventTypeDeleted, OldStatus: StatusActive, NewStatus: groupMonitorDeletedStatus, IsExclusive: true, SubscriptionType: SubscriptionTypeStandard, AccessUserIDs: []int64{8}},
+		}},
+	}}
+	tagRepo := &announcementVisibilityTagRepoStub{tagIDs: []int64{9}}
+	svc := NewAnnouncementService(
+		repo,
+		&announcementVisibilityReadRepoStub{},
+		&announcementVisibilityUserRepoStub{user: &User{ID: 7}},
+		&announcementVisibilitySubRepoStub{},
+		&announcementVisibilityGroupRepoStub{},
+		tagRepo,
+	)
+
+	items, err := svc.ListForUser(context.Background(), 7, false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Contains(t, items[0].Announcement.Content, "Public deleted")
+	require.Contains(t, items[0].Announcement.Content, "Manual deleted")
+	require.Contains(t, items[0].Announcement.Content, "Tagged deleted")
+	require.NotContains(t, items[0].Announcement.Content, "Hidden deleted")
+
+	tagRepo.tagIDs = nil
+	items, err = svc.ListForUser(context.Background(), 7, false)
+	require.NoError(t, err)
+	require.NotContains(t, items[0].Announcement.Content, "Tagged deleted")
+}
+
+func TestGroupMonitorAnnouncementTitleMatchesVisibleChanges(t *testing.T) {
+	now := time.Now()
+	repo := &announcementVisibilityRepoStub{announcementRepoStub: announcementRepoStub{
+		item: &Announcement{
+			ID: 104, Kind: AnnouncementKindGroupPriceChange, Title: GroupPriceStatusMonitorTitle,
+			Status: AnnouncementStatusActive, StartsAt: &now,
+		},
+		changes: map[int64][]AnnouncementGroupPriceChange{104: {
+			{AnnouncementID: 104, GroupID: 1, GroupName: "Public price", ChangeType: GroupMonitorChangeTypePrice, OldRate: 0.1, NewRate: 0.09},
+			{AnnouncementID: 104, GroupID: 2, GroupName: "Hidden status", ChangeType: GroupMonitorEventTypeStatus, OldStatus: StatusActive, NewStatus: "inactive", IsExclusive: true, SubscriptionType: SubscriptionTypeStandard},
+		}},
+	}}
+	svc := NewAnnouncementService(
+		repo,
+		&announcementVisibilityReadRepoStub{},
+		&announcementVisibilityUserRepoStub{user: &User{ID: 7}},
+		&announcementVisibilitySubRepoStub{},
+		&announcementVisibilityGroupRepoStub{groups: []Group{
+			{ID: 1, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard},
+			{ID: 2, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard, IsExclusive: true},
+		}},
+		&announcementVisibilityTagRepoStub{},
+	)
+
+	items, err := svc.ListForUser(context.Background(), 7, false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, GroupPriceMonitorTitle, items[0].Announcement.Title)
+	require.Contains(t, items[0].Announcement.Content, "Public price")
+	require.NotContains(t, items[0].Announcement.Content, "Hidden status")
 }

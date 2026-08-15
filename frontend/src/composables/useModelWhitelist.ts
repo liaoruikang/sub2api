@@ -86,6 +86,21 @@ const antigravityModels = [
   'tab_flash_lite_preview'
 ]
 
+export const seedanceModels = [
+  'dreamina-seedance-2-0-260128',
+  'dreamina-seedance-2-0-ep',
+  'dreamina-seedance-2-0-fast-260128',
+  'dreamina-seedance-2-0-fast-ep',
+  'dreamina-seedance-2-0-mini-260615',
+  'dreamina-seedance-2-0-mini-ep',
+  'dreamina-seedance-2-5-ep',
+  'dreamina-seedance-2-0-hc',
+  'dreamina-seedance-2-0-fast-hc',
+  'dreamina-seedance-2-0-mini-hc',
+  'dreamina-seedance-2-5-hc',
+  'doubao-seedance-2-0-260128-a'
+]
+
 // 智谱 GLM
 const zhipuModels = [
   'glm-4', 'glm-4v', 'glm-4-plus', 'glm-4-0520',
@@ -419,6 +434,7 @@ export function getModelsByPlatform(platform: string): string[] {
     case 'claude': return claudeModels
     case 'gemini': return geminiModels
     case 'antigravity': return antigravityModels
+    case 'seedance': return seedanceModels
     case 'zhipu': return zhipuModels
     case 'qwen': return qwenModels
     case 'deepseek': return deepseekModels

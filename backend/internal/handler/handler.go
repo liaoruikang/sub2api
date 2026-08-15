@@ -71,6 +71,7 @@ type Handlers struct {
 	AsyncImage       *AsyncImageHandler
 	BatchImage       *BatchImageHandler
 	GrokVideoJob     *GrokVideoJobHandler
+	Seedance         *SeedanceHandler
 }
 
 // BuildInfo contains build-time information

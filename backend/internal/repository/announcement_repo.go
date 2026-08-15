@@ -2,15 +2,16 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
-	"github.com/Wei-Shaw/sub2api/ent/announcementgrouppricechange"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/lib/pq"
 
 	entsql "entgo.io/ent/dialect/sql"
 )
@@ -88,19 +89,31 @@ func createAnnouncementWithGroupPriceChanges(ctx context.Context, client *dbent.
 	if err := createAnnouncement(ctx, client, a); err != nil {
 		return err
 	}
-	builders := make([]*dbent.AnnouncementGroupPriceChangeCreate, 0, len(changes))
 	for i := range changes {
 		change := changes[i]
-		builders = append(builders, client.AnnouncementGroupPriceChange.Create().
-			SetAnnouncementID(a.ID).
-			SetGroupID(change.GroupID).
-			SetGroupName(change.GroupName).
-			SetOldRate(change.OldRate).
-			SetNewRate(change.NewRate).
-			SetSequence(change.Sequence))
-	}
-	if _, err := client.AnnouncementGroupPriceChange.CreateBulk(builders...).Save(ctx); err != nil {
-		return err
+		tagIDs, err := json.Marshal(uniqueRepositoryInt64s(change.TagIDs))
+		if err != nil {
+			return err
+		}
+		accessUserIDs, err := json.Marshal(uniqueRepositoryInt64s(change.AccessUserIDs))
+		if err != nil {
+			return err
+		}
+		changeType := strings.TrimSpace(change.ChangeType)
+		if changeType == "" {
+			changeType = service.GroupMonitorChangeTypePrice
+		}
+		if _, err := client.ExecContext(ctx, `
+			INSERT INTO announcement_group_price_changes (
+				announcement_id, group_id, group_name, change_type,
+				old_rate, new_rate, old_status, new_status,
+				is_exclusive, subscription_type, tag_ids, access_user_ids, sequence
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13)
+		`, a.ID, change.GroupID, change.GroupName, changeType,
+			change.OldRate, change.NewRate, change.OldStatus, change.NewStatus,
+			change.IsExclusive, change.SubscriptionType, string(tagIDs), string(accessUserIDs), change.Sequence); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -285,20 +298,57 @@ func (r *announcementRepository) ListGroupPriceChanges(ctx context.Context, anno
 	if len(announcementIDs) == 0 {
 		return out, nil
 	}
-	items, err := r.client.AnnouncementGroupPriceChange.Query().
-		Where(announcementgrouppricechange.AnnouncementIDIn(announcementIDs...)).
-		Order(dbent.Asc(announcementgrouppricechange.FieldAnnouncementID), dbent.Asc(announcementgrouppricechange.FieldSequence)).
-		All(ctx)
+	rows, err := r.client.QueryContext(ctx, `
+		SELECT id, announcement_id, group_id, group_name, change_type,
+		       old_rate, new_rate, old_status, new_status,
+		       is_exclusive, subscription_type, tag_ids, access_user_ids, sequence
+		FROM announcement_group_price_changes
+		WHERE announcement_id = ANY($1)
+		ORDER BY announcement_id ASC, sequence ASC
+	`, pq.Array(announcementIDs))
 	if err != nil {
 		return nil, err
 	}
-	for _, item := range items {
-		out[item.AnnouncementID] = append(out[item.AnnouncementID], service.AnnouncementGroupPriceChange{
-			ID: item.ID, AnnouncementID: item.AnnouncementID, GroupID: item.GroupID,
-			GroupName: item.GroupName, OldRate: item.OldRate, NewRate: item.NewRate, Sequence: item.Sequence,
-		})
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var item service.AnnouncementGroupPriceChange
+		var tagIDsJSON, accessUserIDsJSON []byte
+		if err := rows.Scan(
+			&item.ID, &item.AnnouncementID, &item.GroupID, &item.GroupName, &item.ChangeType,
+			&item.OldRate, &item.NewRate, &item.OldStatus, &item.NewStatus,
+			&item.IsExclusive, &item.SubscriptionType, &tagIDsJSON, &accessUserIDsJSON, &item.Sequence,
+		); err != nil {
+			return nil, err
+		}
+		if len(tagIDsJSON) > 0 {
+			if err := json.Unmarshal(tagIDsJSON, &item.TagIDs); err != nil {
+				return nil, fmt.Errorf("decode announcement group tag ids: %w", err)
+			}
+		}
+		if len(accessUserIDsJSON) > 0 {
+			if err := json.Unmarshal(accessUserIDsJSON, &item.AccessUserIDs); err != nil {
+				return nil, fmt.Errorf("decode announcement group audience: %w", err)
+			}
+		}
+		out[item.AnnouncementID] = append(out[item.AnnouncementID], item)
 	}
-	return out, nil
+	return out, rows.Err()
+}
+
+func uniqueRepositoryInt64s(values []int64) []int64 {
+	seen := make(map[int64]struct{}, len(values))
+	result := make([]int64, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func applyAnnouncementEntityToService(dst *service.Announcement, src *dbent.Announcement) {

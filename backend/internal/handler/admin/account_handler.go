@@ -2762,6 +2762,14 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
+	// Seedance API Key accounts use the documented native video model catalog.
+	// The upstream does not expose an account model-discovery endpoint, so keep
+	// this list aligned with the gateway's /v1/models fallback.
+	if account.Platform == service.PlatformSeedance {
+		response.Success(c, service.SeedanceModels)
+		return
+	}
+
 	// Handle Claude/Anthropic accounts
 	// For OAuth and Setup-Token accounts: return default models
 	if account.IsOAuth() {

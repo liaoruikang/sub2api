@@ -385,6 +385,8 @@ export default {
     exportExcelSuccess: 'Usage data exported successfully (Excel format)',
     exportExcelFailed: 'Failed to export usage data',
     imageUnit: ' images',
+    videoUnit: ' videos',
+    videoDuration: 'Video duration',
     userAgent: 'User-Agent',
     ipGeo: {
       fetch: 'Fetch region',
@@ -435,7 +437,8 @@ export default {
       openai: 'OpenAI',
       anthropic: 'Anthropic',
       gemini: 'Gemini',
-      grok: 'Grok'
+      grok: 'Grok',
+      seedance: 'Seedance'
     },
     extraModelsHeader: 'Extra Models',
     extraModelsEmpty: 'No extra models',

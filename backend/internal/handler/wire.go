@@ -196,6 +196,7 @@ func ProvideHandlers(
 	asyncImageHandler *AsyncImageHandler,
 	batchImageHandler *BatchImageHandler,
 	grokVideoJobHandler *GrokVideoJobHandler,
+	seedanceHandler *SeedanceHandler,
 	grokVideoJobService *service.GrokVideoJobService,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
@@ -203,6 +204,7 @@ func ProvideHandlers(
 	userImageHandler.SetGateway(openaiGatewayHandler)
 	userImageHandler.SetGeminiGateway(gatewayHandler)
 	openaiGatewayHandler.SetGrokVideoJobService(grokVideoJobService)
+	grokVideoJobHandler.SetSeedanceHandler(seedanceHandler)
 	return &Handlers{
 		Auth:             authHandler,
 		User:             userHandler,
@@ -227,6 +229,7 @@ func ProvideHandlers(
 		AsyncImage:       asyncImageHandler,
 		BatchImage:       batchImageHandler,
 		GrokVideoJob:     grokVideoJobHandler,
+		Seedance:         seedanceHandler,
 	}
 }
 
@@ -255,6 +258,7 @@ var ProviderSet = wire.NewSet(
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
 	NewGrokVideoJobHandler,
+	NewSeedanceHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

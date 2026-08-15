@@ -554,17 +554,22 @@ func (s *OpenAIGatewayService) ReleaseGrokVideoBilling(
 	return s.cache.ReleaseGrokVideoBilled(ctx, key)
 }
 
-// StableGrokVideoBillingRequestID is the durable usage_logs / dedup key for one
-// async video task (not the per-poll gateway request id).
-func StableGrokVideoBillingRequestID(taskRequestID string) string {
+// StableVideoBillingRequestID is the durable usage_logs / dedup key for one
+// async video task (not the per-poll gateway request id). Seedance already
+// supplies its own namespace; legacy/unqualified IDs remain Grok IDs.
+func StableVideoBillingRequestID(taskRequestID string) string {
 	taskRequestID = strings.TrimSpace(taskRequestID)
 	if taskRequestID == "" {
 		return ""
 	}
-	if strings.HasPrefix(taskRequestID, "grok-video:") {
+	if strings.HasPrefix(taskRequestID, "grok-video:") || strings.HasPrefix(taskRequestID, "seedance-video:") {
 		return taskRequestID
 	}
 	return "grok-video:" + taskRequestID
+}
+
+func StableGrokVideoBillingRequestID(taskRequestID string) string {
+	return StableVideoBillingRequestID(taskRequestID)
 }
 
 // Official xAI async video status success shape (docs.x.ai Video Generation):

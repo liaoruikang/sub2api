@@ -399,6 +399,7 @@ export interface UpdateAnnouncementRequest {
 export interface GroupPriceMonitorConfig {
   enabled: boolean
   group_ids: number[]
+  change_types: Array<'price' | 'status'>
   interval_seconds: number
   status: AnnouncementStatus
   notify_mode: AnnouncementNotifyMode
@@ -545,7 +546,7 @@ export interface PaginationConfig {
 
 // ==================== API Key & Group Types ====================
 
-export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'composite'
+export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'seedance' | 'composite'
 
 export type VideoModelPrices = Record<string, Record<string, number>>
 
@@ -938,7 +939,7 @@ export interface UpdateGroupRequest {
 
 // ==================== Account & Proxy Types ====================
 
-export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok'
+export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'seedance'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
@@ -1725,6 +1726,11 @@ export interface UsageLog {
   image_input_cost: number
   image_output_tokens: number
   image_output_cost: number
+
+  // 视频生成字段
+  video_count: number
+  video_resolution: string | null
+  video_duration_seconds: number | null
 
   // User-Agent
   user_agent: string | null

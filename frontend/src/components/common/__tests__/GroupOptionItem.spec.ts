@@ -68,8 +68,8 @@ describe('GroupOptionItem text layout', () => {
   it.each([
     [true, 0, undefined, 'admin.groups.exclusive'],
     [true, 1, undefined, 'admin.groups.tagExclusive'],
-    [true, 1, ['Downstream'], 'Downstream + admin.groups.exclusive'],
-    [true, 2, ['Downstream', 'VIP'], 'Downstream、VIP + admin.groups.exclusive'],
+    [true, 1, ['Downstream'], 'Downstreamadmin.groups.exclusive'],
+    [true, 2, ['Downstream', 'VIP'], 'Downstream、VIPadmin.groups.exclusive'],
   ])('shows the authorization type for exclusive groups', (isExclusive, tagCount, tagNames, label) => {
     const wrapper = mount(GroupOptionItem, {
       props: {

@@ -31,6 +31,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 	"github.com/gin-gonic/gin"
@@ -82,13 +83,14 @@ func firstAccountTestOptions(opts []AccountTestOptions) AccountTestOptions {
 const maxAccountTestMediaBytes = 8 << 20
 
 const (
-	defaultGeminiTextTestPrompt  = "hi"
-	defaultGeminiImageTestPrompt = "Generate a cute orange cat astronaut sticker on a clean pastel background."
-	defaultOpenAIImageTestPrompt = "Generate a cute orange cat astronaut sticker on a clean pastel background."
-	defaultGrokImageTestPrompt   = "Generate a cute orange cat astronaut sticker on a clean pastel background."
-	defaultGrokVideoTestPrompt   = "A red ball bouncing once on a white floor, short simple motion."
-	defaultGrokSearchTestQuery   = "xAI Grok"
-	defaultGrokTTSTestText       = "Hello from Sub2API account connectivity test."
+	defaultGeminiTextTestPrompt    = "hi"
+	defaultGeminiImageTestPrompt   = "Generate a cute orange cat astronaut sticker on a clean pastel background."
+	defaultOpenAIImageTestPrompt   = "Generate a cute orange cat astronaut sticker on a clean pastel background."
+	defaultGrokImageTestPrompt     = "Generate a cute orange cat astronaut sticker on a clean pastel background."
+	defaultGrokVideoTestPrompt     = "A red ball bouncing once on a white floor, short simple motion."
+	defaultSeedanceVideoTestPrompt = "A cinematic close-up of a glass marble rolling across a rain-soaked neon street at night, reflecting magenta and cyan signs. The camera tracks smoothly at ground level with shallow depth of field, realistic lighting, natural motion, and no text."
+	defaultGrokSearchTestQuery     = "xAI Grok"
+	defaultGrokTTSTestText         = "Hello from Sub2API account connectivity test."
 
 	// Grok account-test modes (admin UI). Empty / default / text = Responses probe.
 	// image/video may also be inferred from model_id when mode is default.
@@ -102,6 +104,7 @@ const (
 
 	defaultGrokRealtimeTestModel = "grok-voice-latest"
 	grokRealtimeProbeTimeout     = 12 * time.Second
+	seedanceVideoProbeTimeout    = 5 * time.Minute
 )
 
 // isOpenAIImageModel checks if the model is an OpenAI image generation model (e.g. gpt-image-2).
@@ -297,11 +300,214 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return s.testGrokAccountConnection(c, account, modelID, prompt, mode, testOpts)
 	}
 
+	if account.Platform == PlatformSeedance {
+		return s.testSeedanceAccountConnection(c, account, modelID, prompt, mode)
+	}
+
 	if account.Platform == PlatformAntigravity {
 		return s.routeAntigravityTest(c, account, modelID, prompt)
 	}
 
 	return s.testClaudeAccountConnection(c, account, modelID)
+}
+
+// testSeedanceAccountConnection performs the same real create-and-poll probe
+// used by the Grok video account test. A task-list GET only proves auth; it
+// cannot verify model entitlement, video generation, or output delivery.
+func (s *AccountTestService) testSeedanceAccountConnection(c *gin.Context, account *Account, modelID, prompt, mode string) error {
+	ctx := c.Request.Context()
+	if s.httpUpstream == nil {
+		return s.sendErrorAndEnd(c, "HTTP upstream not configured")
+	}
+	if err := ValidateSeedanceAccount(account.Platform, account.Type, account.Credentials); err != nil {
+		return s.sendErrorAndEnd(c, err.Error())
+	}
+	apiKey := strings.TrimSpace(account.GetCredential("api_key"))
+	if apiKey == "" {
+		return s.sendErrorAndEnd(c, "No Seedance API key available")
+	}
+	baseURL, err := url.Parse(account.GetSeedanceBaseURL())
+	if err != nil || baseURL.Scheme != "https" || baseURL.Host == "" {
+		return s.sendErrorAndEnd(c, "Invalid Seedance base URL")
+	}
+	baseURL.Path = strings.TrimRight(baseURL.Path, "/") + "/v1/video/generate"
+	baseURL.RawQuery = ""
+
+	s.prepareGrokTestSSE(c)
+	testModel := strings.TrimSpace(modelID)
+	if testModel == "" {
+		testModel = SeedanceModels[0]
+	}
+	if mapped := strings.TrimSpace(account.GetMappedModel(testModel)); mapped != "" {
+		testModel = mapped
+	}
+	prompt = resolveSeedanceVideoPrompt(prompt)
+	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModel})
+	s.sendEvent(c, TestEvent{Type: "status", Text: "Creating a Seedance video test task (4s, 480p)..."})
+
+	payloadBytes, err := json.Marshal(map[string]any{
+		"model": testModel, "prompt": strings.TrimSpace(prompt), "duration": 4, "resolution": "480p",
+	})
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to encode Seedance test request")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL.String(), bytes.NewReader(payloadBytes))
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to create Seedance request")
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	account.ApplyHeaderOverrides(req.Header)
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	var profile *tlsfingerprint.Profile
+	if s.tlsFPProfileService != nil {
+		profile = s.tlsFPProfileService.ResolveTLSProfile(account)
+	}
+	resp, err := s.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, profile)
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Seedance request failed: %s", err.Error()))
+	}
+	body, readErr := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if readErr != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to read Seedance response: %s", readErr.Error()))
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Seedance API returned %d: %s", resp.StatusCode, string(body)))
+	}
+	taskID := firstNonEmpty(
+		strings.TrimSpace(gjson.GetBytes(body, "task.id").String()),
+		strings.TrimSpace(gjson.GetBytes(body, "id").String()),
+	)
+	if taskID == "" {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Seedance create response missing task.id: %s", string(body)))
+	}
+	s.sendEvent(c, TestEvent{Type: "content", Text: "video task accepted: " + taskID + "\n"})
+	s.sendEvent(c, TestEvent{Type: "status", Text: fmt.Sprintf("Polling Seedance video status until done (max ~%s)...", seedanceVideoProbeTimeout)})
+
+	statusURL := *baseURL
+	statusURL.Path = strings.TrimRight(strings.TrimSuffix(statusURL.Path, "/v1/video/generate"), "/") + "/v1/video/tasks/" + url.PathEscape(taskID)
+	deadline := time.Now().Add(seedanceVideoProbeTimeout)
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			return s.sendErrorAndEnd(c, "Seedance video poll canceled")
+		}
+		statusReq, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL.String(), nil)
+		if err != nil {
+			return s.sendErrorAndEnd(c, "Failed to create Seedance status request")
+		}
+		statusReq.Header.Set("Authorization", "Bearer "+apiKey)
+		statusReq.Header.Set("Accept", "application/json")
+		account.ApplyHeaderOverrides(statusReq.Header)
+		statusResp, err := s.httpUpstream.DoWithTLS(statusReq, proxyURL, account.ID, account.Concurrency, profile)
+		if err != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Seedance video status failed: %s", err.Error()))
+		}
+		statusBody, _ := io.ReadAll(statusResp.Body)
+		_ = statusResp.Body.Close()
+		if statusResp.StatusCode < 200 || statusResp.StatusCode >= 300 {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Seedance video status returned %d: %s", statusResp.StatusCode, string(statusBody)))
+		}
+		root := accountTestJSONMap(statusBody)
+		taskMap := accountTestJSONMapValue(root, "task")
+		if taskMap == nil {
+			taskMap = root
+		}
+		state := strings.ToLower(strings.TrimSpace(accountTestJSONString(taskMap, "status")))
+		progress := accountTestJSONFloat(taskMap, "progress")
+		if progress > 0 {
+			s.sendEvent(c, TestEvent{Type: "status", Text: fmt.Sprintf("status=%s progress=%.0f%%", state, progress)})
+		} else {
+			s.sendEvent(c, TestEvent{Type: "status", Text: "status=" + state})
+		}
+		switch state {
+		case "completed", "succeeded", "success", "done", "finished":
+			videoURL := seedanceTestVideoURL(taskMap)
+			if videoURL == "" {
+				return s.sendErrorAndEnd(c, "Seedance video completed but no output URL was returned")
+			}
+			s.sendEvent(c, TestEvent{Type: "content", Text: "video ready: " + videoURL + "\n"})
+			s.sendEvent(c, TestEvent{Type: "video", VideoURL: videoURL, MimeType: "video/mp4"})
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			return nil
+		case "failed", "error", "cancelled", "canceled":
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Seedance video failed: %s", string(statusBody)))
+		}
+		select {
+		case <-ctx.Done():
+			return s.sendErrorAndEnd(c, "Seedance video poll canceled")
+		case <-time.After(3 * time.Second):
+		}
+	}
+	return s.sendErrorAndEnd(c, fmt.Sprintf("Seedance video still processing after %s (task_id=%s)", seedanceVideoProbeTimeout, taskID))
+}
+
+func resolveSeedanceVideoPrompt(prompt string) string {
+	if strings.TrimSpace(prompt) == "" {
+		return defaultSeedanceVideoTestPrompt
+	}
+	return strings.TrimSpace(prompt)
+}
+
+func seedanceTestVideoURL(task map[string]any) string {
+	if task == nil {
+		return ""
+	}
+	for _, key := range []string{"video_url", "url", "download_url", "file_url"} {
+		if value := strings.TrimSpace(accountTestJSONString(task, key)); strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") || strings.HasPrefix(value, "data:") {
+			return value
+		}
+	}
+	if outputs, ok := task["outputs"].([]any); ok {
+		for _, item := range outputs {
+			switch output := item.(type) {
+			case string:
+				value := strings.TrimSpace(output)
+				if strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") || strings.HasPrefix(value, "data:") {
+					return value
+				}
+			case map[string]any:
+				if value := seedanceTestVideoURL(output); value != "" {
+					return value
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func accountTestJSONMap(body []byte) map[string]any {
+	var result map[string]any
+	_ = json.Unmarshal(body, &result)
+	return result
+}
+
+func accountTestJSONMapValue(parent map[string]any, key string) map[string]any {
+	if parent == nil {
+		return nil
+	}
+	value, _ := parent[key].(map[string]any)
+	return value
+}
+
+func accountTestJSONString(parent map[string]any, key string) string {
+	if parent == nil {
+		return ""
+	}
+	value, _ := parent[key].(string)
+	return value
+}
+
+func accountTestJSONFloat(parent map[string]any, key string) float64 {
+	if parent == nil {
+		return 0
+	}
+	value, _ := parent[key].(float64)
+	return value
 }
 
 // testClaudeAccountConnection tests an Anthropic Claude account's connection

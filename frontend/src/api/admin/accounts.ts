@@ -568,8 +568,18 @@ export async function reconcileHighestSchedulingRotation(): Promise<HighestSched
  * @returns List of available models for this account
  */
 export async function getAvailableModels(id: number): Promise<ClaudeModel[]> {
-  const { data } = await apiClient.get<ClaudeModel[]>(`/admin/accounts/${id}/models`)
-  return data
+  const { data } = await apiClient.get<ClaudeModel[] | string[]>(`/admin/accounts/${id}/models`)
+  // Seedance exposes a native model catalog as string IDs; normalize it to
+  // the model shape consumed by the account test modal and model selectors.
+  if (Array.isArray(data) && data.every((model) => typeof model === 'string')) {
+    return data.map((id) => ({
+      id,
+      type: 'model',
+      display_name: id,
+      created_at: ''
+    }))
+  }
+  return data as ClaudeModel[]
 }
 
 export interface SyncUpstreamModelsResult {

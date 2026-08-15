@@ -68,13 +68,20 @@ type AnnouncementCondition = domain.AnnouncementCondition
 type Announcement = domain.Announcement
 
 type AnnouncementGroupPriceChange struct {
-	ID             int64
-	AnnouncementID int64
-	GroupID        int64
-	GroupName      string
-	OldRate        float64
-	NewRate        float64
-	Sequence       int
+	ID               int64
+	AnnouncementID   int64
+	GroupID          int64
+	GroupName        string
+	ChangeType       string
+	OldRate          float64
+	NewRate          float64
+	OldStatus        string
+	NewStatus        string
+	IsExclusive      bool
+	SubscriptionType string
+	TagIDs           []int64
+	AccessUserIDs    []int64
+	Sequence         int
 }
 
 type AnnouncementListFilters struct {

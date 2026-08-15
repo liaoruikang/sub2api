@@ -27,6 +27,15 @@ interface ImageBillingRow {
   total_cost: number
 }
 
+interface VideoBillingRow {
+  video_count: number
+  billing_mode?: string | null
+}
+
+export function isVideoUsage(row: Pick<VideoBillingRow, 'video_count' | 'billing_mode'> | null | undefined): boolean {
+  return (row?.video_count ?? 0) > 0 || row?.billing_mode === BILLING_MODE_VIDEO
+}
+
 export function isImageUsage(row: Pick<ImageBillingRow, 'image_count' | 'billing_mode'> | null | undefined): boolean {
   return (row?.image_count ?? 0) > 0 && row?.billing_mode !== BILLING_MODE_TOKEN && row?.billing_mode !== BILLING_MODE_VIDEO
 }

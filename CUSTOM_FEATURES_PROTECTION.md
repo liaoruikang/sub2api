@@ -246,20 +246,23 @@
 - 管理员可以创建、重命名、删除用户标签，并给用户分配一个或多个标签。
 - 标准专属 Group 可以绑定一个或多个用户标签；用户拥有任意一个绑定标签时自动获得该 Group。
 - 手工授权和标签派生授权取并集；标签派生权限不能写入 `user_allowed_groups`。
-- 用户分组配置中，标签命中的专属 Group 显示“标签名 + 专属分组”，并且不可通过 checkbox 撤销。
+- 用户分组配置中，标签命中的专属 Group 显示“标签名专属”，并且不可通过 checkbox 撤销。
+- 标签专属分组的展示文案必须直接拼接为“标签名专属”（多个标签用顿号分隔），不得渲染可见的 `+` 号；用户分组配置、API Key 分组列表和公共分组组件必须保持一致。
+- 管理员修改用户 API Key 的分组后，更新响应中的 Group 必须包含与列表接口一致的 `tags` / `tag_ids`，保存后的本地列表不得先退化为“专属”再依赖刷新恢复“标签名专属”。
 - 删除标签、移除用户标签或移除 Group 标签后，派生授权自动撤销，但不能删除仍存在的手工授权。
 - subscription Group 不能通过标签绕过 active subscription 检查。
 
 关键文件：
 
-- 后端：`backend/migrations/221_add_user_tag_group_authorization.sql`、`backend/internal/service/user_tag.go`、`backend/internal/repository/user_tag_repo.go`、`backend/internal/service/api_key_service.go`、`backend/internal/service/api_key_auth_cache_impl.go`
-- 前端：`frontend/src/components/admin/user/UserTagManagementModal.vue`、`frontend/src/components/admin/user/UserTagMultiSelect.vue`、`frontend/src/components/admin/user/UserAllowedGroupsModal.vue`、`frontend/src/views/admin/GroupsView.vue`、`frontend/src/views/admin/UsersView.vue`
+- 后端：`backend/migrations/221_add_user_tag_group_authorization.sql`、`backend/internal/service/user_tag.go`、`backend/internal/repository/user_tag_repo.go`、`backend/internal/service/api_key_service.go`、`backend/internal/service/api_key_auth_cache_impl.go`、`backend/internal/service/admin_group.go`、`backend/internal/service/admin_service_apikey_test.go`
+- 前端：`frontend/src/components/admin/user/UserTagManagementModal.vue`、`frontend/src/components/admin/user/UserTagMultiSelect.vue`、`frontend/src/components/admin/user/UserAllowedGroupsModal.vue`、`frontend/src/components/admin/user/UserApiKeysModal.vue`、`frontend/src/components/admin/user/__tests__/UserAllowedGroupsModal.spec.ts`、`frontend/src/components/common/GroupAuthorizationBadge.vue`、`frontend/src/views/admin/GroupsView.vue`、`frontend/src/views/admin/UsersView.vue`
 
 容易丢失点：
 
 - 标签授权查询必须过滤已删除、非 active、非 standard 或非 exclusive Group，并对多标签 OR 查询去重。
 - auth snapshot 需要包含标签派生 Group，缓存版本变化后旧快照必须回源。
 - API Key 主 Group、有序次级 Group、Model Plaza 和 Available Channels 必须使用有效授权并集。
+- 管理员 API Key 分组更新链路必须在构造响应前补齐 Group 标签关系，不能直接返回只含 `is_exclusive` 的校验对象。
 
 ## 2.8 账号池模式扩展到 OAuth 与批量编辑
 
@@ -463,17 +466,20 @@
 - 不要在已经写出有效 SSE/JSON 语义内容后切换 Group，也不要把 compact keepalive 当作有效响应内容。
 - 共享预算不能污染 Group-local 失败集合；fallback 不得循环回普通 Group failover。
 
-### 2.13 分组价格监测公告
+### 2.13 分组变更监测公告
 
 功能要求：
 
-- 公告设置中可以启用/停用分组价格监测。
+- 公告设置中可以启用/停用分组变更监测；监测内容支持“价格变化”和“状态变化”多选，至少选择一项，历史配置缺少该字段时默认只监测价格变化。
 - 监测范围支持全部分组或多个指定分组，监测周期单位为秒。
 - 公告状态、通知方式和展示条件复用公告模型语义；监测有效期通过 `duration_days` 配置。
-- 每个监测周期内所有倍率变化必须合并为一条标题为“分组价格调整通知”的 Markdown 公告。
-- 每个周期仍只创建一条逻辑公告；倍率变化必须同时保存为带 `group_id` 的结构化明细，用户端不得依赖 Markdown 反解析权限。
+- 状态变化包含分组新增、复制新增、启用、停用和删除；事件必须在对应管理操作成功后记录，失败的创建、复制、更新或删除不能产生公告，幂等恢复已有复制分组时不得重复记录。
+- 每个监测周期内所有已选类型的变化必须合并为一条 Markdown 公告；价格与状态同时变化时仍只创建一条逻辑公告，并分别使用价格表格和状态表格直观展示。
+- 公告标题根据实际明细使用“分组价格调整通知”“分组状态调整通知”或“分组价格与状态调整通知”；用户端过滤无权限明细后必须同步重算标题，不能通过标题泄露无权限分组的变更类型。
+- 每条变化必须保存为带 `group_id` 和 `change_type` 的结构化明细，状态事件还需保存变更前后状态及发布时的权限信息；用户端不得依赖 Markdown 反解析权限。
 - 公告内容必须逐项展示分组名称、涨价/降价方向和旧倍率到新倍率（如 `0.07 -> 0.08`），并突出方向。
 - 用户查看价格公告时必须按当前分组权限动态过滤明细：公开标准分组所有用户可见；标准专属分组取手工授权与标签派生授权并集；订阅分组必须有有效订阅。用户后来获得权限时，可以看到仍在有效期内的历史公告对应明细；权限撤销后立即隐藏。
+- 停用或删除后的专属分组不能因不再出现在 active Group 列表而丢失公告受众；删除事件必须在删除前快照手工授权、有效订阅和标签关系，标签受众仍按用户当前标签动态判断。
 - 价格公告已读状态必须按 `(announcement_id, user_id, group_id)` 记录。用户读过公开明细后又获得专属分组权限时，该逻辑公告必须重新显示为未读；不能只使用公告级 `announcement_reads`。
 - 服务启动后后台轮询；首次检查只建立基线，保存配置、停用或修改范围后必须重新建立基线，不能把期间变化误报。
 - 管理端必须显示距离下一次实际监测的实时倒计时；时间基准由后端返回的 `next_check_at` 与 `server_time` 决定，配置保存后应立即重排周期，不能仅按页面打开时间自行估算。
@@ -484,18 +490,19 @@
 
 关键文件：
 
-- 后端：`backend/internal/service/group_price_monitor.go`、`backend/internal/handler/admin/group_price_monitor_handler.go`、`backend/internal/server/routes/admin.go`、`backend/internal/service/wire.go`、`backend/cmd/server/wire.go`
-- 公告权限与持久化：`backend/internal/service/announcement_service.go`、`backend/internal/repository/announcement_repo.go`、`backend/internal/repository/announcement_read_repo.go`、`backend/ent/schema/announcement_group_price_change.go`、`backend/ent/schema/announcement_group_price_read.go`
+- 后端：`backend/internal/service/group_price_monitor.go`、`backend/internal/service/admin_group.go`、`backend/internal/handler/admin/group_price_monitor_handler.go`、`backend/internal/server/routes/admin.go`、`backend/internal/service/wire.go`、`backend/cmd/server/wire.go`
+- 公告权限与持久化：`backend/internal/service/announcement_service.go`、`backend/internal/repository/announcement_repo.go`、`backend/internal/repository/announcement_read_repo.go`、`backend/internal/repository/group_repo.go`、`backend/migrations/225_extend_group_price_monitor_events.sql`、`backend/ent/schema/announcement_group_price_change.go`、`backend/ent/schema/announcement_group_price_read.go`
 - 前端：`frontend/src/views/admin/AnnouncementsView.vue`、`frontend/src/api/admin/announcements.ts`、`frontend/src/types/index.ts`
 
 界面约束：
 
-- 价格监测配置必须通过公告列表工具栏入口打开独立弹窗，不能长期嵌在公告列表上方占用页面空间。
+- 分组变更监测配置必须通过公告列表工具栏入口打开独立弹窗，不能长期嵌在公告列表上方占用页面空间。
+- 监测内容复选项必须延续现有表单、边框、选中态及深色模式风格；前后端都必须拒绝空选择。
 - 指定分组选择必须复用账号编辑弹窗使用的公共 `frontend/src/components/common/GroupSelector.vue`，不能在公告页复制一套分组选择器；“全部分组”作为独立总开关。
 - 启用配置保存后必须立即建立当前倍率基线；服务启动读取已启用配置时也必须建立基线，不能吞掉第一次后续实际价格变化。
 - 系统自动价格监测公告的 `created_by` 必须为空，管理员手工公告由服务写入管理员 ID；管理端公告列表必须区分“系统发布”和“管理员发布”。
 - 用户公告 DTO 必须透传 `created_by`；公告铃列表、公告详情和弹窗都必须依据该字段标识“系统发布”或“管理员发布”，不能根据标题猜测来源。
-- 价格变化公告内容必须使用 Markdown 表格，展示变动数量、分组、调整类型、调整前和调整后；方向（▲ 涨价/▼ 降价）及新倍率必须突出，分组名称保持纯文本，不能包裹 `**`。
+- 价格变化公告内容必须使用 Markdown 表格，展示变动数量、分组、调整类型、调整前和调整后；方向（▲ 涨价/▼ 降价）及新倍率必须突出，分组名称保持纯文本，不能包裹 `**`。状态变化使用独立 Markdown 表格展示新增/启用/停用/删除以及变更前后状态。
 - 分组价格监测启用开关必须通过状态绑定控制轨道颜色和滑块位移，并保留平滑过渡动画；不能依赖嵌套元素上的 `peer-checked` 选择器。
 - 已启用时，公告列表工具栏和价格监测设置弹窗都要显示逐秒更新的下一次监测倒计时；到期后重新读取后端运行时计划，停用时不显示虚假的下一次时间。
 - 分组价格监测不再让管理员填写开始/结束时间，前端只提交有效天数；监测配置本身不得固化 `starts_at` / `ends_at`，每条自动公告发布时以后端当前时间作为开始时间，并按 `duration_days` 日历天计算该公告的结束时间。
@@ -505,13 +512,47 @@
 
 回归检查：
 
-- 首次检查不发公告；同一周期多个分组变化合并为一条公告。
+- 首次检查不发公告；同一周期多个分组变化、以及价格与状态混合变化均合并为一条公告。
+- 历史配置默认只选择价格变化；前后端拒绝未选择任何监测内容；只选价格或只选状态时不得发布另一类型事件。
+- 分组创建、启用、停用和删除均产生正确的状态明细；失败操作不产生明细，轮询基线不得把状态切换重复识别为价格变化。
 - 涨价和降价均显示方向、分组名称及精确倍率变化。
 - 混合公开、手工专属、标签专属和订阅分组的同周期公告，对每个用户只显示其当前有权访问的明细。
 - 先读公开明细再获得专属或标签权限时，历史公告重新未读；撤销权限后对应明细立即消失，重新获得权限时保留已有分组级已读记录。
 - 后台服务清理时停止监测协程；不停止或重启主服务。
 - 启用状态下倒计时从后端实际计划递减，刷新页面或客户端时钟有偏差时仍保持准确；修改周期后立即按新周期重排。
 - 系统价格公告和管理员手工公告在管理端及用户端均显示正确的发布来源。
+
+### 2.14 Seedance API Key 原生视频接入
+
+功能要求：
+
+- `seedance` 是独立的原生平台，仅支持 API Key 账号；默认上游地址为 `https://model.service-inference.ai`，账号凭证必须使用 Bearer API Key。
+- Seedance 账号创建和编辑时必须支持从上游同步模型；模型列表使用 NewAPI/OpenAI 兼容的 `GET {base_url}/v1/models`、Bearer API Key，并复用账号代理、TLS 指纹和自定义请求头。
+- 必须保留文档中的三类素材接口（通用资产组、SD 资产、Doubao SD 资产）以及视频生成、任务查询/列表、用量查询、最后一帧文件接口；不能把 Seedance 当作 Anthropic/OpenAI 复合渠道处理。
+- 视频模型必须使用后端维护的官方白名单，并按账号渠道校验：通用 Dreamina、`-hc` 高并发渠道和 `doubao-seedance-*` 渠道不能互相越权。
+- 资产与任务必须绑定用户、API Key、分组和实际上游账号；读取或复用 `asset://` 引用时必须重新校验归属，不能因共享账号泄露其他用户资源。
+- 视频请求必须经过现有并发、RPM、额度和提示词安全审计链路；只有任务完成后通过原子去重记录用量，不能对轮询重复计费。
+- 账号选择必须使用现有负载感知调度；仅在明确的 429/5xx 上游响应时切换候选账号，不能对不确定的 POST 传输错误自动重放。
+- 分组需配置 480p、720p、1080p 三档视频单价后才允许创建/更新 Seedance 分组；Seedance 不得加入 Anthropic/OpenAI 的复合平台匹配集合。
+
+关键文件：
+
+- 后端：`backend/internal/service/seedance.go`、`backend/internal/service/seedance_service.go`、`backend/internal/service/upstream_models.go`、`backend/internal/service/upstream_models_test.go`、`backend/internal/service/account_test_service.go`、`backend/internal/service/account_test_service_seedance_test.go`、`backend/internal/handler/seedance_handler.go`、`backend/internal/repository/seedance_repo.go`、`backend/migrations/223_seedance_media.sql`、`backend/migrations/224_seedance_quota_platform.sql`
+- 调度与分组：`backend/internal/service/scheduler_snapshot_service.go`、`backend/internal/service/admin_group.go`、`backend/internal/service/account.go`
+- 前端：`frontend/src/components/account/CreateAccountModal.vue`、`frontend/src/components/account/EditAccountModal.vue`、`frontend/src/components/account/ModelWhitelistSelector.vue`、`frontend/src/components/account/__tests__/ModelWhitelistSelector.spec.ts`、`frontend/src/components/admin/account/AccountTestModal.vue`、`frontend/src/api/admin/accounts.ts`、`frontend/src/composables/useModelWhitelist.ts`、`frontend/src/types/index.ts`
+- 视频预览 CSP：`backend/internal/config/config.go`、`backend/internal/server/middleware/security_headers.go`、`backend/internal/server/middleware/security_headers_test.go`、`deploy/config.example.yaml`
+
+回归检查：
+
+- Seedance 账号创建/编辑校验 API Key 和合法 HTTPS Base URL，管理端模型列表及账号测试消费统一模型对象。
+- Seedance 创建页和编辑页均显示“同步上游支持模型”；同步结果以账号上游 `/v1/models` 的实际返回为准，去重后加入白名单，失败时不得回显上游响应正文或密钥。
+- Seedance 分组在调度快照中拥有独立平台桶，原生 `/v1` 路由可完成素材上传、视频生成和任务轮询；其他平台请求不应匹配 Seedance 账号。
+- 同一 API Key 只能读取自己的资源和任务；同一任务多次轮询只产生一次用量记录；发布阶段可按既定流程备份并替换根目录可执行文件，但不得主动停止或重启线上服务。
+- Seedance 完成任务的使用记录必须透传 `video_count`、`video_resolution` 和 `video_duration_seconds`，并将任务创建到完成的耗时写入 `duration_ms`；前端视频行应显示视频图标、数量、分辨率和输出时长，不得把视频误显示成 `0/0` token。分组列表的 `seedance` 平台名称必须在中英文 i18n 中可见。
+- Seedance 完成响应中的 `task.usage` 是 token 用量的首选来源（包括 `total_tokens` / `completion_tokens`）；只有完成响应没有 token 字段时，才允许回退到兼容用量接口，不能因该接口不存在而丢弃上游已返回的 token 数。
+- 用户视频任务控制台必须在认证后的统一接口中同时汇总 Grok job 和 Seedance task；Seedance 刷新任务前必须重新校验用户与 API Key 归属。
+- Seedance 账号连接测试必须真实调用 `/v1/video/generate` 并轮询任务，随后通过管理端 SSE 暴露视频预览；仅调用任务列表探针不能视为视频能力测试。实际账号测试弹窗必须提供可编辑的视频提示词和完整默认示例，提交管理员修改后的提示词；任务轮询上限不得低于 5 分钟，创建任务响应体必须在进入长轮询前关闭。
+- 管理端账号测试返回的 Seedance/Grok 视频可能是签名 HTTPS URL、`data:` URL 或 `blob:` URL；运行时 CSP 必须保留 `media-src 'self' data: blob: https:`，包括对旧自定义 CSP 的兼容增强，否则浏览器会在加载视频前直接拦截预览。
 
 ## 3. 合并后必测清单
 

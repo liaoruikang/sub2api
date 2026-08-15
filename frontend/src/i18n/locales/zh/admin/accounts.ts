@@ -341,6 +341,7 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        seedance: 'Seedance',
       },
       types: {
         oauth: 'OAuth',
@@ -1475,6 +1476,9 @@ rateSyncWarning: '已开启上游倍率同步的账号不能批量手工修改�
       videoPromptDefault: 'A red ball bouncing once on a white floor, short simple motion.',
       videoTestHint:
         '调用独立 /v1/videos/generations，轮询至完成后下载成品视频并在页面上预览。',
+      seedanceVideoPromptPlaceholder: '请描述主体、动作、镜头运动、光线、画面风格，以及是否需要文字或音频。',
+      seedanceVideoPromptDefault: '夜晚霓虹街道刚下过雨，一颗透明玻璃弹珠缓缓滚过湿润路面，倒映洋红与青色灯牌。镜头贴近地面平滑跟拍，浅景深，光影真实，运动自然，电影质感，画面中不要出现文字。',
+      seedanceVideoTestHint: '提示词可在测试开始前自行修改。测试将生成 4 秒 480p 视频，并等待任务完成，最长约 5 分钟。',
       videoTestMode: '模式：视频生成测试',
       sendingVideoRequest: '正在发送视频生成测试请求...',
       imagePreview: '生成结果：',

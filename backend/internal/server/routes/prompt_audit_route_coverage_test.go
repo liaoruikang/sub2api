@@ -45,6 +45,7 @@ func TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage(t *testing.T) {
 		"/videos/generations":       {"grok_media.go"},
 		"/videos/edits":             {"grok_media.go"},
 		"/videos/extensions":        {"grok_media.go"},
+		"/video/generate":           {"seedance_handler.go"},
 		"/models/*modelAction":      {"gemini_v1beta_handler.go"},
 		"/tts":                      {"grok_audio.go"},
 		"/web_search":               {"gateway_web_search.go"},
@@ -55,6 +56,13 @@ func TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage(t *testing.T) {
 		"/images/batches/:id/cancel": "control-plane cancellation with no user prompt",
 		"/stt":                       "speech transcription is not a text-generation prompt",
 		"/custom-voices":             "voice profile management has no model prompt",
+		"/asset-groups":              "Seedance asset group management has no model prompt",
+		"/asset-groups/update":       "Seedance asset group metadata update has no model prompt",
+		"/assets":                    "Seedance asset upload has no model prompt",
+		"/assets/get":                "Seedance asset status lookup has no model prompt",
+		"/assets/update":             "Seedance asset metadata update has no model prompt",
+		"/sd/assets":                 "Seedance SD asset upload has no model prompt",
+		"/doubao-sd-1/assets":        "Seedance Doubao asset upload has no model prompt",
 	}
 
 	unclassified := make([]string, 0)

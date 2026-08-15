@@ -88,7 +88,7 @@
           :placeholder="promptInputPlaceholder"
           :hint="promptInputHint"
           :disabled="status === 'connecting'"
-          rows="3"
+          :rows="supportsSeedanceVideoTest ? 5 : 3"
         />
       </div>
       <p
@@ -424,6 +424,7 @@ const imageFileInput = ref<HTMLInputElement | null>(null)
 const audioFileInput = ref<HTMLInputElement | null>(null)
 const isOpenAIAccount = computed(() => props.account?.platform === 'openai')
 const isGrokAccount = computed(() => props.account?.platform === 'grok')
+const isSeedanceAccount = computed(() => props.account?.platform === 'seedance')
 const openAITestModeOptions = computed(() => [
   { value: 'default', label: t('admin.accounts.openai.testModeDefault') },
   { value: 'compact', label: t('admin.accounts.openai.testModeCompact') }
@@ -471,6 +472,7 @@ const supportsGrokImageTest = computed(
 const supportsGrokVideoTest = computed(
   () => isGrokAccount.value && grokTestMode.value === 'video'
 )
+const supportsSeedanceVideoTest = computed(() => isSeedanceAccount.value)
 
 const supportsImageTest = computed(
   () => supportsGeminiImageTest.value || supportsOpenAIImageTest.value || supportsGrokImageTest.value
@@ -498,7 +500,7 @@ const modelOptionsForMode = computed(() => {
 
 const supportsPromptInput = computed(() => {
   if (!isGrokAccount.value) {
-    return supportsImageTest.value
+    return supportsImageTest.value || supportsSeedanceVideoTest.value
   }
   return (
     grokTestMode.value === 'image' ||
@@ -597,7 +599,7 @@ const clearMediaUploads = () => {
 }
 
 const promptInputLabel = computed(() => {
-  if (supportsGrokVideoTest.value || grokTestMode.value === 'video') {
+  if (supportsGrokVideoTest.value || supportsSeedanceVideoTest.value) {
     return t('admin.accounts.videoPromptLabel')
   }
   if (supportsImageTest.value || grokTestMode.value === 'image') {
@@ -613,6 +615,9 @@ const promptInputLabel = computed(() => {
 })
 
 const promptInputPlaceholder = computed(() => {
+  if (supportsSeedanceVideoTest.value) {
+    return t('admin.accounts.seedanceVideoPromptPlaceholder')
+  }
   if (grokTestMode.value === 'video') {
     return t('admin.accounts.videoPromptPlaceholder')
   }
@@ -629,6 +634,9 @@ const promptInputPlaceholder = computed(() => {
 })
 
 const promptInputHint = computed(() => {
+  if (supportsSeedanceVideoTest.value) {
+    return t('admin.accounts.seedanceVideoTestHint')
+  }
   if (grokTestMode.value === 'video') {
     return t('admin.accounts.videoTestHint')
   }
@@ -669,6 +677,7 @@ const testModeSummary = computed(() => {
         return t('admin.accounts.grok.textTestMode')
     }
   }
+  if (supportsSeedanceVideoTest.value) return t('admin.accounts.videoTestMode')
   if (supportsImageTest.value) return t('admin.accounts.imageTestMode')
   return t('admin.accounts.testPrompt')
 })
@@ -704,7 +713,9 @@ const sortTestModels = (models: ClaudeModel[]) => {
 const applyDefaultPromptForMode = () => {
   if (!supportsPromptInput.value) return
   if (testPrompt.value.trim()) return
-  if (grokTestMode.value === 'video') {
+  if (supportsSeedanceVideoTest.value) {
+    testPrompt.value = t('admin.accounts.seedanceVideoPromptDefault')
+  } else if (grokTestMode.value === 'video') {
     testPrompt.value = t('admin.accounts.videoPromptDefault')
   } else if (grokTestMode.value === 'image' || supportsImageTest.value) {
     testPrompt.value = t('admin.accounts.imagePromptDefault')
@@ -744,6 +755,8 @@ watch(
       await loadAvailableModels()
       if (isGrokAccount.value) {
         pickDefaultModelForMode()
+        applyDefaultPromptForMode()
+      } else if (isSeedanceAccount.value) {
         applyDefaultPromptForMode()
       }
     } else {
@@ -856,6 +869,9 @@ const startTest = async () => {
     }
     if (isOpenAIAccount.value) {
       requestBody.mode = testMode.value
+    }
+    if (isSeedanceAccount.value) {
+      requestBody.mode = 'video'
     }
     if (isGrokAccount.value) {
       // Always send explicit Grok mode. search/tts/stt/realtime are standalone
@@ -970,9 +986,11 @@ const handleEvent = (event: {
                     : grokTestMode.value === 'realtime'
                       ? t('admin.accounts.grok.sendingRealtimeRequest')
                       : t('admin.accounts.sendingTestMessage')
-          : supportsImageTest.value
-            ? t('admin.accounts.sendingImageRequest')
-            : t('admin.accounts.sendingTestMessage'),
+          : supportsSeedanceVideoTest.value
+            ? t('admin.accounts.sendingVideoRequest')
+            : supportsImageTest.value
+              ? t('admin.accounts.sendingImageRequest')
+              : t('admin.accounts.sendingTestMessage'),
         'text-gray-400'
       )
       addLine('', 'text-gray-300')

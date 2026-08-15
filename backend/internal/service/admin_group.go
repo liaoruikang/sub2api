@@ -327,6 +327,8 @@ func defaultModelsListCandidateIDs(platform string) []string {
 		return ids
 	case PlatformGrok:
 		return xai.DefaultModelIDs()
+	case PlatformSeedance:
+		return append([]string(nil), SeedanceModels...)
 	case PlatformComposite:
 		return compositeDefaultModelsListCandidateIDs()
 	default:
@@ -339,9 +341,9 @@ func defaultModelsListCandidateIDs(platform string) []string {
 }
 
 func defaultAllowImageGenerationForPlatform(platform string) bool {
-	// Grok image and video generation routes share the legacy image-generation gate.
-	// Older clients send the false zero value, so Grok groups must default enabled.
-	return platform == PlatformGrok
+	// Grok and Seedance media routes share the legacy image-generation gate.
+	// Older clients send the false zero value, so media groups must default enabled.
+	return platform == PlatformGrok || platform == PlatformSeedance
 }
 
 func compositeDefaultModelsListCandidateIDs() []string {
@@ -372,6 +374,7 @@ func groupSupportsOAuthOnlyFilter(platform string) bool {
 		platform == PlatformAnthropic ||
 		platform == PlatformGemini ||
 		platform == PlatformGrok ||
+		platform == PlatformSeedance ||
 		platform == PlatformComposite
 }
 
@@ -513,6 +516,9 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	}
 
 	allowImageGeneration := input.AllowImageGeneration || defaultAllowImageGenerationForPlatform(platform)
+	if platform == PlatformSeedance && (videoPrice480P == nil || videoPrice720P == nil || videoPrice1080P == nil) {
+		return nil, errors.New("Seedance 分组必须配置 480p、720p、1080p 视频每秒价格")
+	}
 	allowBatchImageGeneration := input.AllowBatchImageGeneration && allowImageGeneration && platform == PlatformGemini
 
 	// 如果指定了复制账号的源分组，先获取账号 ID 列表
@@ -666,6 +672,10 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		}
 		group.AccountCount = int64(len(accountIDsToCopy))
 	}
+	if s.groupPriceChangeObserver != nil {
+		change := s.buildGroupMonitorStatusChange(ctx, group, GroupMonitorEventTypeCreated, "", group.Status)
+		s.groupPriceChangeObserver.RecordGroupStatusChange(change)
+	}
 
 	return group, nil
 }
@@ -788,6 +798,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	previousPlatform := group.Platform
 	previousRateMultiplier := group.RateMultiplier
+	previousStatus := group.Status
 
 	if input.Name != "" {
 		group.Name = input.Name
@@ -967,6 +978,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	if input.VideoPrice1080P != nil {
 		group.VideoPrice1080P = normalizePrice(input.VideoPrice1080P)
+	}
+	if group.Platform == PlatformSeedance && (group.VideoPrice480P == nil || group.VideoPrice720P == nil || group.VideoPrice1080P == nil) {
+		return nil, errors.New("Seedance 分组必须配置 480p、720p、1080p 视频每秒价格")
 	}
 	// nil = leave unchanged; empty map = clear per-model prices.
 	if input.VideoModelPrices != nil {
@@ -1183,6 +1197,10 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 			}
 		}
 	}
+	if s.groupPriceChangeObserver != nil && previousStatus != group.Status {
+		change := s.buildGroupMonitorStatusChange(ctx, group, GroupMonitorEventTypeStatus, previousStatus, group.Status)
+		s.groupPriceChangeObserver.RecordGroupStatusChange(change)
+	}
 
 	return group, nil
 }
@@ -1210,6 +1228,15 @@ func normalizeGroupModelPricing(platform string, pricing []ChannelModelPricing) 
 }
 
 func (s *adminServiceImpl) DeleteGroup(ctx context.Context, id int64) error {
+	var statusChange *GroupMonitorChange
+	if s.groupPriceChangeObserver != nil {
+		if group, err := s.groupRepo.GetByID(ctx, id); err == nil {
+			change := s.buildGroupMonitorStatusChange(ctx, group, GroupMonitorEventTypeDeleted, group.Status, groupMonitorDeletedStatus)
+			statusChange = &change
+		} else {
+			logger.LegacyPrintf("service.admin", "capture group delete announcement snapshot failed: group_id=%d err=%v", id, err)
+		}
+	}
 	var groupKeys []string
 	if s.authCacheInvalidator != nil {
 		keys, err := s.apiKeyRepo.ListKeysByGroupID(ctx, id)
@@ -1242,8 +1269,40 @@ func (s *adminServiceImpl) DeleteGroup(ctx context.Context, id int64) error {
 			s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, key)
 		}
 	}
+	if statusChange != nil {
+		s.groupPriceChangeObserver.RecordGroupStatusChange(*statusChange)
+	}
 
 	return nil
+}
+
+func (s *adminServiceImpl) buildGroupMonitorStatusChange(ctx context.Context, group *Group, changeType, oldStatus, newStatus string) GroupMonitorChange {
+	change := GroupMonitorChange{
+		ChangeType: changeType, GroupID: group.ID, GroupName: group.Name,
+		OldRate: group.RateMultiplier, NewRate: group.RateMultiplier,
+		OldStatus: oldStatus, NewStatus: newStatus,
+		IsExclusive: group.IsExclusive, SubscriptionType: group.SubscriptionType,
+	}
+	if s.userTagRepo != nil {
+		if tags, err := s.userTagRepo.GetByGroupID(ctx, group.ID); err == nil {
+			change.TagIDs = make([]int64, 0, len(tags))
+			for _, tag := range tags {
+				change.TagIDs = append(change.TagIDs, tag.ID)
+			}
+		} else {
+			logger.LegacyPrintf("service.admin", "capture group announcement tags failed: group_id=%d err=%v", group.ID, err)
+		}
+	}
+	if changeType == GroupMonitorEventTypeDeleted {
+		if snapshotter, ok := s.groupRepo.(GroupMonitorAudienceSnapshotter); ok {
+			if userIDs, err := snapshotter.ListGroupAnnouncementAudienceUserIDs(ctx, group.ID); err == nil {
+				change.AccessUserIDs = userIDs
+			} else {
+				logger.LegacyPrintf("service.admin", "capture group announcement audience failed: group_id=%d err=%v", group.ID, err)
+			}
+		}
+	}
+	return change
 }
 
 func (s *adminServiceImpl) GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]APIKey, int64, error) {
@@ -1384,6 +1443,9 @@ func (s *adminServiceImpl) adminUpdateAPIKeyGroups(ctx context.Context, keyID in
 		}
 		if group.Status != StatusActive {
 			return nil, infraerrors.BadRequest("GROUP_NOT_ACTIVE", "target group is not active")
+		}
+		if err := s.enrichGroupWithTags(ctx, group); err != nil {
+			return nil, err
 		}
 		if group.IsSubscriptionType() {
 			if s.userSubRepo == nil {

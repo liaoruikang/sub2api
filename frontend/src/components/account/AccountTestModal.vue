@@ -77,6 +77,17 @@
         />
       </div>
 
+      <div v-if="supportsVideoTest" class="space-y-1.5">
+        <TextArea
+          v-model="testPrompt"
+          :label="t('admin.accounts.videoPromptLabel')"
+          :placeholder="t('admin.accounts.videoPromptPlaceholder')"
+          :hint="t('admin.accounts.videoTestHint')"
+          :disabled="status === 'connecting'"
+          rows="3"
+        />
+      </div>
+
       <!-- Terminal Output -->
       <div class="group relative">
         <div
@@ -153,6 +164,18 @@
         </div>
       </div>
 
+      <div v-if="generatedVideos.length > 0" class="space-y-2">
+        <div class="text-xs font-medium text-gray-600 dark:text-gray-300">
+          {{ t('admin.accounts.videoPreview') }}
+        </div>
+        <div v-for="(video, index) in generatedVideos" :key="`${video.url}-${index}`" class="overflow-hidden rounded-xl border border-gray-200 bg-black dark:border-dark-500">
+          <video :src="video.url" controls preload="metadata" class="max-h-[360px] w-full" />
+          <div class="border-t border-gray-800 px-3 py-1.5 text-xs text-gray-400">
+            {{ video.mimeType || 'video/*' }}
+          </div>
+        </div>
+      </div>
+
       <!-- Image Lightbox -->
       <Teleport to="body">
         <Transition name="fade">
@@ -189,6 +212,8 @@
           {{
             supportsImageTest
               ? t('admin.accounts.imageTestMode')
+              : supportsVideoTest
+                ? t('admin.accounts.videoTestMode')
               : t('admin.accounts.testPrompt')
           }}
         </span>
@@ -286,6 +311,7 @@ const testPrompt = ref('')
 const loadingModels = ref(false)
 let abortController: AbortController | null = null
 const generatedImages = ref<PreviewImage[]>([])
+const generatedVideos = ref<PreviewImage[]>([])
 const testMode = ref<'default' | 'compact'>('default')
 const isOpenAIAccount = computed(() => props.account?.platform === 'openai')
 const openAITestModeOptions = computed(() => [
@@ -308,6 +334,9 @@ const supportsOpenAIImageTest = computed(() => {
 })
 
 const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value)
+const supportsVideoTest = computed(() => props.account?.platform === 'seedance' || (
+  props.account?.platform === 'grok' && selectedModelId.value.toLowerCase().includes('video')
+))
 
 const sortTestModels = (models: ClaudeModel[]) => {
   const priorityMap = new Map(prioritizedGeminiModels.map((id, index) => [id, index]))
@@ -338,6 +367,8 @@ watch(
 watch(selectedModelId, () => {
   if (supportsImageTest.value && !testPrompt.value.trim()) {
     testPrompt.value = t('admin.accounts.imagePromptDefault')
+  } else if (supportsVideoTest.value && !testPrompt.value.trim()) {
+    testPrompt.value = t('admin.accounts.videoPromptDefault')
   }
 })
 
@@ -377,6 +408,7 @@ const resetState = () => {
   streamingContent.value = ''
   errorMessage.value = ''
   generatedImages.value = []
+  generatedVideos.value = []
   previewImageUrl.value = ''
 }
 
@@ -430,8 +462,8 @@ const startTest = async () => {
       },
       body: JSON.stringify({
         model_id: selectedModelId.value,
-        prompt: supportsImageTest.value ? testPrompt.value.trim() : '',
-        mode: isOpenAIAccount.value ? testMode.value : 'default'
+        prompt: (supportsImageTest.value || supportsVideoTest.value) ? testPrompt.value.trim() : '',
+        mode: supportsVideoTest.value ? 'video' : (isOpenAIAccount.value ? testMode.value : 'default')
       }),
       signal: abortController.signal
     })
@@ -489,6 +521,7 @@ const handleEvent = (event: {
   success?: boolean
   error?: string
   image_url?: string
+  video_url?: string
   mime_type?: string
 }) => {
   switch (event.type) {
@@ -498,9 +531,11 @@ const handleEvent = (event: {
         addLine(t('admin.accounts.usingModel', { model: event.model }), 'text-cyan-400')
       }
       addLine(
-        supportsImageTest.value
-            ? t('admin.accounts.sendingImageRequest')
-            : t('admin.accounts.sendingTestMessage'),
+            supportsImageTest.value
+              ? t('admin.accounts.sendingImageRequest')
+              : supportsVideoTest.value
+                ? t('admin.accounts.sendingVideoRequest')
+              : t('admin.accounts.sendingTestMessage'),
         'text-gray-400'
       )
       addLine('', 'text-gray-300')
@@ -527,6 +562,13 @@ const handleEvent = (event: {
           mimeType: event.mime_type
         })
         addLine(t('admin.accounts.imageReceived', { count: generatedImages.value.length }), 'text-purple-300')
+      }
+      break
+
+    case 'video':
+      if (event.video_url) {
+        generatedVideos.value.push({ url: event.video_url, mimeType: event.mime_type })
+        addLine(t('admin.accounts.videoReceived', { count: generatedVideos.value.length }), 'text-purple-300')
       }
       break
 

@@ -240,6 +240,8 @@ func (s *AnnouncementService) ListForUser(ctx context.Context, userID int64, unr
 	visible := make([]Announcement, 0, 200)
 	visiblePriceGroups := make(map[int64][]int64)
 	var groupAccess map[int64]struct{}
+	var userTagIDs map[int64]struct{}
+	userTagsLoaded := false
 	beforeID := int64(0)
 	for len(visible) < 200 {
 		anns, err := s.announcementRepo.ListActivePage(ctx, now, beforeID, 200)
@@ -274,10 +276,19 @@ func (s *AnnouncementService) ListForUser(ctx context.Context, userID int64, unr
 				continue
 			}
 			if a.Kind == AnnouncementKindGroupPriceChange {
-				allowedChanges := filterVisibleGroupPriceChanges(priceChanges[a.ID], groupAccess)
+				changes := priceChanges[a.ID]
+				if containsGroupStatusMonitorChanges(changes) && !userTagsLoaded {
+					userTagIDs, err = s.resolveUserTagIDSet(ctx, user.ID)
+					if err != nil {
+						return nil, err
+					}
+					userTagsLoaded = true
+				}
+				allowedChanges := filterVisibleGroupMonitorChanges(changes, groupAccess, user, activeGroupIDs, userTagIDs)
 				if len(allowedChanges) == 0 {
 					continue
 				}
+				a.Title = groupMonitorAnnouncementTitle(allowedChanges)
 				a.Content = renderAnnouncementGroupPriceChanges(allowedChanges)
 				visiblePriceGroups[a.ID] = uniqueGroupIDs(allowedChanges)
 			}
@@ -386,7 +397,15 @@ func (s *AnnouncementService) MarkRead(ctx context.Context, userID, announcement
 		if err != nil {
 			return fmt.Errorf("list announcement group price changes: %w", err)
 		}
-		visibleChanges := filterVisibleGroupPriceChanges(changesByAnnouncement[a.ID], groupAccess)
+		changes := changesByAnnouncement[a.ID]
+		var userTagIDs map[int64]struct{}
+		if containsGroupStatusMonitorChanges(changes) {
+			userTagIDs, err = s.resolveUserTagIDSet(ctx, user.ID)
+			if err != nil {
+				return err
+			}
+		}
+		visibleChanges := filterVisibleGroupMonitorChanges(changes, groupAccess, user, activeGroupIDs, userTagIDs)
 		if len(visibleChanges) == 0 {
 			return ErrAnnouncementNotFound
 		}
@@ -446,14 +465,85 @@ func (s *AnnouncementService) resolveCurrentGroupAccess(ctx context.Context, use
 	return allowed, nil
 }
 
-func filterVisibleGroupPriceChanges(changes []AnnouncementGroupPriceChange, allowed map[int64]struct{}) []AnnouncementGroupPriceChange {
+func (s *AnnouncementService) resolveUserTagIDSet(ctx context.Context, userID int64) (map[int64]struct{}, error) {
+	if s.userTagRepo == nil {
+		return nil, fmt.Errorf("announcement user tag repository is not configured")
+	}
+	tags, err := s.userTagRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get announcement user tags: %w", err)
+	}
+	result := make(map[int64]struct{}, len(tags))
+	for _, tag := range tags {
+		result[tag.ID] = struct{}{}
+	}
+	return result, nil
+}
+
+func filterVisibleGroupMonitorChanges(
+	changes []AnnouncementGroupPriceChange,
+	allowed map[int64]struct{},
+	user *User,
+	activeSubscriptionGroupIDs map[int64]struct{},
+	userTagIDs map[int64]struct{},
+) []AnnouncementGroupPriceChange {
 	visible := make([]AnnouncementGroupPriceChange, 0, len(changes))
 	for _, change := range changes {
 		if _, ok := allowed[change.GroupID]; ok {
 			visible = append(visible, change)
+			continue
+		}
+		if change.ChangeType == "" || change.ChangeType == GroupMonitorChangeTypePrice {
+			continue
+		}
+		if !change.IsExclusive && change.SubscriptionType != SubscriptionTypeSubscription {
+			visible = append(visible, change)
+			continue
+		}
+		if change.ChangeType == GroupMonitorEventTypeDeleted && user != nil && containsGroupMonitorInt64(change.AccessUserIDs, user.ID) {
+			visible = append(visible, change)
+			continue
+		}
+		if _, ok := activeSubscriptionGroupIDs[change.GroupID]; ok {
+			visible = append(visible, change)
+			continue
+		}
+		if user != nil && containsGroupMonitorInt64(user.AllowedGroups, change.GroupID) {
+			visible = append(visible, change)
+			continue
+		}
+		if intersectsInt64Set(change.TagIDs, userTagIDs) {
+			visible = append(visible, change)
 		}
 	}
 	return visible
+}
+
+func containsGroupStatusMonitorChanges(changes []AnnouncementGroupPriceChange) bool {
+	for _, change := range changes {
+		if change.ChangeType != "" && change.ChangeType != GroupMonitorChangeTypePrice {
+			return true
+		}
+	}
+	return false
+}
+
+func containsGroupMonitorInt64(values []int64, wanted int64) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func intersectsInt64Set(values []int64, set map[int64]struct{}) bool {
+	for _, value := range values {
+		if _, ok := set[value]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func uniqueGroupIDs(changes []AnnouncementGroupPriceChange) []int64 {
@@ -543,7 +633,14 @@ func (s *AnnouncementService) ListUserReadStatus(
 			if accessErr != nil {
 				return nil, nil, accessErr
 			}
-			visibleChanges := filterVisibleGroupPriceChanges(priceChanges, groupAccess)
+			var userTagIDs map[int64]struct{}
+			if containsGroupStatusMonitorChanges(priceChanges) {
+				userTagIDs, accessErr = s.resolveUserTagIDSet(ctx, u.ID)
+				if accessErr != nil {
+					return nil, nil, accessErr
+				}
+			}
+			visibleChanges := filterVisibleGroupMonitorChanges(priceChanges, groupAccess, &u, activeGroupIDs, userTagIDs)
 			eligible = len(visibleChanges) > 0
 			if eligible {
 				groupReads, readErr := s.readRepo.GetGroupPriceReadMapByUser(ctx, u.ID, []int64{announcementID})

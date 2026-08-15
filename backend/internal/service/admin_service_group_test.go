@@ -46,6 +46,7 @@ func TestProvideAdminServiceInjectsUserTagRepository(t *testing.T) {
 		nil,
 		nil,
 		tagRepo,
+		nil,
 	)
 
 	impl, ok := adminService.(*adminServiceImpl)
@@ -66,6 +67,7 @@ type groupRepoStubForAdmin struct {
 	deleteAccountGroupsByGroupIDFn func(groupID int64) (int64, error)
 	bindAccountsToGroupFn          func(groupID int64, accountIDs []int64) error
 	getAccountIDsByGroupIDsFn      func(groupIDs []int64) ([]int64, error)
+	deleteCascadeFn                func(groupID int64) ([]int64, error)
 
 	listWithFiltersCalls       int
 	listWithFiltersParams      pagination.PaginationParams
@@ -121,7 +123,10 @@ func (s *groupRepoStubForAdmin) Delete(_ context.Context, _ int64) error {
 	panic("unexpected Delete call")
 }
 
-func (s *groupRepoStubForAdmin) DeleteCascade(_ context.Context, _ int64) ([]int64, error) {
+func (s *groupRepoStubForAdmin) DeleteCascade(_ context.Context, groupID int64) ([]int64, error) {
+	if s.deleteCascadeFn != nil {
+		return s.deleteCascadeFn(groupID)
+	}
 	panic("unexpected DeleteCascade call")
 }
 
@@ -204,6 +209,76 @@ type compositeRouteRepoStubForAdmin struct {
 	createErr error
 	updateErr error
 	deleteErr error
+}
+
+type groupMonitorObserverStub struct {
+	priceChanges  []GroupMonitorChange
+	statusChanges []GroupMonitorChange
+}
+
+func (s *groupMonitorObserverStub) RecordGroupPriceChange(groupID int64, groupName string, oldPrice, newPrice float64) {
+	s.priceChanges = append(s.priceChanges, GroupMonitorChange{
+		ChangeType: GroupMonitorChangeTypePrice, GroupID: groupID, GroupName: groupName,
+		OldRate: oldPrice, NewRate: newPrice,
+	})
+}
+
+func (s *groupMonitorObserverStub) RecordGroupStatusChange(change GroupMonitorChange) {
+	s.statusChanges = append(s.statusChanges, change)
+}
+
+func TestAdminServiceGroupLifecycleRecordsMonitorStatusChanges(t *testing.T) {
+	t.Run("create", func(t *testing.T) {
+		repo := &groupRepoStubForAdmin{createID: 11}
+		observer := &groupMonitorObserverStub{}
+		svc := &adminServiceImpl{groupRepo: repo, groupPriceChangeObserver: observer}
+
+		created, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+			Name: "New group", Platform: PlatformOpenAI, RateMultiplier: 1,
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(11), created.ID)
+		require.Len(t, observer.statusChanges, 1)
+		require.Equal(t, GroupMonitorEventTypeCreated, observer.statusChanges[0].ChangeType)
+		require.Equal(t, StatusActive, observer.statusChanges[0].NewStatus)
+	})
+
+	t.Run("disable", func(t *testing.T) {
+		repo := &groupRepoStubForAdmin{getByID: &Group{
+			ID: 12, Name: "Existing", Platform: PlatformOpenAI, RateMultiplier: 1,
+			Status: StatusActive, SubscriptionType: SubscriptionTypeStandard,
+		}}
+		observer := &groupMonitorObserverStub{}
+		svc := &adminServiceImpl{groupRepo: repo, groupPriceChangeObserver: observer}
+
+		updated, err := svc.UpdateGroup(context.Background(), 12, &UpdateGroupInput{Status: "inactive"})
+		require.NoError(t, err)
+		require.Equal(t, "inactive", updated.Status)
+		require.Len(t, observer.statusChanges, 1)
+		require.Equal(t, GroupMonitorEventTypeStatus, observer.statusChanges[0].ChangeType)
+		require.Equal(t, StatusActive, observer.statusChanges[0].OldStatus)
+		require.Equal(t, "inactive", observer.statusChanges[0].NewStatus)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		group := &Group{
+			ID: 13, Name: "Removed", Platform: PlatformOpenAI, RateMultiplier: 1,
+			Status: "inactive", SubscriptionType: SubscriptionTypeStandard,
+		}
+		repo := &groupRepoStubForAdmin{getByID: group}
+		repo.deleteCascadeFn = func(groupID int64) ([]int64, error) {
+			require.Equal(t, int64(13), groupID)
+			return nil, nil
+		}
+		observer := &groupMonitorObserverStub{}
+		svc := &adminServiceImpl{groupRepo: repo, groupPriceChangeObserver: observer}
+
+		require.NoError(t, svc.DeleteGroup(context.Background(), 13))
+		require.Len(t, observer.statusChanges, 1)
+		require.Equal(t, GroupMonitorEventTypeDeleted, observer.statusChanges[0].ChangeType)
+		require.Equal(t, "inactive", observer.statusChanges[0].OldStatus)
+		require.Equal(t, groupMonitorDeletedStatus, observer.statusChanges[0].NewStatus)
+	})
 }
 
 func (s *compositeRouteRepoStubForAdmin) ListByGroup(_ context.Context, groupID int64, includeDisabled bool) ([]CompositeModelRoute, error) {
@@ -394,6 +469,20 @@ func TestAdminService_CreateGroup_DefaultsGrokMediaGenerationEnabled(t *testing.
 	require.NotNil(t, group)
 	require.NotNil(t, repo.created)
 	require.True(t, repo.created.AllowImageGeneration)
+	require.True(t, group.AllowImageGeneration)
+}
+
+func TestAdminService_CreateGroup_DefaultsSeedanceMediaGenerationEnabled(t *testing.T) {
+	repo := &groupRepoStubForAdmin{}
+	svc := &adminServiceImpl{groupRepo: repo}
+	price := 0.1
+
+	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+		Name: "seedance-media", Platform: PlatformSeedance, RateMultiplier: 1,
+		VideoPrice480P: &price, VideoPrice720P: &price, VideoPrice1080P: &price,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, group)
 	require.True(t, group.AllowImageGeneration)
 }
 

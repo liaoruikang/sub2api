@@ -33,10 +33,10 @@
             <button
               @click="openPriceMonitorDialog"
               class="btn btn-secondary"
-              title="分组价格监测设置"
+              title="分组变更监测设置"
             >
               <Icon name="cog" size="md" class="mr-1" />
-              分组价格监测
+              分组变更监测
               <span
                 :class="[
                   'ml-1 rounded-full px-1.5 py-0.5 text-xs',
@@ -286,15 +286,15 @@
 
   <BaseDialog
     :show="showPriceMonitorDialog"
-    title="分组价格监测设置"
+    title="分组变更监测设置"
     width="wide"
     @close="closePriceMonitorDialog"
   >
     <div class="space-y-5">
       <div class="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/50">
         <div>
-          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">自动检测分组倍率变化</h3>
-          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">同一监测周期内的多个变化会合并为一条公告。</p>
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">自动监测分组变更</h3>
+          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">同一周期内的价格与状态变化会合并为一条公告。</p>
           <p
             v-if="priceMonitor.enabled"
             class="mt-2 inline-flex items-center gap-1.5 text-sm font-medium tabular-nums text-primary-600 dark:text-primary-400"
@@ -320,6 +320,36 @@
           </span>
           {{ priceMonitor.enabled ? '已启用' : '已停用' }}
         </label>
+      </div>
+
+      <div>
+        <div class="mb-2">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">监测内容</h3>
+          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">最少选择一项；状态变化包含新增、启用、停用和删除分组。</p>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label
+            v-for="option in priceMonitorChangeTypeOptions"
+            :key="option.value"
+            :class="[
+              'flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors',
+              priceMonitor.change_types.includes(option.value)
+                ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20'
+                : 'border-gray-200 hover:border-gray-300 dark:border-dark-700 dark:hover:border-dark-600'
+            ]"
+          >
+            <input
+              v-model="priceMonitor.change_types"
+              type="checkbox"
+              :value="option.value"
+              class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-800"
+            />
+            <span class="min-w-0">
+              <span class="block text-sm font-medium text-gray-800 dark:text-gray-100">{{ option.label }}</span>
+              <span class="mt-0.5 block text-xs text-gray-500 dark:text-dark-400">{{ option.description }}</span>
+            </span>
+          </label>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
@@ -580,6 +610,7 @@ let lastPriceMonitorScheduleSyncAt = 0
 const priceMonitor = reactive<{
   enabled: boolean
   group_ids: number[]
+  change_types: Array<'price' | 'status'>
   interval_seconds: number
   status: 'draft' | 'active' | 'archived'
   notify_mode: 'silent' | 'popup'
@@ -588,12 +619,22 @@ const priceMonitor = reactive<{
 }>({
   enabled: false,
   group_ids: [],
+  change_types: ['price'],
   interval_seconds: 60,
   status: 'active',
   notify_mode: 'popup',
   duration_days: 3,
   targeting: { any_of: [] }
 })
+
+const priceMonitorChangeTypeOptions: Array<{
+  value: 'price' | 'status'
+  label: string
+  description: string
+}> = [
+  { value: 'price', label: '价格变化', description: '监测分组倍率的涨价与降价' },
+  { value: 'status', label: '状态变化', description: '监测分组新增、启用、停用与删除' }
+]
 
 const priceMonitorRemainingSeconds = computed(() => {
   if (!priceMonitor.enabled || priceMonitorNextCheckDeadline.value === null) return null
@@ -640,6 +681,10 @@ async function loadSubscriptionGroups() {
 function fillPriceMonitor(config: GroupPriceMonitorConfig) {
   priceMonitor.enabled = config.enabled
   priceMonitor.group_ids = [...(config.group_ids || [])]
+  const changeTypes = (config.change_types || []).filter(
+    (changeType): changeType is 'price' | 'status' => changeType === 'price' || changeType === 'status'
+  )
+  priceMonitor.change_types = changeTypes.length > 0 ? [...changeTypes] : ['price']
   monitorAllGroups.value = priceMonitor.group_ids.length === 0
   priceMonitor.interval_seconds = config.interval_seconds || 60
   priceMonitor.status = config.status || 'active'
@@ -689,11 +734,13 @@ function tickPriceMonitorCountdown() {
 async function savePriceMonitor() {
   if (priceMonitor.interval_seconds < 5) { appStore.showError('监测周期不能小于 5 秒'); return }
   if (priceMonitor.enabled && priceMonitor.duration_days < 1) { appStore.showError('公告有效天数不能小于 1 天'); return }
+  if (priceMonitor.change_types.length === 0) { appStore.showError('监测内容最少选择一项'); return }
   priceMonitorSaving.value = true
   try {
     const saved = await adminAPI.announcements.updatePriceMonitor({
       enabled: priceMonitor.enabled,
       group_ids: monitorAllGroups.value ? [] : [...priceMonitor.group_ids],
+      change_types: [...priceMonitor.change_types],
       interval_seconds: priceMonitor.interval_seconds,
       status: priceMonitor.status,
       notify_mode: priceMonitor.notify_mode,

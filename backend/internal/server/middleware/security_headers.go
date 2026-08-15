@@ -37,6 +37,10 @@ const (
 	TencentCaptchaRceDomain = "https://rce.tencentrio.com"
 	// TencentCaptchaWorkerSource 是天御国际站创建验证码 Web Worker 时使用的来源。
 	TencentCaptchaWorkerSource = "blob:"
+	// Account test previews can be inline media, browser blobs, or signed HTTPS URLs.
+	AccountTestMediaDataSource  = "data:"
+	AccountTestMediaBlobSource  = "blob:"
+	AccountTestMediaHTTPSSource = "https:"
 	// StripeDomain is the domain for Stripe.js SDK
 	StripeDomain = "https://*.stripe.com"
 	// AirwallexStaticDomain 是 Airwallex 生产环境 SDK 脚本域名。
@@ -68,6 +72,9 @@ var requiredCSPDirectiveValues = []struct {
 	{"frame-src", TencentCaptchaGlobalDomain},
 	{"frame-src", TencentCaptchaPrehandleDomain},
 	{"worker-src", TencentCaptchaWorkerSource},
+	{"media-src", AccountTestMediaDataSource},
+	{"media-src", AccountTestMediaBlobSource},
+	{"media-src", AccountTestMediaHTTPSSource},
 	{"script-src", StripeDomain},
 	{"frame-src", StripeDomain},
 	{"script-src", AirwallexStaticDomain},

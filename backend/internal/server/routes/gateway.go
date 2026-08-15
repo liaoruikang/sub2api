@@ -271,6 +271,25 @@ func RegisterGatewayRoutes(
 		gateway.GET("/videos/:request_id", videoStatusHandler)
 		gateway.GET("/videos/:request_id/content", videoContentHandler)
 
+		// Seedance native API. Resource and task ownership is enforced by the
+		// handler so shared upstream accounts cannot expose cross-user objects.
+		gateway.POST("/asset-groups", h.Seedance.CreateAssetGroup)
+		gateway.GET("/asset-groups/:group_id", h.Seedance.GetAssetGroup)
+		gateway.POST("/asset-groups/update", h.Seedance.UpdateAssetGroup)
+		gateway.POST("/assets", h.Seedance.CreateAsset)
+		gateway.POST("/assets/get", h.Seedance.GetAsset)
+		gateway.POST("/assets/update", h.Seedance.UpdateAsset)
+		gateway.POST("/sd/assets", h.Seedance.CreateSDAsset)
+		gateway.GET("/sd/assets/:asset_id", h.Seedance.GetSDAsset)
+		gateway.POST("/doubao-sd-1/assets", h.Seedance.CreateDoubaoAsset)
+		gateway.GET("/doubao-sd-1/assets/:asset_id", h.Seedance.GetDoubaoAsset)
+		gateway.POST("/video/generate", h.Seedance.GenerateVideo)
+		gateway.GET("/video/tasks", h.Seedance.ListVideoTasks)
+		gateway.GET("/video/tasks/:task_id", h.Seedance.GetVideoTask)
+		gateway.GET("/video/usages/:task_id", h.Seedance.GetVideoUsage)
+		gateway.GET("/video/files/:task_id", h.Seedance.GetVideoFile)
+		gateway.GET("/video/files/:task_id/*file_path", h.Seedance.GetVideoFile)
+
 		// xAI Voice APIs (Grok platform only): HTTP TTS/STT + Realtime WS.
 		// Not part of the creation-center product surface — gateway relay only.
 		voiceHandler := func(endpoint string) gin.HandlerFunc {

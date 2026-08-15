@@ -267,6 +267,10 @@ func (a *Account) IsGrok() bool {
 	return a.Platform == PlatformGrok
 }
 
+func (a *Account) IsSeedance() bool {
+	return a != nil && a.Platform == PlatformSeedance
+}
+
 func (a *Account) IsGrokOAuth() bool {
 	return a.IsGrok() && a.Type == AccountTypeOAuth
 }
@@ -931,6 +935,17 @@ func (a *Account) GetBaseURL() string {
 		return strings.TrimRight(baseURL, "/") + "/antigravity"
 	}
 	return baseURL
+}
+
+const DefaultSeedanceBaseURL = "https://model.service-inference.ai"
+
+// GetSeedanceBaseURL returns the administrator-controlled Seedance API origin.
+func (a *Account) GetSeedanceBaseURL() string {
+	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
+	if baseURL == "" {
+		return DefaultSeedanceBaseURL
+	}
+	return strings.TrimRight(baseURL, "/")
 }
 
 // GetGeminiBaseURL 返回 Gemini 兼容端点的 base URL。

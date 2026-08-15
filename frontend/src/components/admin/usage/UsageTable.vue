@@ -129,8 +129,28 @@
         </template>
 
         <template #cell-tokens="{ row }">
+          <!-- 视频生成请求：展示视频元数据，并保留上游实际返回的 token 用量。 -->
+          <div v-if="isVideoUsage(row)" class="flex items-center gap-1.5">
+            <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="14" height="14" rx="2" stroke-width="2" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m17 10 4-2v8l-4-2M9 9l4 3-4 3V9Z" />
+            </svg>
+            <div class="space-y-0.5 text-sm">
+              <div class="font-medium text-gray-900 dark:text-white">
+                {{ row.video_count || 1 }}{{ t('usage.videoUnit') }}
+                <span v-if="row.video_resolution" class="ml-1 text-amber-600 dark:text-amber-400">{{ row.video_resolution }}</span>
+              </div>
+              <div v-if="row.video_duration_seconds != null" class="text-xs text-gray-500 dark:text-gray-400">
+                {{ t('usage.videoDuration') }} {{ row.video_duration_seconds }}s
+              </div>
+              <div v-if="videoTokenTotal(row) > 0" class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <Icon name="calculator" size="sm" class="h-3 w-3 text-sky-500" />
+                <span>{{ videoTokenTotal(row).toLocaleString() }} {{ t('usage.totalTokens') }}</span>
+              </div>
+            </div>
+          </div>
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->
-          <div v-if="isImageUsage(row)" class="flex items-center gap-1.5">
+          <div v-else-if="isImageUsage(row)" class="flex items-center gap-1.5">
             <svg class="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -517,6 +537,7 @@ import {
   BILLING_MODE_TOKEN,
   getBillingModeLabel,
   getBillingModeBadgeClass,
+  isVideoUsage,
   isImageUsage,
   getDisplayBillingMode,
   imageUnitPrice,
@@ -549,6 +570,10 @@ import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { fetchBatch, getEntry } from '@/utils/ipGeoLookup'
 import type { AdminUsageLog } from '@/types'
+
+function videoTokenTotal(row: AdminUsageLog): number {
+  return Math.max(0, (row.input_tokens || 0) + (row.output_tokens || 0) + (row.cache_creation_tokens || 0) + (row.cache_read_tokens || 0))
+}
 import type { Column } from '@/components/common/types'
 
 interface Props {

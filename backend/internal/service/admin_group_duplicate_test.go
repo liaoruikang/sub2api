@@ -192,7 +192,8 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		{AccountID: 13, GroupID: source.ID, Priority: 37},
 		{AccountID: 17, GroupID: source.ID, Priority: 8},
 	}
-	svc := &adminServiceImpl{groupRepo: repo, groupDuplicateRepo: repo}
+	observer := &groupMonitorObserverStub{}
+	svc := &adminServiceImpl{groupRepo: repo, groupDuplicateRepo: repo, groupPriceChangeObserver: observer}
 
 	duplicate, err := svc.DuplicateGroup(context.Background(), source.ID, "admin:7", "stable-key")
 
@@ -224,6 +225,11 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		{AccountID: 13, GroupID: duplicate.ID, Priority: 37},
 		{AccountID: 17, GroupID: duplicate.ID, Priority: 8},
 	}, repo.createdBindings[duplicate.ID])
+	require.Equal(t, []GroupMonitorChange{{
+		ChangeType: GroupMonitorEventTypeCreated, GroupID: duplicate.ID, GroupName: duplicate.Name,
+		OldRate: duplicate.RateMultiplier, NewRate: duplicate.RateMultiplier,
+		NewStatus: duplicateGroupInactiveStatus, IsExclusive: true, SubscriptionType: SubscriptionTypeSubscription,
+	}}, observer.statusChanges)
 
 	duplicate.ModelRouting["gpt-*"][0] = 999
 	duplicate.VideoModelPrices[VideoPriceFamilyGrokImagineVideo15][VideoBillingResolution720P] = 999

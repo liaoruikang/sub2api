@@ -160,7 +160,27 @@
             <PlatformIcon platform="grok" size="sm" />
             Grok
           </button>
+          <button
+            type="button"
+            @click="form.platform = 'seedance'"
+            :class="[
+              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              form.platform === 'seedance'
+                ? 'bg-white text-rose-600 shadow-sm dark:bg-dark-600 dark:text-rose-400'
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+            ]"
+          >
+            <PlatformIcon platform="seedance" size="sm" />
+            Seedance
+          </button>
         </div>
+      </div>
+
+      <div
+        v-if="form.platform === 'seedance'"
+        class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-800/40 dark:bg-rose-900/20 dark:text-rose-200"
+      >
+        Seedance 使用 API Key 认证，并通过原生视频与素材接口调度。
       </div>
 
       <!-- Account Type Selection (Anthropic) -->
@@ -1125,6 +1145,8 @@
                 ? 'https://api.openai.com'
                 : form.platform === 'gemini'
                   ? 'https://generativelanguage.googleapis.com'
+                  : form.platform === 'seedance'
+                    ? 'https://model.service-inference.ai'
                   : form.platform === 'grok'
                     ? 'https://api.x.ai/v1'
                     : 'https://api.anthropic.com'
@@ -1149,6 +1171,8 @@
                 ? 'sk-proj-...'
                 : form.platform === 'gemini'
                   ? 'AIza...'
+                  : form.platform === 'seedance'
+                    ? 'sk-...'
                   : form.platform === 'grok'
                     ? 'xai-...'
                     : 'sk-ant-...'
@@ -1159,6 +1183,7 @@
 
         <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
         <div
+          v-if="form.platform !== 'seedance'"
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         >
           <div>
@@ -4345,8 +4370,10 @@ watch(
     apiKeyBaseUrl.value =
       (newPlatform === 'openai')
         ? 'https://api.openai.com'
-        : newPlatform === 'gemini'
+          : newPlatform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
+          : newPlatform === 'seedance'
+            ? 'https://model.service-inference.ai'
           : newPlatform === 'grok'
             ? 'https://api.x.ai/v1'
             : 'https://api.anthropic.com'
@@ -4375,6 +4402,15 @@ watch(
       modelRestrictionMode.value = 'mapping'
       form.concurrency = 1
       form.load_factor = null
+    }
+    if (newPlatform === 'seedance') {
+      accountCategory.value = 'apikey'
+      modelRestrictionMode.value = 'whitelist'
+      upstreamBillingAutoProbeEnabled.value = false
+      form.concurrency = 1
+      form.load_factor = null
+    } else if (upstreamBillingAutoProbeEnabled.value === false) {
+      upstreamBillingAutoProbeEnabled.value = true
     }
     if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
       accountCategory.value = 'oauth-based'
@@ -5254,6 +5290,8 @@ const handleSubmit = async () => {
       ? 'https://api.openai.com'
       : form.platform === 'gemini'
         ? 'https://generativelanguage.googleapis.com'
+        : form.platform === 'seedance'
+          ? 'https://model.service-inference.ai'
         : form.platform === 'grok'
           ? 'https://api.x.ai/v1'
           : 'https://api.anthropic.com'
@@ -5314,7 +5352,7 @@ const handleSubmit = async () => {
     ...form,
     group_ids: form.group_ids,
     extra,
-    upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value,
+    upstream_billing_probe_enabled: form.platform === 'seedance' ? false : upstreamBillingAutoProbeEnabled.value,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }
@@ -5438,7 +5476,7 @@ const createAccountAndFinish = async (
     expires_at: form.expires_at,
     // 上游倍率探测对全部 API-key 平台开放（antigravity upstream 走本 helper）；
     // 非 apikey 类型（bedrock/oauth）不传，后端不动作。
-    upstream_billing_probe_enabled: type === 'apikey' ? upstreamBillingAutoProbeEnabled.value : undefined,
+    upstream_billing_probe_enabled: type === 'apikey' && platform !== 'seedance' ? upstreamBillingAutoProbeEnabled.value : false,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }

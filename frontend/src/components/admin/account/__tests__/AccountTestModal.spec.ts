@@ -24,7 +24,8 @@ vi.mock('@/composables/useClipboard', () => ({
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   const messages: Record<string, string> = {
-    'admin.accounts.imagePromptDefault': 'Generate a cute orange cat astronaut sticker on a clean pastel background.'
+    'admin.accounts.imagePromptDefault': 'Generate a cute orange cat astronaut sticker on a clean pastel background.',
+    'admin.accounts.seedanceVideoPromptDefault': 'A detailed Seedance video prompt.'
   }
   return {
     ...actual,
@@ -218,6 +219,48 @@ describe('AccountTestModal', () => {
       model_id: 'gpt-5.4',
       prompt: '',
       mode: 'compact'
+    })
+  })
+
+  it('Seedance 视频测试允许编辑提示词并以 video 模式提交', async () => {
+    getAvailableModels.mockResolvedValue([
+      { id: 'dreamina-seedance-2-0-hc', display_name: 'dreamina-seedance-2-0-hc' }
+    ])
+    global.fetch = vi.fn().mockResolvedValue(
+      createStreamResponse([
+        'data: {"type":"test_start","model":"dreamina-seedance-2-0-hc"}\n',
+        'data: {"type":"test_complete","success":true}\n'
+      ])
+    ) as any
+
+    const wrapper = mountModal({
+      id: 88,
+      name: 'Seedance Account',
+      platform: 'seedance',
+      type: 'apikey',
+      status: 'active'
+    })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    const promptInput = wrapper.find('textarea.textarea-stub')
+    expect(promptInput.exists()).toBe(true)
+    expect((promptInput.element as HTMLTextAreaElement).value).toBe('A detailed Seedance video prompt.')
+    await promptInput.setValue('A custom tracking shot through a rainy city street.')
+
+    const startButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('admin.accounts.startTest')
+    )
+    expect(startButton).toBeTruthy()
+    await startButton!.trigger('click')
+    await flushPromises()
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    const [, request] = (global.fetch as any).mock.calls[0]
+    expect(JSON.parse(request.body)).toEqual({
+      model_id: 'dreamina-seedance-2-0-hc',
+      prompt: 'A custom tracking shot through a rainy city street.',
+      mode: 'video'
     })
   })
 })

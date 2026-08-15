@@ -807,6 +807,7 @@ var ProviderSet = wire.NewSet(
 	NewBatchImagePublicService,
 	NewBatchImageDownloadService,
 	NewGrokVideoJobService,
+	NewSeedanceService,
 	ProvideBatchImageCleanupService,
 	ProvideBatchImageWorkerRuntime,
 	wire.Bind(new(AccountRuntimeBlocker), new(*OpenAIGatewayService)),

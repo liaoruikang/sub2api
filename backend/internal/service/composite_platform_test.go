@@ -58,8 +58,9 @@ func TestCompositeGroupSchedulerHasAllCanonicalPlatformBuckets(t *testing.T) {
 	for platform := range seen {
 		platforms = append(platforms, platform)
 	}
-	require.ElementsMatch(t,
-		[]string{PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok},
-		platforms,
-	)
+	expected := make([]string, 0, len(schedulerSnapshotPlatforms()))
+	for _, platform := range schedulerSnapshotPlatforms() {
+		expected = append(expected, platform)
+	}
+	require.ElementsMatch(t, expected, platforms)
 }

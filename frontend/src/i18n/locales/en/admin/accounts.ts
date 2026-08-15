@@ -137,6 +137,7 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        seedance: 'Seedance',
       },
       types: {
         oauth: 'OAuth',
@@ -1425,6 +1426,9 @@ rateSyncWarning: 'Accounts with upstream rate sync enabled cannot be changed in 
       videoPromptDefault: 'A red ball bouncing once on a white floor, short simple motion.',
       videoTestHint:
         'Calls standalone /v1/videos/generations, polls until done, then downloads the finished video for on-page preview.',
+      seedanceVideoPromptPlaceholder: 'Describe the subject, action, camera movement, lighting, visual style, and whether text or audio is needed.',
+      seedanceVideoPromptDefault: 'A cinematic close-up of a glass marble rolling across a rain-soaked neon street at night, reflecting magenta and cyan signs. The camera tracks smoothly at ground level with shallow depth of field, realistic lighting, natural motion, and no text.',
+      seedanceVideoTestHint: 'You can edit the prompt before starting. The test generates a 4-second 480p video and waits up to about 5 minutes for completion.',
       videoTestMode: 'Mode: Video generation test',
       sendingVideoRequest: 'Sending video generation request...',
       imagePreview: 'Generated images:',

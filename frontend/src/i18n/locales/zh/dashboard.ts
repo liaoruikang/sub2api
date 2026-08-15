@@ -37,7 +37,6 @@ export default {
     group: '分组',
     noGroup: '无分组',
     requests: '请求',
-    tokens: 'Token',
     actual: '实际',
     standard: '标准',
     input: '输入',
@@ -390,6 +389,8 @@ export default {
     exportExcelSuccess: '使用数据导出成功（Excel格式）',
     exportExcelFailed: '使用数据导出失败',
     imageUnit: '张',
+    videoUnit: '段',
+    videoDuration: '视频时长',
     userAgent: 'User-Agent',
     ipGeo: {
       fetch: '获取地区',
@@ -440,7 +441,8 @@ export default {
       openai: 'OpenAI',
       anthropic: 'Anthropic',
       gemini: 'Gemini',
-      grok: 'Grok'
+      grok: 'Grok',
+      seedance: 'Seedance'
     },
     extraModelsHeader: '附加模型',
     extraModelsEmpty: '无附加模型',

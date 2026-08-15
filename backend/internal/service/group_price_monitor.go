@@ -13,13 +13,22 @@ import (
 )
 
 const (
-	SettingKeyGroupPriceMonitor = "group_price_monitor_config"
-	GroupPriceMonitorTitle      = "分组价格调整通知"
+	SettingKeyGroupPriceMonitor  = "group_price_monitor_config"
+	GroupPriceMonitorTitle       = "分组价格调整通知"
+	GroupStatusMonitorTitle      = "分组状态调整通知"
+	GroupPriceStatusMonitorTitle = "分组价格与状态调整通知"
+	GroupMonitorChangeTypePrice  = "price"
+	GroupMonitorChangeTypeStatus = "status"
+	GroupMonitorEventTypeCreated = "created"
+	GroupMonitorEventTypeStatus  = "status"
+	GroupMonitorEventTypeDeleted = "deleted"
+	groupMonitorDeletedStatus    = "deleted"
 )
 
 type GroupPriceMonitorConfig struct {
 	Enabled         bool                  `json:"enabled"`
 	GroupIDs        []int64               `json:"group_ids,omitempty"`
+	ChangeTypes     []string              `json:"change_types"`
 	IntervalSeconds int                   `json:"interval_seconds"`
 	Status          string                `json:"status"`
 	NotifyMode      string                `json:"notify_mode"`
@@ -41,13 +50,20 @@ type GroupPriceMonitorService struct {
 	nextCheckAt      time.Time
 	reschedule       chan struct{}
 	lastPrices       map[int64]float64
-	pendingChanges   []GroupPriceChange
+	pendingChanges   []GroupMonitorChange
 }
 
-// GroupPriceChangeObserver receives every administrator-driven group price change.
-// The monitor flushes these changes together at the end of the current polling cycle.
+// GroupPriceChangeObserver receives administrator-driven group changes and flushes
+// the selected event types together at the end of the current monitoring cycle.
 type GroupPriceChangeObserver interface {
 	RecordGroupPriceChange(groupID int64, groupName string, oldPrice, newPrice float64)
+	RecordGroupStatusChange(change GroupMonitorChange)
+}
+
+// GroupMonitorAudienceSnapshotter preserves recipients for a group that may be
+// disabled or deleted before its status announcement is published.
+type GroupMonitorAudienceSnapshotter interface {
+	ListGroupAnnouncementAudienceUserIDs(ctx context.Context, groupID int64) ([]int64, error)
 }
 
 func NewGroupPriceMonitorService(settingRepo SettingRepository, groupRepo GroupRepository, announcementRepo AnnouncementRepository) *GroupPriceMonitorService {
@@ -83,6 +99,14 @@ func (s *GroupPriceMonitorService) SetConfig(ctx context.Context, cfg *GroupPric
 	}
 	if cfg.Enabled && cfg.DurationDays < 1 {
 		return nil, fmt.Errorf("duration_days must be at least 1 when enabled")
+	}
+	if len(cfg.ChangeTypes) == 0 {
+		return nil, fmt.Errorf("change_types must contain at least one item")
+	}
+	for _, changeType := range cfg.ChangeTypes {
+		if changeType != GroupMonitorChangeTypePrice && changeType != GroupMonitorChangeTypeStatus {
+			return nil, fmt.Errorf("unsupported group monitor change type: %s", changeType)
+		}
 	}
 	if !isValidAnnouncementStatus(cfg.Status) || !isValidAnnouncementNotifyMode(cfg.NotifyMode) {
 		return nil, fmt.Errorf("invalid announcement status or notify mode")
@@ -236,13 +260,13 @@ func (s *GroupPriceMonitorService) check(ctx context.Context, cfg *GroupPriceMon
 	s.mu.Lock()
 	previous := s.lastPrices
 	s.lastPrices = current
-	pending := append([]GroupPriceChange(nil), s.pendingChanges...)
+	pending := append([]GroupMonitorChange(nil), s.pendingChanges...)
 	s.pendingChanges = nil
 	s.mu.Unlock()
 	if previous == nil {
 		return s.publishChanges(ctx, cfg, pending)
 	}
-	changes := make([]GroupPriceChange, 0)
+	changes := make([]GroupMonitorChange, 0)
 	for id, oldPrice := range previous {
 		newPrice, ok := current[id]
 		if !ok || oldPrice == newPrice {
@@ -255,7 +279,10 @@ func (s *GroupPriceMonitorService) check(ctx context.Context, cfg *GroupPriceMon
 				break
 			}
 		}
-		changes = append(changes, GroupPriceChange{GroupID: id, GroupName: name, Old: oldPrice, New: newPrice})
+		changes = append(changes, GroupMonitorChange{
+			ChangeType: GroupMonitorChangeTypePrice,
+			GroupID:    id, GroupName: name, OldRate: oldPrice, NewRate: newPrice,
+		})
 	}
 	changes = append(changes, pending...)
 	return s.publishChanges(ctx, cfg, changes)
@@ -273,38 +300,62 @@ func (s *GroupPriceMonitorService) RecordGroupPriceChange(groupID int64, groupNa
 		}
 		s.lastPrices[groupID] = newPrice
 	}
-	s.pendingChanges = append(s.pendingChanges, GroupPriceChange{GroupID: groupID, GroupName: groupName, Old: oldPrice, New: newPrice})
+	s.pendingChanges = append(s.pendingChanges, GroupMonitorChange{
+		ChangeType: GroupMonitorChangeTypePrice,
+		GroupID:    groupID, GroupName: groupName, OldRate: oldPrice, NewRate: newPrice,
+	})
 }
 
-func (s *GroupPriceMonitorService) publishChanges(ctx context.Context, cfg *GroupPriceMonitorConfig, changes []GroupPriceChange) error {
-	changes = filterGroupPriceChanges(changes, cfg.GroupIDs)
+func (s *GroupPriceMonitorService) RecordGroupStatusChange(change GroupMonitorChange) {
+	if change.ChangeType != GroupMonitorEventTypeCreated &&
+		change.ChangeType != GroupMonitorEventTypeStatus &&
+		change.ChangeType != GroupMonitorEventTypeDeleted {
+		return
+	}
+	change.TagIDs = uniqueInt64s(change.TagIDs)
+	change.AccessUserIDs = uniqueInt64s(change.AccessUserIDs)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.lastPrices != nil {
+		if change.NewStatus == StatusActive {
+			s.lastPrices[change.GroupID] = change.NewRate
+		} else {
+			delete(s.lastPrices, change.GroupID)
+		}
+	}
+	s.pendingChanges = append(s.pendingChanges, change)
+}
+
+func (s *GroupPriceMonitorService) publishChanges(ctx context.Context, cfg *GroupPriceMonitorConfig, changes []GroupMonitorChange) error {
+	changes = filterGroupMonitorChanges(changes, cfg.GroupIDs, cfg.ChangeTypes)
 	if len(changes) == 0 {
 		return nil
 	}
-	sort.Slice(changes, func(i, j int) bool { return changes[i].GroupName < changes[j].GroupName })
+	sort.SliceStable(changes, func(i, j int) bool { return changes[i].GroupName < changes[j].GroupName })
 	startsAt := time.Now()
 	endsAt := startsAt.AddDate(0, 0, cfg.DurationDays)
-	announcement := &Announcement{Kind: AnnouncementKindGroupPriceChange, Title: GroupPriceMonitorTitle, Content: renderGroupPriceChanges(changes), Status: cfg.Status, NotifyMode: cfg.NotifyMode, Targeting: cfg.Targeting, StartsAt: &startsAt, EndsAt: &endsAt}
-	structured := make([]AnnouncementGroupPriceChange, 0, len(changes))
-	for i, change := range changes {
-		structured = append(structured, AnnouncementGroupPriceChange{
-			GroupID: change.GroupID, GroupName: change.GroupName,
-			OldRate: change.Old, NewRate: change.New, Sequence: i,
-		})
+	structured := groupMonitorChangesToAnnouncementChanges(changes)
+	announcement := &Announcement{
+		Kind: AnnouncementKindGroupPriceChange, Title: groupMonitorAnnouncementTitle(structured),
+		Content: renderAnnouncementGroupPriceChanges(structured), Status: cfg.Status,
+		NotifyMode: cfg.NotifyMode, Targeting: cfg.Targeting, StartsAt: &startsAt, EndsAt: &endsAt,
 	}
 	return s.announcementRepo.CreateWithGroupPriceChanges(ctx, announcement, structured)
 }
 
-func filterGroupPriceChanges(changes []GroupPriceChange, groupIDs []int64) []GroupPriceChange {
+func filterGroupMonitorChanges(changes []GroupMonitorChange, groupIDs []int64, changeTypes []string) []GroupMonitorChange {
 	if len(changes) == 0 || len(groupIDs) == 0 {
-		return changes
+		return filterGroupMonitorChangesByType(changes, changeTypes)
 	}
 	wanted := make(map[int64]struct{}, len(groupIDs))
 	for _, id := range groupIDs {
 		wanted[id] = struct{}{}
 	}
-	filtered := make([]GroupPriceChange, 0, len(changes))
+	filtered := make([]GroupMonitorChange, 0, len(changes))
 	for _, change := range changes {
+		if !groupMonitorConfigIncludesChange(changeTypes, change.ChangeType) {
+			continue
+		}
 		if change.GroupID == 0 {
 			filtered = append(filtered, change)
 			continue
@@ -314,6 +365,32 @@ func filterGroupPriceChanges(changes []GroupPriceChange, groupIDs []int64) []Gro
 		}
 	}
 	return filtered
+}
+
+func filterGroupMonitorChangesByType(changes []GroupMonitorChange, changeTypes []string) []GroupMonitorChange {
+	filtered := make([]GroupMonitorChange, 0, len(changes))
+	for _, change := range changes {
+		if groupMonitorConfigIncludesChange(changeTypes, change.ChangeType) {
+			filtered = append(filtered, change)
+		}
+	}
+	return filtered
+}
+
+func groupMonitorConfigIncludesChange(changeTypes []string, eventType string) bool {
+	wanted := GroupMonitorChangeTypeStatus
+	if eventType == "" || eventType == GroupMonitorChangeTypePrice {
+		wanted = GroupMonitorChangeTypePrice
+	}
+	if len(changeTypes) == 0 {
+		return wanted == GroupMonitorChangeTypePrice
+	}
+	for _, changeType := range changeTypes {
+		if changeType == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *GroupPriceMonitorService) captureBaseline(ctx context.Context, cfg *GroupPriceMonitorConfig) error {
@@ -351,11 +428,26 @@ type GroupPriceChange struct {
 	Old, New  float64
 }
 
+type GroupMonitorChange struct {
+	ChangeType       string
+	GroupID          int64
+	GroupName        string
+	OldRate          float64
+	NewRate          float64
+	OldStatus        string
+	NewStatus        string
+	IsExclusive      bool
+	SubscriptionType string
+	TagIDs           []int64
+	AccessUserIDs    []int64
+}
+
 func renderGroupPriceChanges(changes []GroupPriceChange) string {
 	structured := make([]AnnouncementGroupPriceChange, 0, len(changes))
 	for i, change := range changes {
 		structured = append(structured, AnnouncementGroupPriceChange{
-			GroupID: change.GroupID, GroupName: change.GroupName,
+			ChangeType: GroupMonitorChangeTypePrice,
+			GroupID:    change.GroupID, GroupName: change.GroupName,
 			OldRate: change.Old, NewRate: change.New, Sequence: i,
 		})
 	}
@@ -363,25 +455,139 @@ func renderGroupPriceChanges(changes []GroupPriceChange) string {
 }
 
 func renderAnnouncementGroupPriceChanges(changes []AnnouncementGroupPriceChange) string {
-	var b strings.Builder
-	b.WriteString("## 分组价格调整\n\n")
-	fmt.Fprintf(&b, "> 本次共检测到 **%d** 项倍率调整，最新价格如下。\n\n", len(changes))
-	b.WriteString("| 分组 | 调整类型 | 调整前 | 调整后 |\n")
-	b.WriteString("| :--- | :---: | ---: | ---: |\n")
+	priceChanges := make([]AnnouncementGroupPriceChange, 0, len(changes))
+	statusChanges := make([]AnnouncementGroupPriceChange, 0, len(changes))
 	for _, change := range changes {
-		if change.NewRate > change.OldRate {
-			fmt.Fprintf(&b, "| %s | **▲ 涨价** | `%.2f` | **`%.2f`** |\n", change.GroupName, change.OldRate, change.NewRate)
+		if change.ChangeType == "" || change.ChangeType == GroupMonitorChangeTypePrice {
+			priceChanges = append(priceChanges, change)
 		} else {
-			fmt.Fprintf(&b, "| %s | **▼ 降价** | `%.2f` | **`%.2f`** |\n", change.GroupName, change.OldRate, change.NewRate)
+			statusChanges = append(statusChanges, change)
 		}
 	}
-	b.WriteString("\n---\n\n")
-	b.WriteString("价格调整已生效，实际计费以请求时匹配到的分组倍率为准。")
+
+	var b strings.Builder
+	b.WriteString("## 分组变更汇总\n\n")
+	fmt.Fprintf(&b, "> 本周期共检测到 **%d** 项变更", len(changes))
+	if len(priceChanges) > 0 && len(statusChanges) > 0 {
+		fmt.Fprintf(&b, "，其中价格变化 **%d** 项、状态变化 **%d** 项", len(priceChanges), len(statusChanges))
+	}
+	b.WriteString("。\n\n")
+	if len(priceChanges) > 0 {
+		b.WriteString("### 价格变化\n\n")
+		b.WriteString("| 分组 | 调整类型 | 调整前 | 调整后 |\n")
+		b.WriteString("| :--- | :---: | ---: | ---: |\n")
+		for _, change := range priceChanges {
+			name := escapeMarkdownTableCell(change.GroupName)
+			if change.NewRate > change.OldRate {
+				fmt.Fprintf(&b, "| %s | **▲ 涨价** | `%.2f` | **`%.2f`** |\n", name, change.OldRate, change.NewRate)
+			} else {
+				fmt.Fprintf(&b, "| %s | **▼ 降价** | `%.2f` | **`%.2f`** |\n", name, change.OldRate, change.NewRate)
+			}
+		}
+		b.WriteString("\n")
+	}
+	if len(statusChanges) > 0 {
+		b.WriteString("### 状态变化\n\n")
+		b.WriteString("| 分组 | 变更类型 | 变更前 | 变更后 |\n")
+		b.WriteString("| :--- | :---: | :---: | :---: |\n")
+		for _, change := range statusChanges {
+			label := groupStatusChangeLabel(change)
+			fmt.Fprintf(&b, "| %s | **%s** | %s | **%s** |\n",
+				escapeMarkdownTableCell(change.GroupName), label,
+				groupStatusDisplay(change.OldStatus), groupStatusDisplay(change.NewStatus))
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("---\n\n")
+	b.WriteString("分组调整已生效；价格以请求时匹配到的分组倍率为准，可用状态以当前分组配置为准。")
 	return b.String()
 }
 
+func groupMonitorChangesToAnnouncementChanges(changes []GroupMonitorChange) []AnnouncementGroupPriceChange {
+	structured := make([]AnnouncementGroupPriceChange, 0, len(changes))
+	for i, change := range changes {
+		structured = append(structured, AnnouncementGroupPriceChange{
+			GroupID: change.GroupID, GroupName: change.GroupName, ChangeType: change.ChangeType,
+			OldRate: change.OldRate, NewRate: change.NewRate, OldStatus: change.OldStatus, NewStatus: change.NewStatus,
+			IsExclusive: change.IsExclusive, SubscriptionType: change.SubscriptionType,
+			TagIDs: uniqueInt64s(change.TagIDs), AccessUserIDs: uniqueInt64s(change.AccessUserIDs), Sequence: i,
+		})
+	}
+	return structured
+}
+
+func groupMonitorAnnouncementTitle(changes []AnnouncementGroupPriceChange) string {
+	hasPrice := false
+	hasStatus := false
+	for _, change := range changes {
+		if change.ChangeType == "" || change.ChangeType == GroupMonitorChangeTypePrice {
+			hasPrice = true
+		} else {
+			hasStatus = true
+		}
+	}
+	if hasPrice && hasStatus {
+		return GroupPriceStatusMonitorTitle
+	}
+	if hasStatus {
+		return GroupStatusMonitorTitle
+	}
+	return GroupPriceMonitorTitle
+}
+
+func groupStatusChangeLabel(change AnnouncementGroupPriceChange) string {
+	switch change.ChangeType {
+	case GroupMonitorEventTypeCreated:
+		return "新增"
+	case GroupMonitorEventTypeDeleted:
+		return "删除"
+	case GroupMonitorEventTypeStatus:
+		if change.NewStatus == StatusActive {
+			return "启用"
+		}
+		return "停用"
+	default:
+		return "状态调整"
+	}
+}
+
+func groupStatusDisplay(status string) string {
+	switch status {
+	case StatusActive:
+		return "`已启用`"
+	case "inactive", StatusDisabled:
+		return "`已停用`"
+	case groupMonitorDeletedStatus:
+		return "`已删除`"
+	case "":
+		return "—"
+	default:
+		return "`" + strings.ReplaceAll(status, "`", "") + "`"
+	}
+}
+
+func escapeMarkdownTableCell(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(value), "|", "\\|"), "\n", " ")
+}
+
+func uniqueInt64s(values []int64) []int64 {
+	seen := make(map[int64]struct{}, len(values))
+	result := make([]int64, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
+}
+
 func defaultGroupPriceMonitorConfig() GroupPriceMonitorConfig {
-	return GroupPriceMonitorConfig{IntervalSeconds: 60, Status: AnnouncementStatusActive, NotifyMode: AnnouncementNotifyModePopup}
+	return GroupPriceMonitorConfig{ChangeTypes: []string{GroupMonitorChangeTypePrice}, IntervalSeconds: 60, Status: AnnouncementStatusActive, NotifyMode: AnnouncementNotifyModePopup}
 }
 
 func normalizeGroupPriceMonitorConfig(cfg *GroupPriceMonitorConfig) {
@@ -405,5 +611,23 @@ func normalizeGroupPriceMonitorConfig(cfg *GroupPriceMonitorConfig) {
 	}
 	if cfg.GroupIDs == nil {
 		cfg.GroupIDs = []int64{}
+	}
+	if cfg.ChangeTypes == nil {
+		cfg.ChangeTypes = []string{GroupMonitorChangeTypePrice}
+	} else {
+		normalized := make([]string, 0, len(cfg.ChangeTypes))
+		seen := make(map[string]struct{}, len(cfg.ChangeTypes))
+		for _, raw := range cfg.ChangeTypes {
+			changeType := strings.ToLower(strings.TrimSpace(raw))
+			if changeType == "" {
+				continue
+			}
+			if _, exists := seen[changeType]; exists {
+				continue
+			}
+			seen[changeType] = struct{}{}
+			normalized = append(normalized, changeType)
+		}
+		cfg.ChangeTypes = normalized
 	}
 }

@@ -86,4 +86,35 @@ describe('ModelWhitelistSelector', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-5.6-sol']]])
     expect(copyToClipboard).not.toHaveBeenCalled()
   })
+
+  it.each([
+    {
+      name: 'saved account',
+      props: { modelValue: [], platform: 'seedance', accountId: 28906 }
+    },
+    {
+      name: 'create preview',
+      props: {
+        modelValue: [],
+        platform: 'seedance',
+        syncCredentials: {
+          platform: 'seedance',
+          type: 'apikey',
+          base_url: 'https://model.service-inference.ai',
+          api_key: 'seedance-key'
+        }
+      }
+    }
+  ])('shows upstream model sync for Seedance $name', ({ props }) => {
+    const wrapper = mount(ModelWhitelistSelector, {
+      props,
+      global: {
+        stubs: {
+          ModelIcon: true
+        }
+      }
+    })
+
+    expect(wrapper.findAll('button').some(button => button.text() === 'admin.accounts.syncUpstreamModels')).toBe(true)
+  })
 })

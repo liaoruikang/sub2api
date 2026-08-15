@@ -283,6 +283,16 @@ type userSubRepoStubForGroupUpdate struct {
 	calledGroupID int64
 }
 
+type userTagRepoStubForGroupUpdate struct {
+	UserTagRepository
+	tagsByGroup map[int64][]UserTag
+}
+
+func (s *userTagRepoStubForGroupUpdate) GetByGroupID(_ context.Context, groupID int64) ([]UserTag, error) {
+	tags := s.tagsByGroup[groupID]
+	return append([]UserTag(nil), tags...), nil
+}
+
 func (s *userSubRepoStubForGroupUpdate) GetActiveByUserIDAndGroupID(_ context.Context, userID, groupID int64) (*UserSubscription, error) {
 	s.called = true
 	s.calledUserID = userID
@@ -354,6 +364,36 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_BindActiveGroup(t *testing.T) {
 	// C1 fix: verify Group object is populated
 	require.NotNil(t, got.APIKey.Group)
 	require.Equal(t, "Pro", got.APIKey.Group.Name)
+}
+
+func TestAdminService_AdminUpdateAPIKeyGroupID_ReturnsAuthorizationTags(t *testing.T) {
+	existing := &APIKey{ID: 1, UserID: 42, Key: "sk-test"}
+	apiKeyRepo := &apiKeyRepoStubForGroupUpdate{key: existing}
+	groupRepo := &groupRepoStubForGroupUpdate{group: &Group{
+		ID:               10,
+		Name:             "Downstream",
+		Status:           StatusActive,
+		IsExclusive:      true,
+		SubscriptionType: SubscriptionTypeStandard,
+	}}
+	tagRepo := &userTagRepoStubForGroupUpdate{tagsByGroup: map[int64][]UserTag{
+		10: {{ID: 7, Name: "downstream"}},
+	}}
+	userRepo := &userRepoStubForGroupUpdate{}
+	svc := &adminServiceImpl{
+		apiKeyRepo:  apiKeyRepo,
+		groupRepo:   groupRepo,
+		userRepo:    userRepo,
+		userTagRepo: tagRepo,
+	}
+
+	got, err := svc.AdminUpdateAPIKeyGroupID(context.Background(), 1, int64Ptr(10))
+	require.NoError(t, err)
+	require.Len(t, got.APIKey.Groups, 1)
+	require.Equal(t, []int64{7}, got.APIKey.Groups[0].TagIDs)
+	require.Equal(t, "downstream", got.APIKey.Groups[0].Tags[0].Name)
+	require.NotNil(t, got.APIKey.Group)
+	require.Equal(t, "downstream", got.APIKey.Group.Tags[0].Name)
 }
 
 func TestAdminService_AdminUpdateAPIKeyGroupID_SameGroup_Idempotent(t *testing.T) {

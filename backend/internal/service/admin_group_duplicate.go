@@ -214,6 +214,10 @@ func (s *adminServiceImpl) DuplicateGroup(ctx context.Context, id int64, actorSc
 			if loadErr != nil {
 				return nil, fmt.Errorf("load duplicate group: %w", loadErr)
 			}
+			if s.groupPriceChangeObserver != nil {
+				change := s.buildGroupMonitorStatusChange(ctx, hydrated, GroupMonitorEventTypeCreated, "", hydrated.Status)
+				s.groupPriceChangeObserver.RecordGroupStatusChange(change)
+			}
 			return hydrated, nil
 		} else if !errors.Is(err, ErrGroupExists) {
 			return nil, fmt.Errorf("create duplicate group: %w", err)

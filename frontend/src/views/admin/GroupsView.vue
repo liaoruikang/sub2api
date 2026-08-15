@@ -1196,7 +1196,7 @@
           </p>
         </div>
 
-        <!-- 视频生成计费配置（仅 Grok 平台） -->
+        <!-- 视频生成计费配置 -->
         <div
           v-if="supportsVideoPricingPlatform(createForm.platform)"
           class="border-t pt-4"
@@ -1271,6 +1271,7 @@
             </div>
           </div>
           <div
+            v-if="createForm.platform === 'grok'"
             class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
             data-testid="create-grok-video-model-prices"
           >
@@ -3074,7 +3075,7 @@
           </p>
         </div>
 
-        <!-- 视频生成计费配置（仅 Grok 平台） -->
+        <!-- 视频生成计费配置 -->
         <div
           v-if="supportsVideoPricingPlatform(editForm.platform)"
           class="border-t pt-4"
@@ -3149,6 +3150,7 @@
             </div>
           </div>
           <div
+            v-if="editForm.platform === 'grok'"
             class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
             data-testid="edit-grok-video-model-prices"
           >
@@ -5111,6 +5113,7 @@ const platformOptions = computed(() => [
   { value: "gemini", label: "Gemini" },
   { value: "antigravity", label: "Antigravity" },
   { value: "grok", label: "Grok" },
+  { value: "seedance", label: "Seedance" },
   { value: "composite", label: "Composite" },
 ]);
 
@@ -5121,6 +5124,7 @@ const platformFilterOptions = computed(() => [
   { value: "gemini", label: "Gemini" },
   { value: "antigravity", label: "Antigravity" },
   { value: "grok", label: "Grok" },
+  { value: "seedance", label: "Seedance" },
   { value: "composite", label: "Composite" },
 ]);
 
