@@ -1722,7 +1722,7 @@ const codexCLIOnlyAppServerEnabled = ref(false)
 type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
 const enableCodexFingerprintMode = ref(false)
 const enableOpenAISessionControl = ref(false)
-const codexFingerprintMode = ref<CodexFingerprintMode>('session')
+const codexFingerprintMode = ref<CodexFingerprintMode>('off')
 const openAISessionControlEnabled = ref(false)
 const openAISessionMaxCount = ref<number | null>(DEFAULT_OPENAI_SESSION_MAX_COUNT)
 const openAISessionTimeoutValue = ref<number | null>(DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE)
@@ -2080,7 +2080,8 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
 
   if (enableCodexFingerprintMode.value) {
     const extra = ensureExtra()
-    if (codexFingerprintMode.value !== 'session') {
+    // off = 默认值，清键即可；device/session/full 是显式 opt-in，必须落键（#5610）。
+    if (codexFingerprintMode.value !== 'off') {
       extra.codex_fingerprint_mode = codexFingerprintMode.value
     } else {
       delete extra.codex_fingerprint_mode
@@ -2361,7 +2362,7 @@ watch(
       enableCodexCLIOnlyAppServer.value = false
       enableCodexFingerprintMode.value = false
       enableOpenAISessionControl.value = false
-      codexFingerprintMode.value = 'session'
+      codexFingerprintMode.value = 'off'
       openAISessionControlEnabled.value = false
       openAISessionMaxCount.value = DEFAULT_OPENAI_SESSION_MAX_COUNT
       openAISessionTimeoutValue.value = DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE

@@ -3990,7 +3990,7 @@ const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OF
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
-const codexFingerprintMode = ref<CodexFingerprintMode>('session')
+const codexFingerprintMode = ref<CodexFingerprintMode>('off')
 const openAISessionControlEnabled = ref(false)
 const openAISessionMaxCount = ref<number | null>(DEFAULT_OPENAI_SESSION_MAX_COUNT)
 const openAISessionTimeoutValue = ref<number | null>(DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE)
@@ -4895,7 +4895,7 @@ const resetForm = () => {
   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   codexCLIOnlyEnabled.value = false
   codexCLIOnlyAppServerEnabled.value = false
-  codexFingerprintMode.value = 'session'
+  codexFingerprintMode.value = 'off'
   openAISessionControlEnabled.value = false
   openAISessionMaxCount.value = DEFAULT_OPENAI_SESSION_MAX_COUNT
   openAISessionTimeoutValue.value = DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE
@@ -4999,7 +4999,9 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else {
     delete extra.codex_cli_only_allow_app_server
   }
-  if (codexFingerprintMode.value !== 'session') {
+  // 收敛是显式 opt-in：off 即默认值，不落键；device/session/full 必须显式写入，
+  // 否则管理员的选择会被当成默认而丢失（#5610）。
+  if (codexFingerprintMode.value !== 'off') {
     extra.codex_fingerprint_mode = codexFingerprintMode.value
   } else {
     delete extra.codex_fingerprint_mode

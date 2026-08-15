@@ -567,7 +567,7 @@
 - Spark 影子账号不能独立配置，调度到影子账号时必须读取母账号配置并与母账号共享同一组槽位。
 - 本功能限制的是下游显式 SessionID，并且按“下游 API Key + 原始 SessionID”哈希隔离；不得存储原始值，也不得把仅由请求内容或内部 fallback 推导出的 sticky hash 当成真实 SessionID。
 - 显式标识至少覆盖 `session-id`、`session_id`、`conversation_id`、OpenCode 会话头、CodeBuddy 会话头及 `prompt_cache_key`。外部请求没有显式 SessionID 时，开启控制的账号不可参与该次调度；内部探测和模型发现没有外部请求标记时不受影响。
-- SessionID 控制与 Codex 指纹收敛互相独立：指纹收敛可改变上游看到的会话/设备标识，本地槽位仍必须按下游原始显式 SessionID 计数。
+- SessionID 控制与 Codex 指纹收敛互相独立：指纹收敛可改变上游看到的会话/设备标识，本地槽位仍必须按下游原始显式 SessionID 计数。Codex 指纹收敛默认必须为 `off`，创建、编辑和批量编辑账号时不能因为启用 SessionID 控制而隐式开启收敛；已有账号显式配置的 `device` / `session` / `full` 模式必须原样保留。
 - Redis 使用独立键空间：活跃槽位 `openai_session_limit:account:{accountID}`、暂存槽位 `openai_session_limit:staged:{accountID}`、物理唯一归属定位 `openai_session_limit:owner:{sessionIDHash}` 和带活跃/暂存截止时间的限时调度元数据 `openai_session_limit:preferred:{sessionIDHash}`；不得与 Anthropic 的 `session_limit:account:{accountID}` 共用数据。调度查询只能在暂存窗口返回原账号，活跃窗口仍使用既有调度顺序，并在“活跃周期 + 一个暂存周期”结束时准时失效；唯一归属定位要比共享 ZSET 多保留清理缓冲，防止偏好失效后跨账号接纳留下重复物理成员。接纳、跨账号转移、活跃转暂存、暂存回迁、满槽剔除、过期清理、存在刷新和数量判断必须由 Lua 脚本原子完成；不得把原始 SessionID 写入 Redis key 或 value。
 - Redis 异常时不得让受控账号失败开放；应仅跳过当前受控账号并继续调度其他账号。所有候选账号均不可用时再返回无可用账号错误。
 - SessionID 拒绝发生在统一 OpenAI 调度出口。已抢到的并发槽必须释放，旧 sticky 绑定必须删除，账号加入本次请求排除集合后重新执行现有调度。有效的暂存归属偏好必须先于 `previous_response_id`、普通 sticky、最高调度和负载均衡尝试原账号，但仍必须通过账号状态、分组、模型、能力、传输、利润控制、代理隔离和 Group 准入；活跃槽位不得获得这项额外优先级，偏好账号不可用时回到既有调度链路。
@@ -600,6 +600,7 @@
 - 到期活跃槽位会在后续接纳或容量查询时原子转入暂存，暂存到期后再清理；关闭控制、批量关闭和删除账号会同时清理活跃槽位和暂存槽位。
 - 母账号和 Spark 影子账号共享母账号槽位，影子账号不能通过批量编辑获得独立配置。
 - OpenAI SessionID 键空间与 Anthropic 会话限制完全隔离，现有 Anthropic 会话数量、窗口费用及 RPM 展示不受影响。
+- 账号创建、编辑和批量编辑的 Codex 指纹收敛缺省值保持 `off`；SessionID 控制开关与指纹模式分别保存，互不覆盖。
 - HTTP Responses、Chat Completions、Messages、Images、Embeddings、WebSocket 和 Live 外部入口均不能绕过控制；内部账号探测仍可正常选号。
 
 ## 3. 合并后必测清单
@@ -709,6 +710,7 @@ GOMAXPROCS=2 go test -tags=unit -run TestSettingService_ImagePlaygroundAndVideoJ
 3. 将上限设为 3，用三个不同显式 SessionID 请求同一账号后，账号列表容量徽标显示 `3/3`；三个已有 ID 继续可用，第四个 ID 调度到其他空闲账号。
 4. 等待配置的空闲时间后再次请求，确认旧槽位释放且新 SessionID 可以进入；关闭控制后容量徽标和 Redis 槽位清除。
 5. 开启完全指纹收敛后重复测试，确认上游指纹可保持收敛，但本地不同下游 SessionID 仍分别计数。
+   同时确认新建账号和批量编辑的指纹收敛缺省值仍为 `off`，单独开启 SessionID 控制不会改变指纹模式。
 6. 让同一 SessionID 因过载或上游错误从账号 A 切换到账号 B，确认 B 有容量时 A 的槽位被原子移除、B 只保留一条；B 已满时切换被拒绝且 A 的原槽位仍存在。
 7. 等待账号 A 的 SessionID 达到空闲过期时间，确认活跃计数释放且哈希进入 A 的暂存区；在额外一个过期周期内再次请求，确认高级调度和旧调度都优先选择 A，并将其从暂存区原子移回活跃槽位。
 8. 关闭自动轮换时，暂存期内先用其他 SessionID 填满账号 A，再让暂存 SessionID 请求，确认 A 的暂存成员和偏好被删除、请求继续调度到其他账号；等待暂存期自然结束后重复请求，确认不再偏好 A 且所有账号间仍只有一个物理槽位成员。
