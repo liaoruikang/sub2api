@@ -32,7 +32,9 @@ const messages: Record<string, string> = {
   'admin.dashboard.day': 'Day',
   'admin.dashboard.hour': 'Hour',
   'admin.usage.failedToLoadUser': 'Failed to load user',
+	'admin.usage.account': 'Account',
 	'admin.usage.requestId': 'Request ID',
+	'admin.usage.sessionId': 'Session ID',
 	'usage.requestedModel': 'Requested model',
 	'usage.sentUpstreamModel': 'Sent upstream model',
 	'usage.upstreamResponseModel': 'Upstream response model',
@@ -395,7 +397,7 @@ describe('admin UsageView distribution metric toggles', () => {
   })
 })
 
-describe('admin UsageView request ID column visibility', () => {
+describe('admin UsageView correlation ID column visibility', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.mocked(localStorage.getItem).mockReset().mockReturnValue(null)
@@ -440,6 +442,9 @@ describe('admin UsageView request ID column visibility', () => {
     await wrapper.vm.$nextTick()
 
     const usageTable = wrapper.findComponent(UsageTableStub)
+    expect(usageTable.props('columns')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'session_id', label: 'Session ID' })]),
+    )
     expect(usageTable.props('columns')).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ key: 'request_id' })]),
     )
@@ -637,6 +642,8 @@ describe('admin UsageView model audit export', () => {
 			items: [{
 				id: 1,
 				created_at: '2026-08-04T00:00:00Z',
+				account: { id: 7, name: 'pro-account-7' },
+				session_id: 'session-export-1',
 				model: 'gpt-5.6-sol',
 				upstream_model: 'gpt-5.5',
 				upstream_response_model: 'gpt-5.4',
@@ -667,7 +674,7 @@ describe('admin UsageView model audit export', () => {
 		vi.useRealTimers()
 	})
 
-	it('exports requested, sent, response, and mismatch as separate admin columns', async () => {
+	it('exports account, Session ID, and model audit fields as separate admin columns', async () => {
 		const wrapper = mountRouteFilteredUsageView()
 		vi.advanceTimersByTime(120)
 		await flushPromises()
@@ -676,14 +683,16 @@ describe('admin UsageView model audit export', () => {
 		await flushPromises()
 
 		const headers = aoaToSheet.mock.calls[0][0][0]
-		expect(headers.slice(4, 8)).toEqual([
+		expect(headers.slice(3, 9)).toEqual([
+			'Account',
+			'Session ID',
 			'Requested model',
 			'Sent upstream model',
 			'Upstream response model',
 			'Upstream model mismatch',
 		])
 		const row = sheetAddAoa.mock.calls[0][1][0]
-		expect(row.slice(4, 8)).toEqual(['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.4', 'Yes'])
+		expect(row.slice(3, 9)).toEqual(['pro-account-7', 'session-export-1', 'gpt-5.6-sol', 'gpt-5.5', 'gpt-5.4', 'Yes'])
 		expect(saveAs).toHaveBeenCalledTimes(1)
 	})
 })

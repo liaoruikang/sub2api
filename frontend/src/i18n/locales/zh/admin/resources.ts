@@ -514,6 +514,8 @@ export default {
       user: '用户',
       account: '账户',
       group: '分组',
+      sessionId: 'SessionID',
+      sessionIdCopied: 'SessionID 已复制',
       requestId: '请求ID',
       requestIdCopied: '请求ID已复制',
       allModels: '全部模型',

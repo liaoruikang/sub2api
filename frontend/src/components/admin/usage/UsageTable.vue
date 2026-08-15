@@ -52,6 +52,24 @@
           <span class="text-sm text-gray-900 dark:text-white">{{ row.account?.name || '-' }}</span>
         </template>
 
+        <template #cell-session_id="{ row }">
+          <div v-if="row.session_id" class="flex max-w-[180px] items-center gap-1.5">
+            <span class="truncate font-mono text-xs text-gray-500 dark:text-gray-400" :title="row.session_id">
+              {{ row.session_id }}
+            </span>
+            <button
+              type="button"
+              class="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+              :class="copiedSessionId === row.session_id ? 'text-green-500 hover:text-green-500' : ''"
+              :title="copiedSessionId === row.session_id ? t('keys.copied') : t('keys.copyToClipboard')"
+              @click="copySessionId(row.session_id)"
+            >
+              <Icon :name="copiedSessionId === row.session_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+        </template>
+
         <template #cell-model="{ row }">
           <div class="space-y-0.5 text-xs">
             <div v-if="row.model_mapping_chain && row.model_mapping_chain.includes('→')" class="space-y-0.5">
@@ -606,6 +624,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appStore = useAppStore()
 const copiedRequestId = ref<string | null>(null)
+const copiedSessionId = ref<string | null>(null)
 const showAccountBilling = props.showAccountBilling
 const showUpstreamEndpoint = props.showUpstreamEndpoint
 const ipGeoBatchLoading = ref(false)
@@ -662,6 +681,19 @@ const copyRequestId = async (requestId: string) => {
     appStore.showSuccess(t('admin.usage.requestIdCopied'))
     window.setTimeout(() => {
       if (copiedRequestId.value === requestId) copiedRequestId.value = null
+    }, 2000)
+  } catch {
+    appStore.showError(t('common.copyFailed'))
+  }
+}
+
+const copySessionId = async (sessionId: string) => {
+  try {
+    await navigator.clipboard.writeText(sessionId)
+    copiedSessionId.value = sessionId
+    appStore.showSuccess(t('admin.usage.sessionIdCopied'))
+    window.setTimeout(() => {
+      if (copiedSessionId.value === sessionId) copiedSessionId.value = null
     }, 2000)
   } catch {
     appStore.showError(t('common.copyFailed'))

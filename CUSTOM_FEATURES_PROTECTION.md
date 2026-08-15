@@ -567,8 +567,9 @@
 - 服务启动时必须扫描旧版 `openai_session_limit:account:*` 数据并建立唯一归属；若同一哈希已存在于多个账号，保留最后活跃时间最新的一条并删除其他槽位，相同时间时使用账号 ID 确定性裁决。
 - SessionID 超过配置的空闲时间后必须从活跃槽位移入该账号暂存区，立即释放活跃容量；暂存保留时间为额外一个相同的空闲过期周期。暂存期内该 SessionID 再次请求时优先调度原账号：原账号有空槽则原子移回活跃槽位；原账号已满且自动轮换关闭时删除暂存和调度偏好并继续选择其他账号，自动轮换开启时则淘汰最久未请求的活跃槽位并原子回迁。暂存期结束后清理暂存归属；关闭控制或删除账号时应同时清理活跃槽位、暂存槽位和相关归属键。
 - Spark 影子账号不能独立配置，调度到影子账号时必须读取母账号配置并与母账号共享同一组槽位。
-- 本功能限制的是下游显式 SessionID，并且按“下游 API Key + 原始 SessionID”哈希隔离；不得存储原始值，也不得把仅由请求内容或内部 fallback 推导出的 sticky hash 当成真实 SessionID。
+- 本功能限制的是下游显式 SessionID，并且按“下游 API Key + 原始 SessionID”哈希隔离；SessionID 控制的 Redis 槽位与归属不得存储原始值，也不得把仅由请求内容或内部 fallback 推导出的 sticky hash 当成真实 SessionID。
 - 显式标识至少覆盖 `session-id`、`session_id`、`conversation_id`、OpenCode 会话头、CodeBuddy 会话头及 `prompt_cache_key`。外部请求没有显式 SessionID 时，开启控制的账号不可参与该次调度；内部探测和模型发现没有外部请求标记时不受影响。
+- 管理员使用记录必须把持久化的 `usage_logs.session_id` 作为独立 SessionID 列展示，不能用每次请求唯一的 `request_id` 冒充会话标识。该列默认可见并紧邻账号列，支持复制及 Excel 导出，便于核对同一 SessionID 是否始终调度到同一账号；没有显式 SessionID 的历史或当前请求显示 `-`。
 - SessionID 控制与 Codex 指纹收敛互相独立：指纹收敛可改变上游看到的会话/设备标识，本地槽位仍必须按下游原始显式 SessionID 计数。Codex 指纹收敛默认必须为 `off`，创建、编辑和批量编辑账号时不能因为启用 SessionID 控制而隐式开启收敛；已有账号显式配置的 `device` / `session` / `full` 模式必须原样保留。
 - Redis 使用独立键空间：活跃槽位 `openai_session_limit:account:{accountID}`、暂存槽位 `openai_session_limit:staged:{accountID}`、物理唯一归属定位 `openai_session_limit:owner:{sessionIDHash}` 和带活跃/暂存截止时间的限时调度元数据 `openai_session_limit:preferred:{sessionIDHash}`；不得与 Anthropic 的 `session_limit:account:{accountID}` 共用数据。调度查询只能在暂存窗口返回原账号，活跃窗口仍使用既有调度顺序，并在“活跃周期 + 一个暂存周期”结束时准时失效；唯一归属定位要比共享 ZSET 多保留清理缓冲，防止偏好失效后跨账号接纳留下重复物理成员。接纳、跨账号转移、活跃转暂存、暂存回迁、满槽剔除、过期清理、存在刷新和数量判断必须由 Lua 脚本原子完成；不得把原始 SessionID 写入 Redis key 或 value。
 - Redis 异常时不得让受控账号失败开放；应仅跳过当前受控账号并继续调度其他账号。所有候选账号均不可用时再返回无可用账号错误。
@@ -584,10 +585,10 @@
 
 关键文件：
 
-- 后端配置与调度：`backend/internal/service/account_openai_session_control.go`、`backend/internal/service/openai_session_control.go`、`backend/internal/service/openai_account_scheduler.go`、`backend/internal/service/openai_gateway_scheduling.go`
+- 后端配置、调度与用量会话字段：`backend/internal/service/account_openai_session_control.go`、`backend/internal/service/openai_session_control.go`、`backend/internal/service/openai_account_scheduler.go`、`backend/internal/service/openai_gateway_scheduling.go`、`backend/internal/service/session_id.go`、`backend/internal/service/usage_log.go`、`backend/internal/handler/dto/types.go`、`backend/internal/handler/dto/mappers.go`、`backend/internal/repository/usage_log_repo_query.go`
 - 后端缓存与管理：`backend/internal/service/session_limit_cache.go`、`backend/internal/repository/session_limit_cache.go`、`backend/internal/repository/scheduler_cache.go`、`backend/internal/service/admin_account.go`、`backend/internal/service/admin_service.go`、`backend/internal/handler/admin/account_handler.go`、`backend/internal/handler/dto/mappers.go`
 - 外部入口：`backend/internal/handler/openai_embeddings.go`、`backend/internal/handler/openai_live.go`、`backend/internal/service/openai_live.go`
-- 前端：`frontend/src/components/account/OpenAISessionControlFields.vue`、`frontend/src/components/account/openaiSessionControl.ts`、`frontend/src/components/account/CreateAccountModal.vue`、`frontend/src/components/account/EditAccountModal.vue`、`frontend/src/components/account/BulkEditAccountModal.vue`、`frontend/src/components/account/AccountCapacityCell.vue`、`frontend/src/components/common/Toggle.vue`
+- 前端：`frontend/src/components/account/OpenAISessionControlFields.vue`、`frontend/src/components/account/openaiSessionControl.ts`、`frontend/src/components/account/CreateAccountModal.vue`、`frontend/src/components/account/EditAccountModal.vue`、`frontend/src/components/account/BulkEditAccountModal.vue`、`frontend/src/components/account/AccountCapacityCell.vue`、`frontend/src/components/common/Toggle.vue`、`frontend/src/components/admin/usage/UsageTable.vue`、`frontend/src/views/admin/UsageView.vue`、`frontend/src/types/index.ts`
 
 回归检查：
 
@@ -598,7 +599,7 @@
 - 暂存命中但原账号活跃槽位已满时，自动轮换关闭应原子删除该暂存成员及偏好后切换其他账号；自动轮换开启应在原账号淘汰最久未请求槽位并完成回迁。调度偏好自然到期后再跨账号接纳，也不得在旧账号留下重复物理成员。
 - 启动迁移遇到旧版跨账号重复槽位时只保留最后活跃的一条，并为所有现存槽位建立带过期时间的唯一归属键。
 - 槽位满、SessionID 缺失或 Redis 异常时，调度器释放当前账号槽并切换其他候选账号；不能直接结束，也不能反复选择同一账号。
-- 不同下游 API Key 使用相同原始 SessionID 时占用不同槽位；日志和 Redis 不出现原始 SessionID。
+- 不同下游 API Key 使用相同原始 SessionID 时占用不同槽位；除受权限控制、专用于会话关联的 `usage_logs.session_id` 字段外，运行日志和 Redis 不出现原始 SessionID。
 - 到期活跃槽位会在后续接纳或容量查询时原子转入暂存，暂存到期后再清理；关闭控制、批量关闭和删除账号会同时清理活跃槽位和暂存槽位。
 - 母账号和 Spark 影子账号共享母账号槽位，影子账号不能通过批量编辑获得独立配置。
 - OpenAI SessionID 键空间与 Anthropic 会话限制完全隔离，现有 Anthropic 会话数量、窗口费用及 RPM 展示不受影响。
@@ -717,6 +718,7 @@ GOMAXPROCS=2 go test -tags=unit -run TestSettingService_ImagePlaygroundAndVideoJ
 7. 等待账号 A 的 SessionID 达到空闲过期时间，确认活跃计数释放且哈希进入 A 的暂存区；在额外一个过期周期内再次请求，确认高级调度和旧调度都优先选择 A，并将其从暂存区原子移回活跃槽位。
 8. 关闭自动轮换时，暂存期内先用其他 SessionID 填满账号 A，再让暂存 SessionID 请求，确认 A 的暂存成员和偏好被删除、请求继续调度到其他账号；等待暂存期自然结束后重复请求，确认不再偏好 A 且所有账号间仍只有一个物理槽位成员。
 9. 开启“槽位满时自动轮换”后，用第四个 SessionID 请求已满的账号，确认最久未请求的旧会话从活跃槽位移入请求暂存区、仍归属原账号且立即获得暂存偏好；第四个会话进入活跃槽位，活跃数量保持上限。旧会话在暂存期回访时应优先原账号，并把另一最久未请求的活跃会话轮换进暂存区。
+10. 打开管理员使用记录，确认 SessionID 列默认显示在账号列旁边；同一会话的多条记录可直接对照账号，SessionID 可复制且 Excel 导出包含该列，请求 ID 仍保持独立列和原默认隐藏规则。
 
 后端定向测试：
 

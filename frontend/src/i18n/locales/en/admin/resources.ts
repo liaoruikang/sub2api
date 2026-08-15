@@ -517,6 +517,8 @@ export default {
       user: 'User',
       account: 'Account',
       group: 'Group',
+      sessionId: 'Session ID',
+      sessionIdCopied: 'Session ID copied',
       requestId: 'Request ID',
       requestIdCopied: 'Request ID copied',
       allModels: 'All Models',
