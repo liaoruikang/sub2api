@@ -34,6 +34,32 @@ export interface ListAffiliateRecordsParams {
   timezone?: string
 }
 
+export type AffiliateWithdrawalStatus = 'pending' | 'paid' | 'rejected'
+
+export interface ListAffiliateWithdrawalsParams extends ListAffiliateRecordsParams {
+  status?: AffiliateWithdrawalStatus | ''
+}
+
+export interface AffiliateWithdrawalRecord {
+  id: number
+  request_no: string
+  user_id: number
+  user_email: string
+  username: string
+  amount: number
+  fee_rate: number
+  fee_amount: number
+  payout_amount: number
+  alipay_account: string
+  alipay_account_masked: string
+  status: AffiliateWithdrawalStatus
+  reject_reason?: string
+  operator_email?: string
+  processed_at?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface AffiliateInviteRecord {
   inviter_id: number
   inviter_email: string
@@ -206,6 +232,39 @@ export async function listTransferRecords(
   return data
 }
 
+export async function listWithdrawalRecords(
+  params: ListAffiliateWithdrawalsParams = {},
+): Promise<PaginatedResponse<AffiliateWithdrawalRecord>> {
+  const { data } = await apiClient.get<PaginatedResponse<AffiliateWithdrawalRecord>>(
+    '/admin/affiliates/withdrawals',
+    { params: { ...recordParams(params), status: params.status || undefined } },
+  )
+  return data
+}
+
+function newWithdrawalOperationKey(id: number, action: string): string {
+  const requestID = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `affiliate-withdrawal-${id}-${action}-${requestID}`
+}
+
+export async function completeWithdrawal(id: number): Promise<AffiliateWithdrawalRecord> {
+  const { data } = await apiClient.post<AffiliateWithdrawalRecord>(
+    `/admin/affiliates/withdrawals/${id}/complete`,
+    {},
+    { headers: { 'Idempotency-Key': newWithdrawalOperationKey(id, 'complete') } },
+  )
+  return data
+}
+
+export async function rejectWithdrawal(id: number, reason: string): Promise<AffiliateWithdrawalRecord> {
+  const { data } = await apiClient.post<AffiliateWithdrawalRecord>(
+    `/admin/affiliates/withdrawals/${id}/reject`,
+    { reason },
+    { headers: { 'Idempotency-Key': newWithdrawalOperationKey(id, 'reject') } },
+  )
+  return data
+}
+
 export async function getUserOverview(
   userId: number,
 ): Promise<AffiliateUserOverview> {
@@ -224,6 +283,9 @@ export const affiliatesAPI = {
   listInviteRecords,
   listRebateRecords,
   listTransferRecords,
+  listWithdrawalRecords,
+  completeWithdrawal,
+  rejectWithdrawal,
   getUserOverview,
 }
 

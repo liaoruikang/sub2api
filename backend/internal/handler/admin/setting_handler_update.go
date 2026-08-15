@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -177,6 +178,9 @@ type UpdateSettingsRequest struct {
 	AffiliateRebateDurationDays               *int                              `json:"affiliate_rebate_duration_days"`
 	AffiliateRebatePerInviteeCap              *float64                          `json:"affiliate_rebate_per_invitee_cap"`
 	AdminRechargeRebateEnabled                *bool                             `json:"affiliate_admin_recharge_enabled"`
+	AffiliateWithdrawalEnabled                *bool                             `json:"affiliate_withdrawal_enabled"`
+	AffiliateWithdrawalMinAmount              *float64                          `json:"affiliate_withdrawal_min_amount"`
+	AffiliateWithdrawalFeeRate                *float64                          `json:"affiliate_withdrawal_fee_rate"`
 	DefaultUserRPMLimit                       int                               `json:"default_user_rpm_limit"`
 	DefaultSubscriptions                      []dto.DefaultSubscriptionSetting  `json:"default_subscriptions"`
 	AuthSourceDefaultEmailBalance             *float64                          `json:"auth_source_default_email_balance"`
@@ -598,6 +602,25 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if req.AdminRechargeRebateEnabled != nil {
 		adminRechargeRebateEnabled = *req.AdminRechargeRebateEnabled
 	}
+	affiliateWithdrawalEnabled := previousSettings.AffiliateWithdrawalEnabled
+	if req.AffiliateWithdrawalEnabled != nil {
+		affiliateWithdrawalEnabled = *req.AffiliateWithdrawalEnabled
+	}
+	affiliateWithdrawalMinAmount := previousSettings.AffiliateWithdrawalMinAmount
+	if req.AffiliateWithdrawalMinAmount != nil {
+		affiliateWithdrawalMinAmount = *req.AffiliateWithdrawalMinAmount
+	}
+	if affiliateWithdrawalMinAmount < 0 || math.IsNaN(affiliateWithdrawalMinAmount) || math.IsInf(affiliateWithdrawalMinAmount, 0) {
+		affiliateWithdrawalMinAmount = service.AffiliateWithdrawalMinAmountDefault
+	}
+	affiliateWithdrawalFeeRate := previousSettings.AffiliateWithdrawalFeeRate
+	if req.AffiliateWithdrawalFeeRate != nil {
+		affiliateWithdrawalFeeRate = *req.AffiliateWithdrawalFeeRate
+	}
+	if math.IsNaN(affiliateWithdrawalFeeRate) || math.IsInf(affiliateWithdrawalFeeRate, 0) {
+		affiliateWithdrawalFeeRate = service.AffiliateWithdrawalFeeRateDefault
+	}
+	affiliateWithdrawalFeeRate = math.Max(service.AffiliateWithdrawalFeeRateMin, math.Min(service.AffiliateWithdrawalFeeRateMax, affiliateWithdrawalFeeRate))
 	// 通用表格配置：兼容旧客户端未传字段时保留当前值。
 	if req.TableDefaultPageSize <= 0 {
 		req.TableDefaultPageSize = previousSettings.TableDefaultPageSize
@@ -1634,6 +1657,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:            affiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           affiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:             adminRechargeRebateEnabled,
+		AffiliateWithdrawalEnabled:             affiliateWithdrawalEnabled,
+		AffiliateWithdrawalMinAmount:           affiliateWithdrawalMinAmount,
+		AffiliateWithdrawalFeeRate:             affiliateWithdrawalFeeRate,
 		DefaultUserRPMLimit:                    req.DefaultUserRPMLimit,
 		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableModelFallback:                    req.EnableModelFallback,
@@ -2256,6 +2282,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:                            updatedSettings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:                           updatedSettings.AffiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:                             updatedSettings.AdminRechargeRebateEnabled,
+		AffiliateWithdrawalEnabled:                             updatedSettings.AffiliateWithdrawalEnabled,
+		AffiliateWithdrawalMinAmount:                           updatedSettings.AffiliateWithdrawalMinAmount,
+		AffiliateWithdrawalFeeRate:                             updatedSettings.AffiliateWithdrawalFeeRate,
 		DefaultUserRPMLimit:                                    updatedSettings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                                   updatedDefaultSubscriptions,
 		EnableModelFallback:                                    updatedSettings.EnableModelFallback,

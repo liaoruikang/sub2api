@@ -392,6 +392,7 @@ export default {
       invitesDescription: '查看全站邀请关系和被邀请用户累计返利',
       rebatesDescription: '查看每一笔产生返利的充值订单',
       transfersDescription: '查看返利额度转入账户余额的提取流水',
+      withdrawalsDescription: '审核用户提现到支付宝的申请并记录处理结果',
       errors: {
         loadFailed: '加载邀请返利记录失败'
       },
@@ -419,6 +420,40 @@ export default {
         invitedAt: '邀请时间',
         rebatedAt: '返利时间',
         transferredAt: '提取时间'
+      },
+      withdrawals: {
+        searchPlaceholder: '申请单号、邮箱、用户名或用户 ID',
+        statusFilter: '提现状态筛选',
+        feeDetail: '手续费 {rate}%：{fee}',
+        complete: '确认转账',
+        reject: '驳回',
+        completeTitle: '确认已完成转账',
+        completeMessage: '请确认已向支付宝账号 {account} 转账 {payout}。确认后将从冻结返利中扣除申请金额 {amount}，此操作不可撤销。',
+        confirmPaid: '确认已提现',
+        completeSuccess: '提现申请已标记为已提现',
+        rejectTitle: '驳回提现申请',
+        rejectMessage: '驳回后，冻结的 {amount} 将退回用户返利余额。',
+        rejectReason: '驳回原因',
+        rejectReasonPlaceholder: '请输入不符合提现条件的原因',
+        confirmReject: '确认驳回',
+        rejectSuccess: '提现申请已驳回，冻结金额已退回',
+        status: {
+          all: '全部状态',
+          pending: '待处理',
+          paid: '已提现',
+          rejected: '已驳回'
+        },
+        columns: {
+          requestNo: '申请单号',
+          user: '用户',
+          amount: '申请金额',
+          payout: '实际转账',
+          alipay: '支付宝账号',
+          status: '状态',
+          operator: '处理人 / 时间',
+          createdAt: '申请时间',
+          actions: '操作'
+        }
       },
       overview: {
         title: '用户返利概览',

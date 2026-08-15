@@ -392,6 +392,7 @@ export default {
       invitesDescription: 'View site-wide inviter and invitee relationships',
       rebatesDescription: 'View recharge orders that generated affiliate rebates',
       transfersDescription: 'View affiliate quota transfers into account balance',
+      withdrawalsDescription: 'Review Alipay withdrawal requests and record their outcomes',
       errors: {
         loadFailed: 'Failed to load affiliate records'
       },
@@ -419,6 +420,40 @@ export default {
         invitedAt: 'Invited At',
         rebatedAt: 'Rebated At',
         transferredAt: 'Transferred At'
+      },
+      withdrawals: {
+        searchPlaceholder: 'Request number, email, username, or user ID',
+        statusFilter: 'Withdrawal status filter',
+        feeDetail: '{rate}% fee: {fee}',
+        complete: 'Confirm Transfer',
+        reject: 'Reject',
+        completeTitle: 'Confirm Manual Transfer',
+        completeMessage: 'Confirm that {payout} was transferred to Alipay account {account}. The full requested amount of {amount} will be deducted from frozen rebates. This cannot be undone.',
+        confirmPaid: 'Mark as Paid',
+        completeSuccess: 'Withdrawal marked as paid',
+        rejectTitle: 'Reject Withdrawal',
+        rejectMessage: 'Rejecting this request returns the frozen {amount} to the user’s rebate balance.',
+        rejectReason: 'Rejection Reason',
+        rejectReasonPlaceholder: 'Explain why this request is not eligible',
+        confirmReject: 'Reject Request',
+        rejectSuccess: 'Withdrawal rejected and frozen amount returned',
+        status: {
+          all: 'All statuses',
+          pending: 'Pending',
+          paid: 'Paid',
+          rejected: 'Rejected'
+        },
+        columns: {
+          requestNo: 'Request No.',
+          user: 'User',
+          amount: 'Requested',
+          payout: 'Transfer Amount',
+          alipay: 'Alipay Account',
+          status: 'Status',
+          operator: 'Operator / Time',
+          createdAt: 'Requested At',
+          actions: 'Actions'
+        }
       },
       overview: {
         title: 'Affiliate User Overview',

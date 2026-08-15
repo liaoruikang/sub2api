@@ -98,6 +98,38 @@ func (s *SettingService) IsAffiliateAdminRechargeEnabled(ctx context.Context) bo
 	return value == "true"
 }
 
+func (s *SettingService) IsAffiliateWithdrawalEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateWithdrawalEnabled)
+	if err != nil {
+		return AffiliateWithdrawalEnabledDefault
+	}
+	return value == "true"
+}
+
+func (s *SettingService) GetAffiliateWithdrawalMinAmount(ctx context.Context) float64 {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateWithdrawalMinAmount)
+	if err != nil {
+		return AffiliateWithdrawalMinAmountDefault
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || value < 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+		return AffiliateWithdrawalMinAmountDefault
+	}
+	return value
+}
+
+func (s *SettingService) GetAffiliateWithdrawalFeeRate(ctx context.Context) float64 {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateWithdrawalFeeRate)
+	if err != nil {
+		return AffiliateWithdrawalFeeRateDefault
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return AffiliateWithdrawalFeeRateDefault
+	}
+	return clampAffiliateWithdrawalFeeRate(value)
+}
+
 // GetAffiliateRebateRatePercent 读取并 clamp 全局返利比例。
 // 解析失败、缺失或越界都回退到 AffiliateRebateRateDefault — 该比例从不抛错，
 // 调用方只关心一个可用的数值。

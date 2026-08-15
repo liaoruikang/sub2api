@@ -384,6 +384,13 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyAffiliateRebatePerInviteeCap] = strconv.FormatFloat(settings.AffiliateRebatePerInviteeCap, 'f', 8, 64)
 	updates[SettingKeyAffiliateAdminRechargeEnabled] = strconv.FormatBool(settings.AdminRechargeRebateEnabled)
+	updates[SettingKeyAffiliateWithdrawalEnabled] = strconv.FormatBool(settings.AffiliateWithdrawalEnabled)
+	if settings.AffiliateWithdrawalMinAmount < 0 || math.IsNaN(settings.AffiliateWithdrawalMinAmount) || math.IsInf(settings.AffiliateWithdrawalMinAmount, 0) {
+		settings.AffiliateWithdrawalMinAmount = AffiliateWithdrawalMinAmountDefault
+	}
+	updates[SettingKeyAffiliateWithdrawalMinAmount] = strconv.FormatFloat(settings.AffiliateWithdrawalMinAmount, 'f', 8, 64)
+	settings.AffiliateWithdrawalFeeRate = clampAffiliateWithdrawalFeeRate(settings.AffiliateWithdrawalFeeRate)
+	updates[SettingKeyAffiliateWithdrawalFeeRate] = strconv.FormatFloat(settings.AffiliateWithdrawalFeeRate, 'f', 4, 64)
 	updates[SettingKeyDefaultUserRPMLimit] = strconv.Itoa(settings.DefaultUserRPMLimit)
 	defaultSubsJSON, err := json.Marshal(settings.DefaultSubscriptions)
 	if err != nil {

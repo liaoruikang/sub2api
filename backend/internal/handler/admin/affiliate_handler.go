@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -238,6 +240,67 @@ func (h *AffiliateHandler) ListTransferRecords(c *gin.Context) {
 		return
 	}
 	response.Paginated(c, items, total, filter.Page, filter.PageSize)
+}
+
+// ListWithdrawals returns all affiliate withdrawal applications.
+// GET /api/v1/admin/affiliates/withdrawals
+func (h *AffiliateHandler) ListWithdrawals(c *gin.Context) {
+	page, pageSize := response.ParsePagination(c)
+	base := parseAffiliateRecordFilter(c, page, pageSize)
+	filter := service.AffiliateWithdrawalFilter{
+		Search:   base.Search,
+		Status:   c.Query("status"),
+		Page:     base.Page,
+		PageSize: base.PageSize,
+		StartAt:  base.StartAt,
+		EndAt:    base.EndAt,
+		SortBy:   base.SortBy,
+		SortDesc: base.SortDesc,
+	}
+	items, total, err := h.affiliateService.AdminListAffiliateWithdrawals(c.Request.Context(), filter)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total, filter.Page, filter.PageSize)
+}
+
+type rejectAffiliateWithdrawalRequest struct {
+	Reason string `json:"reason" binding:"required"`
+}
+
+func (h *AffiliateHandler) CompleteWithdrawal(c *gin.Context) {
+	h.processWithdrawal(c, service.AffiliateWithdrawalStatusPaid, "")
+}
+
+func (h *AffiliateHandler) RejectWithdrawal(c *gin.Context) {
+	var req rejectAffiliateWithdrawalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	h.processWithdrawal(c, service.AffiliateWithdrawalStatusRejected, req.Reason)
+}
+
+func (h *AffiliateHandler) processWithdrawal(c *gin.Context, status, reason string) {
+	withdrawalID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || withdrawalID <= 0 {
+		response.BadRequest(c, "Invalid withdrawal ID")
+		return
+	}
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		response.Unauthorized(c, "Admin not authenticated")
+		return
+	}
+	payload := struct {
+		WithdrawalID int64  `json:"withdrawal_id"`
+		Status       string `json:"status"`
+		Reason       string `json:"reason,omitempty"`
+	}{withdrawalID, status, strings.TrimSpace(reason)}
+	executeAdminIdempotentJSON(c, "admin.affiliate.withdrawals.process", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		return h.affiliateService.AdminProcessAffiliateWithdrawal(ctx, withdrawalID, subject.UserID, status, reason)
+	})
 }
 
 func parseAffiliateRecordFilter(c *gin.Context, page, pageSize int) service.AffiliateRecordFilter {

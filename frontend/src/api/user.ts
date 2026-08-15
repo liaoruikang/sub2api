@@ -16,6 +16,9 @@ import type {
   UserAuthProvider,
   UserAffiliateDetail,
   AffiliateTransferResponse,
+  AffiliateWithdrawal,
+  AffiliateWithdrawalStatus,
+  PaginatedResponse,
   PlatformQuotasResponse,
 } from '@/types'
 
@@ -186,6 +189,36 @@ export async function transferAffiliateQuota(): Promise<AffiliateTransferRespons
   return data
 }
 
+function newAffiliateWithdrawalKey(): string {
+  const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `affiliate-withdrawal-${id}`
+}
+
+export async function createAffiliateWithdrawal(payload: {
+  amount: number
+  alipay_account: string
+}): Promise<AffiliateWithdrawal> {
+  const { data } = await apiClient.post<AffiliateWithdrawal>('/user/aff/withdrawals', payload, {
+    headers: { 'Idempotency-Key': newAffiliateWithdrawalKey() },
+  })
+  return data
+}
+
+export async function listAffiliateWithdrawals(params: {
+  page?: number
+  page_size?: number
+  status?: AffiliateWithdrawalStatus | ''
+} = {}): Promise<PaginatedResponse<AffiliateWithdrawal>> {
+  const { data } = await apiClient.get<PaginatedResponse<AffiliateWithdrawal>>('/user/aff/withdrawals', {
+    params: {
+      page: params.page ?? 1,
+      page_size: params.page_size ?? 10,
+      status: params.status || undefined,
+    },
+  })
+  return data
+}
+
 /**
  * 获取当前用户的平台限额 + 用量。
  */
@@ -209,6 +242,8 @@ export const userAPI = {
   startOAuthBinding,
   getAffiliateDetail,
   transferAffiliateQuota,
+  createAffiliateWithdrawal,
+  listAffiliateWithdrawals,
   getMyPlatformQuotas,
 }
 

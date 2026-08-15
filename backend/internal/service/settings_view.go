@@ -176,6 +176,9 @@ type SystemSettings struct {
 	AffiliateRebateDurationDays  int
 	AffiliateRebatePerInviteeCap float64
 	AdminRechargeRebateEnabled   bool
+	AffiliateWithdrawalEnabled   bool
+	AffiliateWithdrawalMinAmount float64
+	AffiliateWithdrawalFeeRate   float64
 	DefaultUserRPMLimit          int
 	DefaultSubscriptions         []DefaultSubscriptionSetting
 

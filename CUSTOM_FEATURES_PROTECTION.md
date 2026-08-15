@@ -607,6 +607,39 @@
 - HTTP Responses、Chat Completions、Messages、Images、Embeddings、WebSocket 和 Live 外部入口均不能绕过控制；内部账号探测仍可正常选号。
 - 使用记录在请求仅通过请求体携带 `prompt_cache_key` 时必须保存该显式 SessionID；请求只命中内容指纹、Grok `previous_response_id` 或 WebSocket 内部兜底时仍须保存为空，不能泄露内部调度种子。
 
+### 2.16 邀请返利支付宝提现
+
+功能要求：
+
+- 系统设置的“邀请返利”区域可独立开启返利提现，并配置最低提现金额和百分比手续费；关闭提现只禁止新申请，不能隐藏历史记录或阻止管理员处理已有申请。
+- 用户在“返利额度转余额”下方可提交支付宝提现申请，并通过弹窗按状态查看历史记录；支付宝账号必须在数据库中加密保存，用户接口只返回脱敏账号，管理员提现列表才返回解密后的完整账号。
+- 提现金额使用总额口径：例如申请 `$100`、手续费 `1%`，从可用返利中冻结并最终扣除 `$100`，手续费快照为 `$1`，管理员实际转账金额快照为 `$99`。申请后的设置变更不能影响历史申请的费率、手续费或实际转账额。
+- 创建申请必须在同一数据库事务中原子执行“可用返利减少 + 冻结返利增加 + 插入 pending 申请”；余额不足时三者都不得发生。并发申请必须通过条件更新防止返利透支。
+- 管理员确认手动转账后，申请状态改为 `paid` 并从冻结返利中扣除申请总额；管理员驳回时必须填写原因，状态改为 `rejected`，并把申请总额从冻结返利退回可用返利。
+- `paid` / `rejected` 是不可逆终态；管理员处理必须锁定申请行并只允许 `pending` 转换一次。创建和管理端处理接口必须使用 `Idempotency-Key`，避免重复点击、网络重试或并发操作造成重复冻结、扣除或退回。
+- 管理端“邀请返利”菜单下必须保留“用户提现”页面，支持状态、日期和用户/申请单号筛选，并清晰展示申请总额、手续费率/金额、实际转账金额、支付宝账号、处理人、处理时间和驳回原因。
+
+关键 setting key：
+
+- `affiliate_withdrawal_enabled`
+- `affiliate_withdrawal_min_amount`
+- `affiliate_withdrawal_fee_rate`
+
+关键文件：
+
+- 数据库与事务：`backend/migrations/226_affiliate_withdrawals.sql`、`backend/internal/repository/affiliate_withdrawal_repo.go`
+- 服务与设置：`backend/internal/service/affiliate_withdrawal.go`、`backend/internal/service/affiliate_service.go`、`backend/internal/service/domain_constants.go`、`backend/internal/service/setting_features.go`、`backend/internal/service/setting_parse.go`、`backend/internal/service/setting_update.go`、`backend/internal/service/settings_view.go`
+- API 与装配：`backend/internal/handler/user_handler.go`、`backend/internal/handler/admin/affiliate_handler.go`、`backend/internal/server/routes/user.go`、`backend/internal/server/routes/admin.go`、`backend/internal/service/wire.go`、`backend/cmd/server/wire_gen.go`
+- 前端：`frontend/src/views/user/AffiliateView.vue`、`frontend/src/views/admin/affiliates/AdminAffiliateWithdrawalsView.vue`、`frontend/src/views/admin/SettingsView.vue`、`frontend/src/api/user.ts`、`frontend/src/api/admin/affiliates.ts`、`frontend/src/api/admin/settings.ts`、`frontend/src/components/layout/AppSidebar.vue`、`frontend/src/router/index.ts`、`frontend/src/types/index.ts`
+
+回归检查：
+
+- 申请 `$100` 且手续费为 `1%` 后，可用返利减少 `$100`、冻结返利增加 `$100`，记录中的手续费为 `$1`、实际转账额为 `$99`；不得只冻结 `$99` 或额外扣除 `$101`。
+- 余额不足和低于最低金额时不创建记录、不改变可用/冻结返利；两笔并发申请不能透支同一份可用返利。
+- 驳回后整笔申请总额退回可用返利；确认已提现后整笔申请总额从冻结返利扣除；同一申请再次处理返回冲突且不再改变余额。
+- 用户列表不返回密文或完整支付宝账号；管理员列表可读取完整账号，数据库不得存明文。
+- 关闭提现开关后，新申请被拒绝，用户历史记录和管理员 pending 处理仍可正常使用。
+
 ## 3. 合并后必测清单
 
 ### 3.1 系统设置保存验证
@@ -729,6 +762,22 @@ go test ./internal/service ./internal/repository ./internal/handler/admin -run '
 go test -tags unit ./internal/service -run 'TestAdminService_BulkUpdateAccounts_(OpenAISessionControl|DisablingOpenAISessionControl)' -count=1
 ```
 
+### 3.8 邀请返利提现验证
+
+1. 在系统设置开启返利提现，设置最低金额 `$10`、手续费 `1%`，保存并刷新，确认配置正确回显。
+2. 使用可用返利至少 `$100` 的用户申请提现 `$100`，确认页面展示冻结 `$100`、手续费 `$1`、预计到账 `$99`，提交后可用返利减少 `$100` 且冻结返利增加 `$100`。
+3. 管理员在“邀请返利 > 用户提现”找到申请，确认支付宝完整账号与金额快照正确；标记已提现后冻结返利减少 `$100`，重复处理被拒绝。
+4. 再提交一笔申请并填写原因驳回，确认整笔申请总额退回可用返利，用户提现记录展示状态和驳回原因。
+5. 关闭提现开关，确认用户不能新建申请，但仍能查看历史记录，管理员仍能处理关闭前的 pending 申请。
+
+后端定向测试：
+
+```bash
+cd backend
+go test ./internal/service -run 'Test(CreateAffiliateWithdrawal|AffiliateWithdrawal)' -count=1
+go test -tags integration ./internal/repository -run TestAffiliateWithdrawalRepository_FreezesAndSettlesGrossAmount -count=1
+```
+
 ## 4. 合并冲突处理重点
 
 遇到以下文件冲突时，必须人工合并，不能直接选择上游覆盖：
@@ -750,12 +799,17 @@ go test -tags unit ./internal/service -run 'TestAdminService_BulkUpdateAccounts_
 - `backend/internal/repository/session_limit_cache.go`
 - `backend/internal/repository/scheduler_cache.go`
 - `backend/internal/service/wire.go`
+- `backend/internal/service/affiliate_service.go`
+- `backend/internal/service/affiliate_withdrawal.go`
+- `backend/internal/repository/affiliate_withdrawal_repo.go`
 - `backend/cmd/server/wire_gen.go`
 - `backend/internal/repository/account_repo.go`
 - `backend/internal/server/routes/admin.go`
 - `backend/internal/handler/dto/settings.go`
 - `backend/internal/handler/admin/account_handler.go`
 - `backend/internal/handler/admin/setting_handler_update.go`
+- `backend/internal/handler/admin/affiliate_handler.go`
+- `backend/internal/handler/user_handler.go`
 - `frontend/src/views/admin/SettingsView.vue`
 - `frontend/src/views/admin/AccountsView.vue`
 - `frontend/src/views/user/ImagePlaygroundView.vue`
@@ -772,6 +826,9 @@ go test -tags unit ./internal/service -run 'TestAdminService_BulkUpdateAccounts_
 - `frontend/src/types/index.ts`
 - `frontend/src/api/imagePlayground.ts`
 - `frontend/src/api/admin/accounts.ts`
+- `frontend/src/views/user/AffiliateView.vue`
+- `frontend/src/views/admin/affiliates/AdminAffiliateWithdrawalsView.vue`
+- `frontend/src/api/admin/affiliates.ts`
 
 合并后至少 grep 确认这些关键字仍存在：
 
@@ -810,6 +867,11 @@ openai_session_slot_rotation_enabled
 RegisterOpenAISessionID
 GetOpenAIStagedSessionAccountID
 registerOpenAISessionControl
+affiliate_withdrawal_enabled
+affiliate_withdrawal_min_amount
+affiliate_withdrawal_fee_rate
+AffiliateWithdrawal
+ProcessAffiliateWithdrawal
 ```
 
 ## 5. 本次已修复过的问题记录
@@ -881,5 +943,6 @@ registerOpenAISessionControl
 - 有效流式语义内容写出后不切换 Group，compact keepalive 不阻断 failover，invalid-request fallback 最多执行一次。
 - OpenAI OAuth SessionID 控制可在创建、编辑和批量编辑中配置；默认模式满槽后已有 ID 可用、新 ID 自动切换账号，活跃过期后进入一个周期的暂存区。开启自动轮换后，被轮换的旧会话也必须进入同账号暂存区并在回访时优先原账号。
 - OpenAI SessionID 槽位按下游 API Key 隔离，与 Anthropic 会话限制及 Codex 指纹收敛互不污染；Spark 影子账号与母账号共享槽位。
+- 邀请返利提现按申请总额冻结和最终扣除，手续费仅从管理员实际转账金额中扣减；驳回整笔退回、终态不可重复处理、支付宝账号加密保存。
 - 前端 typecheck 通过。
 - 新增的 service 和 handler 回归测试通过。

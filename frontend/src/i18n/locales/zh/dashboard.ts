@@ -679,6 +679,43 @@ export default {
       empty: '当前没有可转入额度',
       success: '已转入余额：{amount}'
     },
+    withdrawal: {
+      title: '提现到支付宝',
+      description: '提交后申请金额将冻结，管理员完成转账或驳回后更新状态',
+      records: '提现记录',
+      recordsTitle: '提现记录',
+      disabled: '管理员暂未开启返利提现，历史提现记录仍可查看。',
+      amount: '申请金额',
+      all: '全部',
+      minimum: '最低可提现 {amount}',
+      alipayAccount: '支付宝账号',
+      alipayPlaceholder: '请输入支付宝手机号或邮箱',
+      alipayHint: '请核对账号，管理员将按此账号手动转账。',
+      requestAmount: '冻结金额',
+      fee: '手续费（{rate}%）',
+      payoutAmount: '预计到账',
+      submit: '提交提现申请',
+      submitting: '提交中...',
+      success: '提现申请已提交，预计到账 {amount}',
+      submitFailed: '提交提现申请失败',
+      recordsFailed: '加载提现记录失败',
+      statusFilter: '提现状态筛选',
+      noRecords: '暂无提现记录',
+      status: {
+        all: '全部状态',
+        pending: '待处理',
+        paid: '已提现',
+        rejected: '已驳回'
+      },
+      columns: {
+        requestNo: '申请单号',
+        amount: '申请金额',
+        payout: '实际到账',
+        alipay: '支付宝账号',
+        status: '状态',
+        time: '申请时间'
+      }
+    },
     invitees: {
       title: '已邀请用户',
       empty: '暂无邀请记录',

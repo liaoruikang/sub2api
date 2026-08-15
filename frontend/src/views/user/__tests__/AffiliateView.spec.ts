@@ -3,15 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AffiliateView from '../AffiliateView.vue'
 
-const { copyToClipboard, getAffiliateDetail } = vi.hoisted(() => ({
+const { copyToClipboard, createAffiliateWithdrawal, getAffiliateDetail, listAffiliateWithdrawals } = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
+  createAffiliateWithdrawal: vi.fn(),
   getAffiliateDetail: vi.fn(),
+  listAffiliateWithdrawals: vi.fn(),
 }))
 
 vi.mock('@/api/user', () => ({
   default: {
     getAffiliateDetail,
     transferAffiliateQuota: vi.fn(),
+    createAffiliateWithdrawal,
+    listAffiliateWithdrawals,
   },
 }))
 
@@ -57,6 +61,11 @@ describe('AffiliateView', () => {
       aff_frozen_quota: 0,
       aff_history_quota: 0,
       effective_rebate_rate_percent: 10,
+      withdrawal_config: {
+        enabled: true,
+        min_amount: 10,
+        fee_rate: 1,
+      },
       invitees: [],
     })
   })
@@ -112,5 +121,55 @@ describe('AffiliateView', () => {
       `${window.location.origin}/register?aff=${encodeURIComponent(affiliateCode)}`,
       'affiliate.linkCopied',
     )
+  })
+
+  it('submits the gross amount while displaying the percentage fee payout', async () => {
+    getAffiliateDetail.mockResolvedValue({
+      user_id: 1,
+      aff_code: affiliateCode,
+      inviter_id: null,
+      aff_count: 0,
+      aff_quota: 100,
+      aff_frozen_quota: 0,
+      aff_history_quota: 100,
+      effective_rebate_rate_percent: 10,
+      withdrawal_config: { enabled: true, min_amount: 10, fee_rate: 1 },
+      invitees: [],
+    })
+    createAffiliateWithdrawal.mockResolvedValue({
+      id: 1,
+      request_no: 'AW001',
+      amount: 100,
+      fee_rate: 1,
+      fee_amount: 1,
+      payout_amount: 99,
+      alipay_account_masked: 'buy****om',
+      status: 'pending',
+      created_at: '2026-08-16T00:00:00Z',
+      updated_at: '2026-08-16T00:00:00Z',
+    })
+
+    const wrapper = mount(AffiliateView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<main><slot /></main>' },
+          Icon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    await wrapper.get('#affiliate-withdrawal-amount').setValue('100')
+    await wrapper.get('#affiliate-alipay-account').setValue('buyer@example.com')
+    expect(wrapper.text()).toContain('$99.00')
+    const submit = wrapper.findAll('button').find((button) => button.text() === 'affiliate.withdrawal.submit')
+    expect(submit).toBeTruthy()
+    await submit!.trigger('click')
+    await flushPromises()
+
+    expect(createAffiliateWithdrawal).toHaveBeenCalledWith({
+      amount: 100,
+      alipay_account: 'buyer@example.com',
+    })
   })
 })

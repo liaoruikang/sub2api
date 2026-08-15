@@ -232,6 +232,53 @@ func (h *UserHandler) TransferAffiliateQuota(c *gin.Context) {
 	})
 }
 
+type createAffiliateWithdrawalRequest struct {
+	Amount        float64 `json:"amount" binding:"required"`
+	AlipayAccount string  `json:"alipay_account" binding:"required"`
+}
+
+// CreateAffiliateWithdrawal freezes affiliate quota and creates an Alipay withdrawal request.
+// POST /api/v1/user/aff/withdrawals
+func (h *UserHandler) CreateAffiliateWithdrawal(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	var req createAffiliateWithdrawalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	executeUserIdempotentJSON(c, "user.affiliate.withdrawals.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		return h.affiliateService.CreateAffiliateWithdrawal(ctx, subject.UserID, req.Amount, req.AlipayAccount)
+	})
+}
+
+// ListAffiliateWithdrawals returns the current user's withdrawal history.
+// GET /api/v1/user/aff/withdrawals
+func (h *UserHandler) ListAffiliateWithdrawals(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	filter := service.AffiliateWithdrawalFilter{
+		Status:   c.Query("status"),
+		Page:     page,
+		PageSize: pageSize,
+		SortBy:   "created_at",
+		SortDesc: true,
+	}
+	items, total, err := h.affiliateService.ListUserAffiliateWithdrawals(c.Request.Context(), subject.UserID, filter)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total, filter.Page, filter.PageSize)
+}
+
 type StartIdentityBindingRequest struct {
 	Provider   string `json:"provider" binding:"required"`
 	RedirectTo string `json:"redirect_to"`

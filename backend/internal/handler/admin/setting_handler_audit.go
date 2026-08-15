@@ -365,6 +365,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.AdminRechargeRebateEnabled != after.AdminRechargeRebateEnabled {
 		changed = append(changed, "affiliate_admin_recharge_enabled")
 	}
+	if before.AffiliateWithdrawalEnabled != after.AffiliateWithdrawalEnabled {
+		changed = append(changed, "affiliate_withdrawal_enabled")
+	}
+	if before.AffiliateWithdrawalMinAmount != after.AffiliateWithdrawalMinAmount {
+		changed = append(changed, "affiliate_withdrawal_min_amount")
+	}
+	if before.AffiliateWithdrawalFeeRate != after.AffiliateWithdrawalFeeRate {
+		changed = append(changed, "affiliate_withdrawal_fee_rate")
+	}
 	if !equalDefaultSubscriptions(before.DefaultSubscriptions, after.DefaultSubscriptions) {
 		changed = append(changed, "default_subscriptions")
 	}

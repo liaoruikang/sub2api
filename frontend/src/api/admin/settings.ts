@@ -417,6 +417,9 @@ export interface SystemSettings {
   affiliate_rebate_duration_days: number;
   affiliate_rebate_per_invitee_cap: number;
   affiliate_admin_recharge_enabled: boolean;
+  affiliate_withdrawal_enabled: boolean;
+  affiliate_withdrawal_min_amount: number;
+  affiliate_withdrawal_fee_rate: number;
   default_concurrency: number;
   default_user_rpm_limit: number;
   default_subscriptions: DefaultSubscriptionSetting[];
@@ -759,6 +762,9 @@ export interface UpdateSettingsRequest {
   affiliate_rebate_duration_days?: number;
   affiliate_rebate_per_invitee_cap?: number;
   affiliate_admin_recharge_enabled?: boolean;
+  affiliate_withdrawal_enabled?: boolean;
+  affiliate_withdrawal_min_amount?: number;
+  affiliate_withdrawal_fee_rate?: number;
   default_concurrency?: number;
   default_user_rpm_limit?: number;
   default_subscriptions?: DefaultSubscriptionSetting[];

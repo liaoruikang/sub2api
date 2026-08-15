@@ -90,8 +90,9 @@ type AffiliateDetail struct {
 	// EffectiveRebateRatePercent 是当前用户作为邀请人时实际生效的返利比例：
 	// 优先用户自己的专属比例（aff_rebate_rate_percent），否则回退到全局比例。
 	// 用于在用户的 /affiliate 页面直观展示「分享后能拿到多少」。
-	EffectiveRebateRatePercent float64            `json:"effective_rebate_rate_percent"`
-	Invitees                   []AffiliateInvitee `json:"invitees"`
+	EffectiveRebateRatePercent float64                   `json:"effective_rebate_rate_percent"`
+	WithdrawalConfig           AffiliateWithdrawalConfig `json:"withdrawal_config"`
+	Invitees                   []AffiliateInvitee        `json:"invitees"`
 }
 
 type AffiliateRepository interface {
@@ -114,6 +115,13 @@ type AffiliateRepository interface {
 	ListAffiliateRebateRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateRebateRecord, int64, error)
 	ListAffiliateTransferRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateTransferRecord, int64, error)
 	GetAffiliateUserOverview(ctx context.Context, userID int64) (*AffiliateUserOverview, error)
+}
+
+type AffiliateWithdrawalRepository interface {
+	CreateAffiliateWithdrawal(ctx context.Context, input AffiliateWithdrawalCreateInput) (*AffiliateWithdrawal, error)
+	ListUserAffiliateWithdrawals(ctx context.Context, userID int64, filter AffiliateWithdrawalFilter) ([]AffiliateWithdrawal, int64, error)
+	ListAdminAffiliateWithdrawals(ctx context.Context, filter AffiliateWithdrawalFilter) ([]AffiliateWithdrawal, int64, error)
+	ProcessAffiliateWithdrawal(ctx context.Context, withdrawalID, operatorID int64, status, rejectReason string) (*AffiliateWithdrawal, error)
 }
 
 // AffiliateAdminFilter 列表筛选条件
@@ -206,18 +214,35 @@ type AffiliateUserOverview struct {
 
 type AffiliateService struct {
 	repo                 AffiliateRepository
+	withdrawalRepo       AffiliateWithdrawalRepository
 	settingService       *SettingService
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	billingCacheService  *BillingCacheService
+	encryptor            SecretEncryptor
+}
+
+func ProvideAffiliateService(
+	repo AffiliateRepository,
+	settingService *SettingService,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	billingCacheService *BillingCacheService,
+	encryptor SecretEncryptor,
+) *AffiliateService {
+	svc := NewAffiliateService(repo, settingService, authCacheInvalidator, billingCacheService)
+	svc.withdrawalRepo, _ = repo.(AffiliateWithdrawalRepository)
+	svc.encryptor = encryptor
+	return svc
 }
 
 func NewAffiliateService(repo AffiliateRepository, settingService *SettingService, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCacheService *BillingCacheService) *AffiliateService {
-	return &AffiliateService{
+	svc := &AffiliateService{
 		repo:                 repo,
 		settingService:       settingService,
 		authCacheInvalidator: authCacheInvalidator,
 		billingCacheService:  billingCacheService,
 	}
+	svc.withdrawalRepo, _ = repo.(AffiliateWithdrawalRepository)
+	return svc
 }
 
 // IsEnabled reports whether the affiliate (邀请返利) feature is turned on.
@@ -262,6 +287,7 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 		AffFrozenQuota:             summary.AffFrozenQuota,
 		AffHistoryQuota:            summary.AffHistoryQuota,
 		EffectiveRebateRatePercent: s.resolveRebateRatePercent(ctx, summary),
+		WithdrawalConfig:           s.affiliateWithdrawalConfig(ctx),
 		Invitees:                   invitees,
 	}, nil
 }

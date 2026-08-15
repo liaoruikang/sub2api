@@ -675,6 +675,43 @@ export default {
       empty: 'No available rebate quota',
       success: '{amount} has been transferred to your balance'
     },
+    withdrawal: {
+      title: 'Withdraw to Alipay',
+      description: 'The requested amount is frozen until an administrator completes or rejects the transfer',
+      records: 'Withdrawal History',
+      recordsTitle: 'Withdrawal History',
+      disabled: 'Affiliate withdrawals are currently disabled. Existing records remain available.',
+      amount: 'Request Amount',
+      all: 'All',
+      minimum: 'Minimum withdrawal: {amount}',
+      alipayAccount: 'Alipay Account',
+      alipayPlaceholder: 'Enter an Alipay phone number or email',
+      alipayHint: 'Check the account carefully. The administrator will transfer funds manually.',
+      requestAmount: 'Amount Frozen',
+      fee: 'Fee ({rate}%)',
+      payoutAmount: 'Expected Payout',
+      submit: 'Submit Withdrawal',
+      submitting: 'Submitting...',
+      success: 'Withdrawal submitted. Expected payout: {amount}',
+      submitFailed: 'Failed to submit withdrawal',
+      recordsFailed: 'Failed to load withdrawal history',
+      statusFilter: 'Withdrawal status filter',
+      noRecords: 'No withdrawal records',
+      status: {
+        all: 'All statuses',
+        pending: 'Pending',
+        paid: 'Paid',
+        rejected: 'Rejected'
+      },
+      columns: {
+        requestNo: 'Request No.',
+        amount: 'Requested',
+        payout: 'Payout',
+        alipay: 'Alipay Account',
+        status: 'Status',
+        time: 'Requested At'
+      }
+    },
     invitees: {
       title: 'Invited Users',
       empty: 'No invited users yet',

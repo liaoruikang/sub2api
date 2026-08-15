@@ -129,6 +129,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateRebateFreezeHours:                strconv.Itoa(AffiliateRebateFreezeHoursDefault),
 		SettingKeyAffiliateRebateDurationDays:               strconv.Itoa(AffiliateRebateDurationDaysDefault),
 		SettingKeyAffiliateRebatePerInviteeCap:              strconv.FormatFloat(AffiliateRebatePerInviteeCapDefault, 'f', 2, 64),
+		SettingKeyAffiliateWithdrawalMinAmount:              strconv.FormatFloat(AffiliateWithdrawalMinAmountDefault, 'f', 2, 64),
+		SettingKeyAffiliateWithdrawalFeeRate:                strconv.FormatFloat(AffiliateWithdrawalFeeRateDefault, 'f', 4, 64),
 		SettingKeyDefaultUserRPMLimit:                       "0",
 		SettingKeyDefaultSubscriptions:                      "[]",
 		SettingKeyAuthSourceDefaultEmailBalance:             "0",
@@ -211,6 +213,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled:              "false",
 		SettingKeyAffiliateAdminRechargeEnabled: strconv.FormatBool(AdminRechargeRebateEnabledDefault),
+		SettingKeyAffiliateWithdrawalEnabled:    strconv.FormatBool(AffiliateWithdrawalEnabledDefault),
 
 		// 风控中心功能（默认关闭，显式启用）
 		SettingKeyRiskControlEnabled: "false",
@@ -418,6 +421,17 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.AffiliateRebatePerInviteeCap = perInviteeCap
 	}
 	result.AdminRechargeRebateEnabled = settings[SettingKeyAffiliateAdminRechargeEnabled] == "true"
+	result.AffiliateWithdrawalEnabled = settings[SettingKeyAffiliateWithdrawalEnabled] == "true"
+	if minAmount, err := strconv.ParseFloat(settings[SettingKeyAffiliateWithdrawalMinAmount], 64); err == nil && minAmount >= 0 && !math.IsNaN(minAmount) && !math.IsInf(minAmount, 0) {
+		result.AffiliateWithdrawalMinAmount = minAmount
+	} else {
+		result.AffiliateWithdrawalMinAmount = AffiliateWithdrawalMinAmountDefault
+	}
+	if feeRate, err := strconv.ParseFloat(settings[SettingKeyAffiliateWithdrawalFeeRate], 64); err == nil && !math.IsNaN(feeRate) && !math.IsInf(feeRate, 0) {
+		result.AffiliateWithdrawalFeeRate = clampAffiliateWithdrawalFeeRate(feeRate)
+	} else {
+		result.AffiliateWithdrawalFeeRate = AffiliateWithdrawalFeeRateDefault
+	}
 	result.DefaultSubscriptions = parseDefaultSubscriptions(settings[SettingKeyDefaultSubscriptions])
 
 	// 敏感信息直接返回，方便测试连接时使用
@@ -988,6 +1002,19 @@ func clampAffiliateRebateRate(value float64) float64 {
 	}
 	if value > AffiliateRebateRateMax {
 		return AffiliateRebateRateMax
+	}
+	return value
+}
+
+func clampAffiliateWithdrawalFeeRate(value float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return AffiliateWithdrawalFeeRateDefault
+	}
+	if value < AffiliateWithdrawalFeeRateMin {
+		return AffiliateWithdrawalFeeRateMin
+	}
+	if value > AffiliateWithdrawalFeeRateMax {
+		return AffiliateWithdrawalFeeRateMax
 	}
 	return value
 }
