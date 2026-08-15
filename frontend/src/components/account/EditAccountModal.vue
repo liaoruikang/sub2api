@@ -2086,6 +2086,16 @@
         </div>
       </div>
 
+      <!-- OpenAI OAuth SessionID 控制 -->
+      <OpenAISessionControlFields
+        v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
+        v-model:enabled="openAISessionControlEnabled"
+        v-model:max-count="openAISessionMaxCount"
+        v-model:timeout-value="openAISessionTimeoutValue"
+        v-model:timeout-unit="openAISessionTimeoutUnit"
+        v-model:slot-rotation-enabled="openAISessionSlotRotationEnabled"
+      />
+
       <!-- OpenAI 订阅档位手动覆盖（Plus/Pro/Free），仅 OAuth 非影子账号 -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
@@ -2833,6 +2843,15 @@ import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
 import OllamaCloudUsageSettings from '@/components/account/OllamaCloudUsageSettings.vue'
+import OpenAISessionControlFields from '@/components/account/OpenAISessionControlFields.vue'
+import {
+  DEFAULT_OPENAI_SESSION_MAX_COUNT,
+  DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT,
+  DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE,
+  openAISessionTimeoutFromSeconds,
+  openAISessionTimeoutToSeconds,
+  type OpenAISessionTimeoutUnit
+} from '@/components/account/openaiSessionControl'
 import {
   applyAntigravityProjectID,
   applyHeaderOverride,
@@ -3080,6 +3099,11 @@ const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
 const codexFingerprintMode = ref<CodexFingerprintMode>('session')
+const openAISessionControlEnabled = ref(false)
+const openAISessionMaxCount = ref<number | null>(DEFAULT_OPENAI_SESSION_MAX_COUNT)
+const openAISessionTimeoutValue = ref<number | null>(DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE)
+const openAISessionTimeoutUnit = ref<OpenAISessionTimeoutUnit>(DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT)
+const openAISessionSlotRotationEnabled = ref(false)
 type CodexImageToolMode = 'inherit' | 'enabled' | 'disabled' | 'block'
 const codexImageToolMode = ref<CodexImageToolMode>('inherit')
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
@@ -3571,6 +3595,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   codexCLIOnlyEnabled.value = false
   codexCLIOnlyAppServerEnabled.value = false
   codexFingerprintMode.value = 'session'
+  openAISessionControlEnabled.value = false
+  openAISessionMaxCount.value = DEFAULT_OPENAI_SESSION_MAX_COUNT
+  openAISessionTimeoutValue.value = DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE
+  openAISessionTimeoutUnit.value = DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT
+  openAISessionSlotRotationEnabled.value = false
   codexImageToolMode.value = 'inherit'
   anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
@@ -3627,6 +3656,12 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       codexFingerprintMode.value = (['off', 'device', 'session', 'full'].includes(fpMode || '')
         ? fpMode as CodexFingerprintMode
         : 'session')
+      openAISessionControlEnabled.value = newAccount.openai_session_control_enabled === true
+      openAISessionMaxCount.value = newAccount.openai_session_max_count ?? DEFAULT_OPENAI_SESSION_MAX_COUNT
+      const timeout = openAISessionTimeoutFromSeconds(newAccount.openai_session_idle_timeout_seconds)
+      openAISessionTimeoutValue.value = timeout.value
+      openAISessionTimeoutUnit.value = timeout.unit
+      openAISessionSlotRotationEnabled.value = newAccount.openai_session_slot_rotation_enabled === true
     }
     const credentials = newAccount.credentials as Record<string, unknown> | undefined
     const compactMappings = credentials?.compact_model_mapping as Record<string, string> | undefined
@@ -4957,6 +4992,27 @@ const handleSubmit = async () => {
         } else {
           delete newExtra.codex_fingerprint_mode
         }
+
+        if (!isSparkShadow.value) {
+          newExtra.openai_session_control_enabled = openAISessionControlEnabled.value
+          if (openAISessionControlEnabled.value) {
+            newExtra.openai_session_max_count = openAISessionMaxCount.value ?? DEFAULT_OPENAI_SESSION_MAX_COUNT
+            newExtra.openai_session_idle_timeout_seconds = openAISessionTimeoutToSeconds(
+              openAISessionTimeoutValue.value,
+              openAISessionTimeoutUnit.value
+            )
+            newExtra.openai_session_slot_rotation_enabled = openAISessionSlotRotationEnabled.value
+          } else {
+            delete newExtra.openai_session_max_count
+            delete newExtra.openai_session_idle_timeout_seconds
+            delete newExtra.openai_session_slot_rotation_enabled
+          }
+        }
+      } else {
+        delete newExtra.openai_session_control_enabled
+        delete newExtra.openai_session_max_count
+        delete newExtra.openai_session_idle_timeout_seconds
+        delete newExtra.openai_session_slot_rotation_enabled
       }
 
       updatePayload.extra = newExtra

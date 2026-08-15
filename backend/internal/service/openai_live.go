@@ -127,6 +127,7 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 	identity LiveCallIdentity,
 	userMaxConcurrency int,
 ) (*LiveCallCreated, error) {
+	ctx = withOpenAISessionControlIdentity(ctx, identity.APIKeyID, identity.SessionID)
 	if err := ValidateLiveCallRequest(request); err != nil {
 		return nil, err
 	}

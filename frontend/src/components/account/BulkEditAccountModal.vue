@@ -1070,6 +1070,28 @@
         </div>
       </div>
 
+      <!-- OpenAI OAuth SessionID control -->
+      <div v-if="allOpenAIOAuthOnly" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="flex items-center justify-between">
+          <label class="input-label mb-0">{{ t('admin.accounts.openai.sessionControl.bulkApply') }}</label>
+          <input
+            v-model="enableOpenAISessionControl"
+            type="checkbox"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            data-testid="bulk-edit-openai-session-control-enabled"
+          />
+        </div>
+        <OpenAISessionControlFields
+          v-model:enabled="openAISessionControlEnabled"
+          v-model:max-count="openAISessionMaxCount"
+          v-model:timeout-value="openAISessionTimeoutValue"
+          v-model:timeout-unit="openAISessionTimeoutUnit"
+          v-model:slot-rotation-enabled="openAISessionSlotRotationEnabled"
+          :disabled="!enableOpenAISessionControl"
+          :bordered="false"
+        />
+      </div>
+
       <!-- Upstream billing auto probe (any API-key platform) -->
       <div v-if="allBillingProbeCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -1483,6 +1505,14 @@ import {
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
+import OpenAISessionControlFields from '@/components/account/OpenAISessionControlFields.vue'
+import {
+  DEFAULT_OPENAI_SESSION_MAX_COUNT,
+  DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT,
+  DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE,
+  openAISessionTimeoutToSeconds,
+  type OpenAISessionTimeoutUnit
+} from '@/components/account/openaiSessionControl'
 import {
   OPENAI_WS_MODE_CTX_POOL,
   OPENAI_WS_MODE_OFF,
@@ -1691,7 +1721,13 @@ const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
 const enableCodexFingerprintMode = ref(false)
+const enableOpenAISessionControl = ref(false)
 const codexFingerprintMode = ref<CodexFingerprintMode>('session')
+const openAISessionControlEnabled = ref(false)
+const openAISessionMaxCount = ref<number | null>(DEFAULT_OPENAI_SESSION_MAX_COUNT)
+const openAISessionTimeoutValue = ref<number | null>(DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE)
+const openAISessionTimeoutUnit = ref<OpenAISessionTimeoutUnit>(DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT)
+const openAISessionSlotRotationEnabled = ref(false)
 const codexFingerprintModeOptions = computed(() => [
   { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
   { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
@@ -2051,6 +2087,23 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     }
   }
 
+  if (enableOpenAISessionControl.value && allOpenAIOAuthOnly.value) {
+    const extra = ensureExtra()
+    extra.openai_session_control_enabled = openAISessionControlEnabled.value
+    if (openAISessionControlEnabled.value) {
+      extra.openai_session_max_count = openAISessionMaxCount.value ?? DEFAULT_OPENAI_SESSION_MAX_COUNT
+      extra.openai_session_idle_timeout_seconds = openAISessionTimeoutToSeconds(
+        openAISessionTimeoutValue.value,
+        openAISessionTimeoutUnit.value
+      )
+      extra.openai_session_slot_rotation_enabled = openAISessionSlotRotationEnabled.value
+    } else {
+      extra.openai_session_max_count = null
+      extra.openai_session_idle_timeout_seconds = null
+      extra.openai_session_slot_rotation_enabled = false
+    }
+  }
+
   if (enableOpenAICompactMode.value) {
     const extra = ensureExtra()
     extra.openai_compact_mode = openAICompactMode.value
@@ -2164,6 +2217,7 @@ const handleSubmit = async () => {
     enableCodexCLIOnly.value ||
     enableCodexCLIOnlyAppServer.value ||
     enableCodexFingerprintMode.value ||
+    enableOpenAISessionControl.value ||
     enableOpenAICompactMode.value ||
     enableOpenAICompactModelMapping.value ||
     enableRpmLimit.value ||
@@ -2306,7 +2360,13 @@ watch(
       enableCodexCLIOnly.value = false
       enableCodexCLIOnlyAppServer.value = false
       enableCodexFingerprintMode.value = false
+      enableOpenAISessionControl.value = false
       codexFingerprintMode.value = 'session'
+      openAISessionControlEnabled.value = false
+      openAISessionMaxCount.value = DEFAULT_OPENAI_SESSION_MAX_COUNT
+      openAISessionTimeoutValue.value = DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE
+      openAISessionTimeoutUnit.value = DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT
+      openAISessionSlotRotationEnabled.value = false
       enableOpenAICompactMode.value = false
       enableOpenAICompactModelMapping.value = false
       enableRpmLimit.value = false

@@ -699,6 +699,7 @@ type adminServiceImpl struct {
 	// 分组平台变更后用来失效渠道缓存；可为 nil（缓存会在 TTL 到期后自然重建）
 	channelCacheInvalidator  ChannelCacheInvalidator
 	groupPriceChangeObserver GroupPriceChangeObserver
+	sessionLimitCache        SessionLimitCache
 }
 
 func (s *adminServiceImpl) SetGroupPriceChangeObserver(observer GroupPriceChangeObserver) {
@@ -780,6 +781,12 @@ func SetAdminServiceUserTagRepository(adminService AdminService, repo UserTagRep
 	}
 }
 
+func SetAdminServiceSessionLimitCache(adminService AdminService, cache SessionLimitCache) {
+	if impl, ok := adminService.(*adminServiceImpl); ok {
+		impl.sessionLimitCache = cache
+	}
+}
+
 func ProvideAdminService(
 	userRepo UserRepository,
 	groupRepo AdminGroupRepository,
@@ -805,6 +812,7 @@ func ProvideAdminService(
 	rotationReconciler HighestSchedulingRotationReconciler,
 	userTagRepo UserTagRepository,
 	channelCacheInvalidator ChannelCacheInvalidator,
+	sessionLimitCache SessionLimitCache,
 ) AdminService {
 	InjectHighestSchedulingRotationReconciler(accountRepo, rotationReconciler)
 	adminService := NewAdminService(
@@ -832,5 +840,6 @@ func ProvideAdminService(
 		channelCacheInvalidator,
 	)
 	SetAdminServiceUserTagRepository(adminService, userTagRepo)
+	SetAdminServiceSessionLimitCache(adminService, sessionLimitCache)
 	return adminService
 }

@@ -47,6 +47,7 @@ func TestProvideAdminServiceInjectsUserTagRepository(t *testing.T) {
 		nil,
 		tagRepo,
 		nil,
+		nil,
 	)
 
 	impl, ok := adminService.(*adminServiceImpl)

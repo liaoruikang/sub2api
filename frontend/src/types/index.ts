@@ -1236,6 +1236,12 @@ export interface Account {
   max_sessions?: number | null
   session_idle_timeout_minutes?: number | null
 
+  // SessionID control (OpenAI OAuth parent accounts only)
+  openai_session_control_enabled?: boolean
+  openai_session_max_count?: number | null
+  openai_session_idle_timeout_seconds?: number | null
+  openai_session_slot_rotation_enabled?: boolean
+
   // RPM 限制（仅 Anthropic OAuth/SetupToken 账号有效）
   base_rpm?: number | null
   rpm_strategy?: string | null

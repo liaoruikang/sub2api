@@ -265,7 +265,10 @@ export default {
         },
         sessions: {
           full: '活跃会话已满，新会话需等待（空闲超时：{idle}分钟）',
-          normal: '活跃会话正常（空闲超时：{idle}分钟）'
+          normal: '活跃会话正常（空闲超时：{idle}分钟）',
+          openaiFull: 'SessionID 槽位已满，新 SessionID 将切换其他账号（过期时间：{timeout}）',
+          openaiFullRotation: 'SessionID 槽位已满，新 SessionID 将轮换最久未请求的会话，旧会话进入暂存区（暂存时间：{timeout}）',
+          openaiNormal: 'SessionID 槽位正常（过期时间：{timeout}）'
         },
         rpm: {
           full: '已达 RPM 上限',
@@ -688,6 +691,22 @@ rateSyncWarning: '已开启上游倍率同步的账号不能批量手工修改�
         codexFingerprintDevice: '仅设备',
         codexFingerprintSession: '设备+会话（推荐）',
         codexFingerprintFull: '完全收敛',
+        sessionControl: {
+          title: 'SessionID 控制',
+          description: '限制该 OAuth 账号可同时接收的不同客户端 SessionID。槽位满后，新 SessionID 会改调度到其他账号。',
+          bulkApply: '批量SessionID 控制',
+          maxCount: '最大 SessionID 数量',
+          maxCountHint: '最小为 3，默认 35。已有 SessionID 的后续请求不受满槽影响。',
+          idleTimeout: 'SessionID 过期时间',
+          idleTimeoutHint: '从最后一次请求开始计算，超时后自动释放槽位。',
+          slotRotation: '槽位满时自动轮换',
+          slotRotationHint: '适合账号较少的场景。开启后满槽会轮换最久未请求的 SessionID 并接纳新会话，旧会话进入暂存区，暂存期内回访会优先调度原账号。',
+          units: {
+            seconds: '秒',
+            minutes: '分钟',
+            days: '天'
+          }
+        },
         codexImageTool: 'Codex 图片桥接策略',
         codexImageToolDesc:
           '统一控制 Codex /responses 文本请求的 hosted image_generation 桥接和客户端图片工具声明。hosted 工具自动注入仅适用于非 Responses Lite 请求；账号级策略优先于渠道和全局配置，不影响独立图片生成接口。',

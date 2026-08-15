@@ -320,7 +320,10 @@ export default {
         },
         sessions: {
           full: 'Active sessions full, new sessions must wait (idle timeout: {idle} min)',
-          normal: 'Active sessions normal (idle timeout: {idle} min)'
+          normal: 'Active sessions normal (idle timeout: {idle} min)',
+          openaiFull: 'SessionID slots are full; new SessionIDs will switch accounts (expiration: {timeout})',
+          openaiFullRotation: 'SessionID slots are full; the least recently active session will move to staging for {timeout}',
+          openaiNormal: 'SessionID slots available (expiration: {timeout})'
         },
         rpm: {
           full: 'RPM limit reached',
@@ -618,6 +621,22 @@ rateSyncWarning: 'Accounts with upstream rate sync enabled cannot be changed in 
         codexFingerprintDevice: 'Device only',
         codexFingerprintSession: 'Device + Session (recommended)',
         codexFingerprintFull: 'Full convergence',
+        sessionControl: {
+          title: 'SessionID control',
+          description: 'Limits distinct client SessionIDs admitted to this OAuth account. New SessionIDs are routed to another account when all slots are occupied.',
+          bulkApply: 'Bulk SessionID Control',
+          maxCount: 'Maximum SessionIDs',
+          maxCountHint: 'Minimum 3, default 35. Existing SessionIDs remain eligible when all slots are occupied.',
+          idleTimeout: 'SessionID expiration',
+          idleTimeoutHint: 'A slot is released after this much time has passed since its last request.',
+          slotRotation: 'Rotate slots when full',
+          slotRotationHint: 'Useful for small account pools. When full, the least recently active SessionID moves to staging and the new session is admitted. A staged session prefers its previous account when it returns.',
+          units: {
+            seconds: 'Seconds',
+            minutes: 'Minutes',
+            days: 'Days'
+          }
+        },
         codexImageTool: 'Codex image bridge policy',
         codexImageToolDesc:
           'Controls the hosted image_generation bridge and client-declared image tools on Codex /responses text requests. Hosted auto-injection applies only to non-Responses Lite requests. Account policy takes precedence over channel and global settings; standalone image-generation endpoints are unaffected.',

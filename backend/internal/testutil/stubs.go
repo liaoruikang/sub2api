@@ -135,6 +135,20 @@ type StubSessionLimitCache struct{}
 func (c StubSessionLimitCache) RegisterSession(_ context.Context, _ int64, _ string, _ int, _ time.Duration) (bool, error) {
 	return true, nil
 }
+
+func (c StubSessionLimitCache) RegisterOpenAISessionID(_ context.Context, _ int64, _ string, _ int, _ time.Duration, _ ...bool) (bool, error) {
+	return true, nil
+}
+
+func (c StubSessionLimitCache) GetOpenAIStagedSessionAccountID(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (c StubSessionLimitCache) GetOpenAIActiveSessionCountBatch(_ context.Context, _ []int64, _ map[int64]time.Duration) (map[int64]int, error) {
+	return map[int64]int{}, nil
+}
+
+func (c StubSessionLimitCache) ClearOpenAISessions(_ context.Context, _ int64) error { return nil }
 func (c StubSessionLimitCache) RefreshSession(_ context.Context, _ int64, _ string, _ time.Duration) error {
 	return nil
 }

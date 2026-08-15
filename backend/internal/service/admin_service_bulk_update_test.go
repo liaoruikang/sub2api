@@ -54,6 +54,16 @@ type accountRepoStubForBulkUpdate struct {
 	}
 }
 
+type sessionLimitCacheStubForBulkUpdate struct {
+	SessionLimitCache
+	clearedAccountIDs []int64
+}
+
+func (s *sessionLimitCacheStubForBulkUpdate) ClearOpenAISessions(_ context.Context, accountID int64) error {
+	s.clearedAccountIDs = append(s.clearedAccountIDs, accountID)
+	return nil
+}
+
 func (s *accountRepoStubForBulkUpdate) Create(_ context.Context, account *Account) error {
 	s.createAccount = account
 	s.createdAccount = account
@@ -220,6 +230,90 @@ func TestAdminService_BulkUpdateAccounts_SanitizesHighestSchedulingExtra(t *test
 	_, err := svc.BulkUpdateAccounts(context.Background(), input)
 	require.NoError(t, err)
 	requireModeOnlyServiceTestExtra(t, repo.bulkUpdatePayload.Extra)
+}
+
+func TestAdminService_BulkUpdateAccounts_OpenAISessionControl(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{
+		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+	}}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		AccountIDs: []int64{1, 2},
+		Extra: map[string]any{
+			OpenAISessionControlEnabledExtraKey:      true,
+			OpenAISessionMaxCountExtraKey:            8,
+			OpenAISessionIdleTimeoutSecondsExtraKey:  120,
+			OpenAISessionSlotRotationEnabledExtraKey: true,
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 2, result.Success)
+	require.Equal(t, true, repo.bulkUpdatePayload.Extra[OpenAISessionControlEnabledExtraKey])
+	require.Equal(t, 8, repo.bulkUpdatePayload.Extra[OpenAISessionMaxCountExtraKey])
+	require.Equal(t, 120, repo.bulkUpdatePayload.Extra[OpenAISessionIdleTimeoutSecondsExtraKey])
+	require.Equal(t, true, repo.bulkUpdatePayload.Extra[OpenAISessionSlotRotationEnabledExtraKey])
+}
+
+func TestAdminService_BulkUpdateAccounts_OpenAISessionControlRejectsIneligibleOrMissingTarget(t *testing.T) {
+	tests := []struct {
+		name     string
+		ids      []int64
+		accounts []*Account
+	}{
+		{
+			name: "API key target",
+			ids:  []int64{1},
+			accounts: []*Account{
+				{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+			},
+		},
+		{
+			name: "missing target",
+			ids:  []int64{1, 2},
+			accounts: []*Account{
+				{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: tt.accounts}
+			svc := &adminServiceImpl{accountRepo: repo}
+
+			result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+				AccountIDs: tt.ids,
+				Extra: map[string]any{
+					OpenAISessionControlEnabledExtraKey: true,
+				},
+			})
+
+			require.Nil(t, result)
+			require.Error(t, err)
+			require.Empty(t, repo.bulkUpdateIDs)
+		})
+	}
+}
+
+func TestAdminService_BulkUpdateAccounts_DisablingOpenAISessionControlClearsSlots(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{
+		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+	}}
+	cache := &sessionLimitCacheStubForBulkUpdate{}
+	svc := &adminServiceImpl{accountRepo: repo, sessionLimitCache: cache}
+
+	_, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		AccountIDs: []int64{1, 2},
+		Extra: map[string]any{
+			OpenAISessionControlEnabledExtraKey: false,
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []int64{1, 2}, cache.clearedAccountIDs)
 }
 
 // TestAdminService_BulkUpdateAccounts_AllSuccessIDs 验证批量更新成功时返回 success_ids/failed_ids。

@@ -991,6 +991,9 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"window_cost_sticky_reserve",
 		"max_sessions",
 		"session_idle_timeout_minutes",
+		service.OpenAISessionControlEnabledExtraKey,
+		service.OpenAISessionMaxCountExtraKey,
+		service.OpenAISessionIdleTimeoutSecondsExtraKey,
 		"openai_oauth_responses_websockets_v2_enabled",
 		"openai_oauth_responses_websockets_v2_mode",
 		"openai_apikey_responses_websockets_v2_enabled",
@@ -1012,10 +1015,10 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"auto_pause_5h_disabled",
 		"auto_pause_7d_disabled",
 		"model_rate_limits",
-			service.AccountExtraHighestSchedulingMode,
-			service.UpstreamBillingProbeExtraKey,
-			service.GrokMediaEligibleExtraKey,
-			"grok_billing_snapshot",
+		service.AccountExtraHighestSchedulingMode,
+		service.UpstreamBillingProbeExtraKey,
+		service.GrokMediaEligibleExtraKey,
+		"grok_billing_snapshot",
 	}
 	filtered := make(map[string]any)
 	for _, key := range keys {

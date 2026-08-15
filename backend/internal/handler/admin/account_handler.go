@@ -193,7 +193,7 @@ type AccountWithConcurrency struct {
 	CurrentConcurrency int                          `json:"current_concurrency"`
 	SchedulerScore     *AccountSchedulerScore       `json:"scheduler_score,omitempty"`
 	SchedulerScores    []AccountSchedulerGroupScore `json:"scheduler_scores,omitempty"`
-	// 以下字段仅对 Anthropic OAuth/SetupToken 账号有效，且仅在启用相应功能时返回
+	// 以下运行时字段仅在账号启用相应功能时返回。
 	CurrentWindowCost *float64 `json:"current_window_cost,omitempty"` // 当前窗口费用
 	ActiveSessions    *int     `json:"active_sessions,omitempty"`     // 当前活跃会话数
 	CurrentRPM        *int     `json:"current_rpm,omitempty"`         // 当前分钟 RPM 计数
@@ -260,6 +260,14 @@ func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, ac
 		if h.rpmCache != nil && account.GetBaseRPM() > 0 {
 			if rpm, err := h.rpmCache.GetRPM(ctx, account.ID); err == nil {
 				item.CurrentRPM = &rpm
+			}
+		}
+	}
+	if account.IsOpenAISessionControlEnabled() && h.sessionLimitCache != nil {
+		idleTimeouts := map[int64]time.Duration{account.ID: account.GetOpenAISessionIdleTimeout()}
+		if sessions, err := h.sessionLimitCache.GetOpenAIActiveSessionCountBatch(ctx, []int64{account.ID}, idleTimeouts); err == nil {
+			if count, ok := sessions[account.ID]; ok {
+				item.ActiveSessions = &count
 			}
 		}
 	}
@@ -584,8 +592,10 @@ func (h *AccountHandler) List(c *gin.Context) {
 	// 识别需要查询窗口费用、会话数和 RPM 的账号（Anthropic OAuth/SetupToken 且启用了相应功能）
 	windowCostAccountIDs := make([]int64, 0)
 	sessionLimitAccountIDs := make([]int64, 0)
+	openAISessionLimitAccountIDs := make([]int64, 0)
 	rpmAccountIDs := make([]int64, 0)
 	sessionIdleTimeouts := make(map[int64]time.Duration) // 各账号的会话空闲超时配置
+	openAISessionIdleTimeouts := make(map[int64]time.Duration)
 	for i := range accounts {
 		acc := &accounts[i]
 		if acc.IsAnthropicOAuthOrSetupToken() {
@@ -599,6 +609,10 @@ func (h *AccountHandler) List(c *gin.Context) {
 			if acc.GetBaseRPM() > 0 {
 				rpmAccountIDs = append(rpmAccountIDs, acc.ID)
 			}
+		}
+		if acc.IsOpenAISessionControlEnabled() && !acc.IsCredentialShadow() {
+			openAISessionLimitAccountIDs = append(openAISessionLimitAccountIDs, acc.ID)
+			openAISessionIdleTimeouts[acc.ID] = acc.GetOpenAISessionIdleTimeout()
 		}
 	}
 
@@ -615,6 +629,15 @@ func (h *AccountHandler) List(c *gin.Context) {
 		activeSessions, _ = h.sessionLimitCache.GetActiveSessionCountBatch(c.Request.Context(), sessionLimitAccountIDs, sessionIdleTimeouts)
 		if activeSessions == nil {
 			activeSessions = make(map[int64]int)
+		}
+	}
+	if len(openAISessionLimitAccountIDs) > 0 && h.sessionLimitCache != nil {
+		openAICounts, _ := h.sessionLimitCache.GetOpenAIActiveSessionCountBatch(c.Request.Context(), openAISessionLimitAccountIDs, openAISessionIdleTimeouts)
+		if activeSessions == nil {
+			activeSessions = make(map[int64]int)
+		}
+		for accountID, count := range openAICounts {
+			activeSessions[accountID] = count
 		}
 	}
 

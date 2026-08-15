@@ -554,6 +554,54 @@
 - Seedance 账号连接测试必须真实调用 `/v1/video/generate` 并轮询任务，随后通过管理端 SSE 暴露视频预览；仅调用任务列表探针不能视为视频能力测试。实际账号测试弹窗必须提供可编辑的视频提示词和完整默认示例，提交管理员修改后的提示词；任务轮询上限不得低于 5 分钟，创建任务响应体必须在进入长轮询前关闭。
 - 管理端账号测试返回的 Seedance/Grok 视频可能是签名 HTTPS URL、`data:` URL 或 `blob:` URL；运行时 CSP 必须保留 `media-src 'self' data: blob: https:`，包括对旧自定义 CSP 的兼容增强，否则浏览器会在加载视频前直接拦截预览。
 
+### 2.15 OpenAI OAuth 账号 SessionID 控制
+
+功能要求：
+
+- 仅 OpenAI OAuth 母账号可配置 SessionID 控制；创建、编辑和批量编辑均需支持。最大 SessionID 数量最小为 3、默认 35，空闲过期时间支持秒、分钟、天，默认 1 天。
+- 每个账号使用独立槽位记录下游显式 SessionID 的最后请求时间。未满时原子接纳新 SessionID；默认关闭“槽位满时自动轮换”，关闭时满槽后已在槽位内的 SessionID 仍可刷新并调度，新 SessionID 必须跳过该账号并继续尝试其他候选账号。
+- OpenAI OAuth 母账号可单独开启“槽位满时自动轮换”，用于账号较少、严格槽位容易快速耗尽的场景。开启后，满槽遇到新 SessionID 时必须在同一 Lua 原子操作中把最后请求时间最早的活跃槽位移入同账号请求暂存区，保留唯一归属并把调度偏好改为立即生效的暂存偏好，再接纳新会话；暂存周期等于账号配置的 SessionID 过期时间，暂存会话回访时优先原账号。活跃槽位总数不得超过配置上限，暂存槽位不计入活跃容量。若管理员将上限调低到当前槽位数以下，应一次轮换足够数量恢复到新上限。该开关默认关闭，不能改变现有严格限制语义。
+- 同一个“下游 API Key + 原始 SessionID”哈希在所有受控账号间必须只有一个槽位归属。账号 failover 时通过同一个 Lua 脚本完成接纳和转移；自动轮换关闭时，普通跨账号尝试遇到目标满槽必须保留旧归属，不能先删后拒绝。自动轮换开启时，目标账号先原子把最久未请求槽位移入目标账号暂存区，再从旧账号移除当前 SessionID 并转入目标账号。
+- 服务启动时必须扫描旧版 `openai_session_limit:account:*` 数据并建立唯一归属；若同一哈希已存在于多个账号，保留最后活跃时间最新的一条并删除其他槽位，相同时间时使用账号 ID 确定性裁决。
+- SessionID 超过配置的空闲时间后必须从活跃槽位移入该账号暂存区，立即释放活跃容量；暂存保留时间为额外一个相同的空闲过期周期。暂存期内该 SessionID 再次请求时优先调度原账号：原账号有空槽则原子移回活跃槽位；原账号已满且自动轮换关闭时删除暂存和调度偏好并继续选择其他账号，自动轮换开启时则淘汰最久未请求的活跃槽位并原子回迁。暂存期结束后清理暂存归属；关闭控制或删除账号时应同时清理活跃槽位、暂存槽位和相关归属键。
+- Spark 影子账号不能独立配置，调度到影子账号时必须读取母账号配置并与母账号共享同一组槽位。
+- 本功能限制的是下游显式 SessionID，并且按“下游 API Key + 原始 SessionID”哈希隔离；不得存储原始值，也不得把仅由请求内容或内部 fallback 推导出的 sticky hash 当成真实 SessionID。
+- 显式标识至少覆盖 `session-id`、`session_id`、`conversation_id`、OpenCode 会话头、CodeBuddy 会话头及 `prompt_cache_key`。外部请求没有显式 SessionID 时，开启控制的账号不可参与该次调度；内部探测和模型发现没有外部请求标记时不受影响。
+- SessionID 控制与 Codex 指纹收敛互相独立：指纹收敛可改变上游看到的会话/设备标识，本地槽位仍必须按下游原始显式 SessionID 计数。
+- Redis 使用独立键空间：活跃槽位 `openai_session_limit:account:{accountID}`、暂存槽位 `openai_session_limit:staged:{accountID}`、物理唯一归属定位 `openai_session_limit:owner:{sessionIDHash}` 和带活跃/暂存截止时间的限时调度元数据 `openai_session_limit:preferred:{sessionIDHash}`；不得与 Anthropic 的 `session_limit:account:{accountID}` 共用数据。调度查询只能在暂存窗口返回原账号，活跃窗口仍使用既有调度顺序，并在“活跃周期 + 一个暂存周期”结束时准时失效；唯一归属定位要比共享 ZSET 多保留清理缓冲，防止偏好失效后跨账号接纳留下重复物理成员。接纳、跨账号转移、活跃转暂存、暂存回迁、满槽剔除、过期清理、存在刷新和数量判断必须由 Lua 脚本原子完成；不得把原始 SessionID 写入 Redis key 或 value。
+- Redis 异常时不得让受控账号失败开放；应仅跳过当前受控账号并继续调度其他账号。所有候选账号均不可用时再返回无可用账号错误。
+- SessionID 拒绝发生在统一 OpenAI 调度出口。已抢到的并发槽必须释放，旧 sticky 绑定必须删除，账号加入本次请求排除集合后重新执行现有调度。有效的暂存归属偏好必须先于 `previous_response_id`、普通 sticky、最高调度和负载均衡尝试原账号，但仍必须通过账号状态、分组、模型、能力、传输、利润控制、代理隔离和 Group 准入；活跃槽位不得获得这项额外优先级，偏好账号不可用时回到既有调度链路。
+- 账号列表容量列复用现有会话容量徽标展示当前槽位数、上限和过期时间；运行态数量继续使用 `active_sessions`，但查询 OpenAI 独立键空间。
+
+关键 extra key：
+
+- `openai_session_control_enabled`
+- `openai_session_max_count`
+- `openai_session_idle_timeout_seconds`
+- `openai_session_slot_rotation_enabled`
+
+关键文件：
+
+- 后端配置与调度：`backend/internal/service/account_openai_session_control.go`、`backend/internal/service/openai_session_control.go`、`backend/internal/service/openai_account_scheduler.go`、`backend/internal/service/openai_gateway_scheduling.go`
+- 后端缓存与管理：`backend/internal/service/session_limit_cache.go`、`backend/internal/repository/session_limit_cache.go`、`backend/internal/repository/scheduler_cache.go`、`backend/internal/service/admin_account.go`、`backend/internal/service/admin_service.go`、`backend/internal/handler/admin/account_handler.go`、`backend/internal/handler/dto/mappers.go`
+- 外部入口：`backend/internal/handler/openai_embeddings.go`、`backend/internal/handler/openai_live.go`、`backend/internal/service/openai_live.go`
+- 前端：`frontend/src/components/account/OpenAISessionControlFields.vue`、`frontend/src/components/account/openaiSessionControl.ts`、`frontend/src/components/account/CreateAccountModal.vue`、`frontend/src/components/account/EditAccountModal.vue`、`frontend/src/components/account/BulkEditAccountModal.vue`、`frontend/src/components/account/AccountCapacityCell.vue`、`frontend/src/components/common/Toggle.vue`
+
+回归检查：
+
+- 同一账号并发提交多于上限的不同 SessionID，Redis 最终接纳数量不能超过上限；已接纳 SessionID 在满槽时仍可刷新。
+- 自动轮换默认关闭时必须保持严格拒绝新 SessionID；开启后，满槽新请求应把最久未请求的活跃槽位移入同账号暂存区，保留唯一归属、建立暂存偏好并接纳新会话，最终活跃数量仍等于上限。配置上限调低后首次接纳也必须一次轮换到新上限；创建、编辑和批量编辑均应正确保存该开关。
+- 同一 SessionID 并发调度或 failover 到多个受控账号后，所有账号活跃槽位与暂存槽位合计只能保留一条；普通跨账号目标有容量时原子转移，目标满槽且自动轮换关闭时旧账号槽位及归属不得丢失，自动轮换开启时应原子把目标最旧槽位移入暂存区后完成唯一归属转移。
+- 活跃槽位过期后应立即不计入容量并进入暂存；暂存命中时高级调度和旧调度都优先选择原账号并回迁，不能被 `previous_response_id`、最高调度或普通负载顺序抢先。
+- 暂存命中但原账号活跃槽位已满时，自动轮换关闭应原子删除该暂存成员及偏好后切换其他账号；自动轮换开启应在原账号淘汰最久未请求槽位并完成回迁。调度偏好自然到期后再跨账号接纳，也不得在旧账号留下重复物理成员。
+- 启动迁移遇到旧版跨账号重复槽位时只保留最后活跃的一条，并为所有现存槽位建立带过期时间的唯一归属键。
+- 槽位满、SessionID 缺失或 Redis 异常时，调度器释放当前账号槽并切换其他候选账号；不能直接结束，也不能反复选择同一账号。
+- 不同下游 API Key 使用相同原始 SessionID 时占用不同槽位；日志和 Redis 不出现原始 SessionID。
+- 到期活跃槽位会在后续接纳或容量查询时原子转入暂存，暂存到期后再清理；关闭控制、批量关闭和删除账号会同时清理活跃槽位和暂存槽位。
+- 母账号和 Spark 影子账号共享母账号槽位，影子账号不能通过批量编辑获得独立配置。
+- OpenAI SessionID 键空间与 Anthropic 会话限制完全隔离，现有 Anthropic 会话数量、窗口费用及 RPM 展示不受影响。
+- HTTP Responses、Chat Completions、Messages、Images、Embeddings、WebSocket 和 Live 外部入口均不能绕过控制；内部账号探测仍可正常选号。
+
 ## 3. 合并后必测清单
 
 ### 3.1 系统设置保存验证
@@ -654,6 +702,26 @@ GOMAXPROCS=2 go test -tags=unit -run TestSettingService_ImagePlaygroundAndVideoJ
 
 如果 Windows 本地磁盘或内存不足导致完整 service 测试失败，可先用上述低并发定向测试确认本功能；在服务器或空间充足环境再跑完整测试。
 
+### 3.7 OpenAI SessionID 控制验证
+
+1. 新建或编辑 OpenAI OAuth 母账号，开启 SessionID 控制，确认默认上限为 35、默认过期时间为 1 天；低于 3 的上限无法保存。
+2. 批量选择 OpenAI OAuth 母账号，确认可统一开启、关闭并设置上限和过期时间；混入 API Key、其他平台或 Spark 影子账号时后端拒绝整批写入。
+3. 将上限设为 3，用三个不同显式 SessionID 请求同一账号后，账号列表容量徽标显示 `3/3`；三个已有 ID 继续可用，第四个 ID 调度到其他空闲账号。
+4. 等待配置的空闲时间后再次请求，确认旧槽位释放且新 SessionID 可以进入；关闭控制后容量徽标和 Redis 槽位清除。
+5. 开启完全指纹收敛后重复测试，确认上游指纹可保持收敛，但本地不同下游 SessionID 仍分别计数。
+6. 让同一 SessionID 因过载或上游错误从账号 A 切换到账号 B，确认 B 有容量时 A 的槽位被原子移除、B 只保留一条；B 已满时切换被拒绝且 A 的原槽位仍存在。
+7. 等待账号 A 的 SessionID 达到空闲过期时间，确认活跃计数释放且哈希进入 A 的暂存区；在额外一个过期周期内再次请求，确认高级调度和旧调度都优先选择 A，并将其从暂存区原子移回活跃槽位。
+8. 关闭自动轮换时，暂存期内先用其他 SessionID 填满账号 A，再让暂存 SessionID 请求，确认 A 的暂存成员和偏好被删除、请求继续调度到其他账号；等待暂存期自然结束后重复请求，确认不再偏好 A 且所有账号间仍只有一个物理槽位成员。
+9. 开启“槽位满时自动轮换”后，用第四个 SessionID 请求已满的账号，确认最久未请求的旧会话从活跃槽位移入请求暂存区、仍归属原账号且立即获得暂存偏好；第四个会话进入活跃槽位，活跃数量保持上限。旧会话在暂存期回访时应优先原账号，并把另一最久未请求的活跃会话轮换进暂存区。
+
+后端定向测试：
+
+```bash
+cd backend
+go test ./internal/service ./internal/repository ./internal/handler/admin -run 'Test(OpenAISession|NormalizeOpenAISession|MergeAndValidateOpenAISession)' -count=1
+go test -tags unit ./internal/service -run 'TestAdminService_BulkUpdateAccounts_(OpenAISessionControl|DisablingOpenAISessionControl)' -count=1
+```
+
 ## 4. 合并冲突处理重点
 
 遇到以下文件冲突时，必须人工合并，不能直接选择上游覆盖：
@@ -667,6 +735,13 @@ GOMAXPROCS=2 go test -tags=unit -run TestSettingService_ImagePlaygroundAndVideoJ
 - `backend/internal/service/account_highest_scheduling_rotation.go`
 - `backend/internal/service/admin_account.go`
 - `backend/internal/service/admin_service.go`
+- `backend/internal/service/account_openai_session_control.go`
+- `backend/internal/service/openai_session_control.go`
+- `backend/internal/service/openai_account_scheduler.go`
+- `backend/internal/service/openai_gateway_scheduling.go`
+- `backend/internal/service/session_limit_cache.go`
+- `backend/internal/repository/session_limit_cache.go`
+- `backend/internal/repository/scheduler_cache.go`
 - `backend/internal/service/wire.go`
 - `backend/cmd/server/wire_gen.go`
 - `backend/internal/repository/account_repo.go`
@@ -681,6 +756,9 @@ GOMAXPROCS=2 go test -tags=unit -run TestSettingService_ImagePlaygroundAndVideoJ
 - `frontend/src/components/account/BulkEditAccountModal.vue`
 - `frontend/src/components/account/CreateAccountModal.vue`
 - `frontend/src/components/account/EditAccountModal.vue`
+- `frontend/src/components/account/OpenAISessionControlFields.vue`
+- `frontend/src/components/account/AccountCapacityCell.vue`
+- `frontend/src/components/common/Toggle.vue`
 - `frontend/src/router/index.ts`
 - `frontend/src/utils/featureFlags.ts`
 - `frontend/src/stores/app.ts`
@@ -718,6 +796,13 @@ highestSchedulingRotationCandidate
 highestSchedulingRotationEnabled
 saveHighestSchedulingRotation
 handleToggleHighestScheduling
+openai_session_control_enabled
+openai_session_max_count
+openai_session_idle_timeout_seconds
+openai_session_slot_rotation_enabled
+RegisterOpenAISessionID
+GetOpenAIStagedSessionAccountID
+registerOpenAISessionControl
 ```
 
 ## 5. 本次已修复过的问题记录
@@ -787,5 +872,7 @@ handleToggleHighestScheduling
 - Group failover 先完成当前 Group 内账号处理，再按顺序切换；账号与 Group 切换共享预算且 Group-local 状态隔离。
 - 每次 Group 切换重新执行 subscription、billing、mapping、并发和平台准入，成功 Group 的 sticky/usage 归属正确。
 - 有效流式语义内容写出后不切换 Group，compact keepalive 不阻断 failover，invalid-request fallback 最多执行一次。
+- OpenAI OAuth SessionID 控制可在创建、编辑和批量编辑中配置；默认模式满槽后已有 ID 可用、新 ID 自动切换账号，活跃过期后进入一个周期的暂存区。开启自动轮换后，被轮换的旧会话也必须进入同账号暂存区并在回访时优先原账号。
+- OpenAI SessionID 槽位按下游 API Key 隔离，与 Anthropic 会话限制及 Codex 指纹收敛互不污染；Spark 影子账号与母账号共享槽位。
 - 前端 typecheck 通过。
 - 新增的 service 和 handler 回归测试通过。

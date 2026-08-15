@@ -155,6 +155,7 @@ func liveCallIdentity(
 	}
 	return service.LiveCallIdentity{
 		APIKeyID:        apiKey.ID,
+		SessionID:       service.ExtractClientSessionID(c),
 		UserID:          userID,
 		GroupID:         apiKey.GroupID,
 		SubscriptionID:  subscriptionID,

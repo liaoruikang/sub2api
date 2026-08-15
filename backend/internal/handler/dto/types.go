@@ -265,6 +265,12 @@ type Account struct {
 	MaxSessions           *int `json:"max_sessions,omitempty"`
 	SessionIdleTimeoutMin *int `json:"session_idle_timeout_minutes,omitempty"`
 
+	// SessionID 控制（仅 OpenAI OAuth 母账号有效）
+	OpenAISessionControlEnabled      bool `json:"openai_session_control_enabled"`
+	OpenAISessionMaxCount            *int `json:"openai_session_max_count,omitempty"`
+	OpenAISessionIdleTimeoutSeconds  *int `json:"openai_session_idle_timeout_seconds,omitempty"`
+	OpenAISessionSlotRotationEnabled bool `json:"openai_session_slot_rotation_enabled"`
+
 	// RPM 限制（仅 Anthropic OAuth/SetupToken 账号有效）
 	// 从 extra 字段提取，方便前端显示和编辑
 	BaseRPM          *int    `json:"base_rpm,omitempty"`

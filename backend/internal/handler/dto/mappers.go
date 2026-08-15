@@ -386,6 +386,16 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			}
 		}
 	}
+	if a.IsOpenAIOAuth() && !a.IsCredentialShadow() {
+		out.OpenAISessionControlEnabled = a.IsOpenAISessionControlEnabled()
+		if out.OpenAISessionControlEnabled {
+			out.OpenAISessionSlotRotationEnabled = a.IsOpenAISessionSlotRotationEnabled()
+			maxCount := a.GetOpenAISessionMaxCount()
+			timeoutSeconds := int(a.GetOpenAISessionIdleTimeout() / time.Second)
+			out.OpenAISessionMaxCount = &maxCount
+			out.OpenAISessionIdleTimeoutSeconds = &timeoutSeconds
+		}
+	}
 
 	// 提取账号配额限制（apikey / bedrock 类型有效）
 	if a.IsAPIKeyOrBedrock() {

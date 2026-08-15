@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// SessionLimitCache 管理账号级别的活跃会话跟踪
-// 用于 Anthropic OAuth/SetupToken 账号的会话数量限制
+// SessionLimitCache 管理账号级别的活跃会话跟踪。
+// Anthropic 会话限制与 OpenAI OAuth SessionID 控制使用独立键空间。
 //
 // Key 格式: session_limit:account:{accountID}
 // 数据结构: Sorted Set (member=sessionUUID, score=timestamp)
@@ -44,6 +44,16 @@ type SessionLimitCache interface {
 
 	// IsSessionActive 检查特定会话是否活跃（未过期）
 	IsSessionActive(ctx context.Context, accountID int64, sessionUUID string) (bool, error)
+
+	// RegisterOpenAISessionID atomically registers or refreshes one OpenAI
+	// client SessionID in an isolated namespace. It never shares state with the
+	// Anthropic session limiter above.
+	RegisterOpenAISessionID(ctx context.Context, accountID int64, sessionIDHash string, maxSessions int, idleTimeout time.Duration, rotateWhenFull ...bool) (allowed bool, err error)
+	// GetOpenAIStagedSessionAccountID returns the account whose staging window
+	// currently retains the client SessionID. Active reservations return zero.
+	GetOpenAIStagedSessionAccountID(ctx context.Context, sessionIDHash string) (int64, error)
+	GetOpenAIActiveSessionCountBatch(ctx context.Context, accountIDs []int64, idleTimeouts map[int64]time.Duration) (map[int64]int, error)
+	ClearOpenAISessions(ctx context.Context, accountID int64) error
 
 	// ========== 5h窗口费用缓存 ==========
 	// Key 格式: window_cost:account:{accountID}

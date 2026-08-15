@@ -41,6 +41,7 @@ type LiveCallRequest struct {
 
 type LiveCallIdentity struct {
 	APIKeyID        int64
+	SessionID       string
 	UserID          int64
 	GroupID         *int64
 	SubscriptionID  *int64

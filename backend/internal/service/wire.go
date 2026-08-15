@@ -800,7 +800,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAdminService,
 	NewHighestSchedulingRotationReconciler,
 	NewGatewayService,
-	NewOpenAIGatewayService,
+	ProvideOpenAIGatewayService,
 	ProvideImageStorageSettingService,
 	ProvideImageTaskService,
 	ProvideBatchImageModelPricingResolver,

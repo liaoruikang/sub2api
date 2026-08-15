@@ -3109,6 +3109,16 @@
         </div>
       </div>
 
+      <!-- OpenAI OAuth SessionID 控制 -->
+      <OpenAISessionControlFields
+        v-if="form.platform === 'openai' && form.type === 'oauth'"
+        v-model:enabled="openAISessionControlEnabled"
+        v-model:max-count="openAISessionMaxCount"
+        v-model:timeout-value="openAISessionTimeoutValue"
+        v-model:timeout-unit="openAISessionTimeoutUnit"
+        v-model:slot-rotation-enabled="openAISessionSlotRotationEnabled"
+      />
+
       <!-- OpenAI Compact 能力配置 -->
       <div
         v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
@@ -3725,6 +3735,14 @@ import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
+import OpenAISessionControlFields from '@/components/account/OpenAISessionControlFields.vue'
+import {
+  DEFAULT_OPENAI_SESSION_MAX_COUNT,
+  DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT,
+  DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE,
+  openAISessionTimeoutToSeconds,
+  type OpenAISessionTimeoutUnit
+} from '@/components/account/openaiSessionControl'
 import {
   applyAntigravityProjectID,
   applyHeaderOverride,
@@ -3973,6 +3991,11 @@ const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
 const codexFingerprintMode = ref<CodexFingerprintMode>('session')
+const openAISessionControlEnabled = ref(false)
+const openAISessionMaxCount = ref<number | null>(DEFAULT_OPENAI_SESSION_MAX_COUNT)
+const openAISessionTimeoutValue = ref<number | null>(DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE)
+const openAISessionTimeoutUnit = ref<OpenAISessionTimeoutUnit>(DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT)
+const openAISessionSlotRotationEnabled = ref(false)
 const codexFingerprintModeOptions = computed(() => [
   { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
   { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
@@ -4873,6 +4896,11 @@ const resetForm = () => {
   codexCLIOnlyEnabled.value = false
   codexCLIOnlyAppServerEnabled.value = false
   codexFingerprintMode.value = 'session'
+  openAISessionControlEnabled.value = false
+  openAISessionMaxCount.value = DEFAULT_OPENAI_SESSION_MAX_COUNT
+  openAISessionTimeoutValue.value = DEFAULT_OPENAI_SESSION_TIMEOUT_VALUE
+  openAISessionTimeoutUnit.value = DEFAULT_OPENAI_SESSION_TIMEOUT_UNIT
+  openAISessionSlotRotationEnabled.value = false
   anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   webSearchEmulationMode.value = 'default'
@@ -4975,6 +5003,26 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     extra.codex_fingerprint_mode = codexFingerprintMode.value
   } else {
     delete extra.codex_fingerprint_mode
+  }
+  if (form.type === 'oauth') {
+    extra.openai_session_control_enabled = openAISessionControlEnabled.value
+    if (openAISessionControlEnabled.value) {
+      extra.openai_session_max_count = openAISessionMaxCount.value ?? DEFAULT_OPENAI_SESSION_MAX_COUNT
+      extra.openai_session_idle_timeout_seconds = openAISessionTimeoutToSeconds(
+        openAISessionTimeoutValue.value,
+        openAISessionTimeoutUnit.value
+      )
+      extra.openai_session_slot_rotation_enabled = openAISessionSlotRotationEnabled.value
+    } else {
+      delete extra.openai_session_max_count
+      delete extra.openai_session_idle_timeout_seconds
+      delete extra.openai_session_slot_rotation_enabled
+    }
+  } else {
+    delete extra.openai_session_control_enabled
+    delete extra.openai_session_max_count
+    delete extra.openai_session_idle_timeout_seconds
+    delete extra.openai_session_slot_rotation_enabled
   }
   if (openAICompactMode.value !== 'auto') {
     extra.openai_compact_mode = openAICompactMode.value

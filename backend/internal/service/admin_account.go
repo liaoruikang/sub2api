@@ -474,6 +474,10 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	if err != nil {
 		return nil, err
 	}
+	accountExtra, err = NormalizeOpenAISessionControlExtra(input.Platform, input.Type, accountExtra)
+	if err != nil {
+		return nil, err
+	}
 
 	// 绑定分组
 	groupIDs := input.GroupIDs
@@ -577,7 +581,16 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		if err != nil {
 			return nil, err
 		}
+		effectiveType := account.Type
+		if input.Type != "" {
+			effectiveType = input.Type
+		}
+		normalizedExtra, err = NormalizeOpenAISessionControlExtra(account.Platform, effectiveType, normalizedExtra)
+		if err != nil {
+			return nil, err
+		}
 	}
+	wasOpenAISessionControlEnabled := account.IsOpenAISessionControlEnabled()
 	previousProbeIdentity := upstreamBillingProbeIdentity(account)
 	previousOllamaUsageIdentity := ollamaCloudUsageIdentity(account)
 	// 安全/身份不变量(影子账号):通用更新路径被 edit/re-auth/refresh/batch 共用,
@@ -870,6 +883,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if err != nil {
 		return nil, err
 	}
+	if wasOpenAISessionControlEnabled && !updated.IsOpenAISessionControlEnabled() && s.sessionLimitCache != nil {
+		_ = s.sessionLimitCache.ClearOpenAISessions(ctx, id)
+	}
 	return updated, nil
 }
 
@@ -896,6 +912,19 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	delete(updates, OllamaCloudUsageSessionExtraKey)
 	delete(updates, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(updates, OllamaCloudUsageSnapshotExtraKey)
+	clearOpenAISessions := false
+	if HasOpenAISessionControlUpdate(updates) {
+		account, err := s.accountRepo.GetByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := MergeAndValidateOpenAISessionControlUpdate(account, updates); err != nil {
+			return err
+		}
+		if enabled, provided, _ := strictBoolExtra(updates, OpenAISessionControlEnabledExtraKey); provided && !enabled {
+			clearOpenAISessions = true
+		}
+	}
 	if _, exists := updates[openAILongContextBillingEnabledKey]; exists {
 		account, err := s.accountRepo.GetByID(ctx, id)
 		if err != nil {
@@ -908,7 +937,13 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	if len(updates) == 0 {
 		return nil
 	}
-	return s.accountRepo.UpdateExtra(ctx, id, updates)
+	if err := s.accountRepo.UpdateExtra(ctx, id, updates); err != nil {
+		return err
+	}
+	if clearOpenAISessions && s.sessionLimitCache != nil {
+		_ = s.sessionLimitCache.ClearOpenAISessions(ctx, id)
+	}
+	return nil
 }
 
 // BulkUpdateAccounts updates multiple accounts in one request.
@@ -948,12 +983,13 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 
 	needMixedChannelCheck := input.GroupIDs != nil && !input.SkipMixedChannelCheck
 	_, hasLongContextBillingUpdate := input.Extra[openAILongContextBillingEnabledKey]
+	hasOpenAISessionControlUpdate := HasOpenAISessionControlUpdate(input.Extra)
 	_, hasHighestSchedulingUpdate := input.Extra[AccountExtraHighestSchedulingMode]
 	protectHighestSchedulingUpdate := hasHighestSchedulingUpdate && s.settingService != nil
 
 	// 预取所有目标账号，供凭据守卫/代理守卫/混合渠道检查共用，避免多次 DB 查询。
 	var cachedTargets []*Account
-	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || hasLongContextBillingUpdate || protectHighestSchedulingUpdate || input.ProbeEnabled != nil || input.RateMultiplier != nil {
+	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || hasLongContextBillingUpdate || hasOpenAISessionControlUpdate || protectHighestSchedulingUpdate || input.ProbeEnabled != nil || input.RateMultiplier != nil {
 		loaded, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
 		if err != nil {
 			return nil, err
@@ -997,6 +1033,22 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 				return nil, err
 			}
 			break
+		}
+	}
+	if hasOpenAISessionControlUpdate {
+		targetsByID := make(map[int64]*Account, len(cachedTargets))
+		for _, account := range cachedTargets {
+			if account != nil {
+				targetsByID[account.ID] = account
+			}
+			if err := MergeAndValidateOpenAISessionControlUpdate(account, input.Extra); err != nil {
+				return nil, err
+			}
+		}
+		for _, accountID := range input.AccountIDs {
+			if _, ok := targetsByID[accountID]; !ok {
+				return nil, ErrAccountNotFound
+			}
 		}
 	}
 
@@ -1135,6 +1187,13 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	if _, err := s.accountRepo.BulkUpdate(ctx, input.AccountIDs, repoUpdates); err != nil {
 		return nil, err
 	}
+	if hasOpenAISessionControlUpdate && s.sessionLimitCache != nil {
+		if enabled, provided, _ := strictBoolExtra(input.Extra, OpenAISessionControlEnabledExtraKey); provided && !enabled {
+			for _, accountID := range input.AccountIDs {
+				_ = s.sessionLimitCache.ClearOpenAISessions(ctx, accountID)
+			}
+		}
+	}
 
 	// 将 proxy 变更传播到每个目标账号的 spark 影子账号
 	if repoUpdates.ProxyID != nil {
@@ -1260,6 +1319,9 @@ func (s *adminServiceImpl) DeleteAccount(ctx context.Context, id int64) error {
 	}
 	if err := s.accountRepo.Delete(ctx, id); err != nil {
 		return err
+	}
+	if s.sessionLimitCache != nil {
+		_ = s.sessionLimitCache.ClearOpenAISessions(ctx, id)
 	}
 	return nil
 }
