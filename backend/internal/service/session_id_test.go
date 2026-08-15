@@ -153,3 +153,20 @@ func TestExtractClientSessionID_InjectionHeaderDropped(t *testing.T) {
 	c.Request.Header.Set("session_id", "abc\r\nX-Injected: 1")
 	require.Equal(t, "", ExtractClientSessionID(c))
 }
+
+func TestExtractClientSessionID_AttachedRequestValue(t *testing.T) {
+	c := newSessionHeaderContext(t, map[string]string{"session_id": "header-session"})
+
+	attachUsageSessionIDToGin(c, "  body-session  ")
+
+	require.Equal(t, "body-session", ExtractClientSessionID(c))
+}
+
+func TestAttachUsageSessionID_InvalidValueDoesNotReplaceValidValue(t *testing.T) {
+	c := newSessionHeaderContext(t, nil)
+	attachUsageSessionIDToGin(c, "valid-session")
+
+	attachUsageSessionIDToGin(c, "invalid\nsession")
+
+	require.Equal(t, "valid-session", ExtractClientSessionID(c))
+}

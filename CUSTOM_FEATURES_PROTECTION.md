@@ -569,7 +569,7 @@
 - Spark 影子账号不能独立配置，调度到影子账号时必须读取母账号配置并与母账号共享同一组槽位。
 - 本功能限制的是下游显式 SessionID，并且按“下游 API Key + 原始 SessionID”哈希隔离；SessionID 控制的 Redis 槽位与归属不得存储原始值，也不得把仅由请求内容或内部 fallback 推导出的 sticky hash 当成真实 SessionID。
 - 显式标识至少覆盖 `session-id`、`session_id`、`conversation_id`、OpenCode 会话头、CodeBuddy 会话头及 `prompt_cache_key`。外部请求没有显式 SessionID 时，开启控制的账号不可参与该次调度；内部探测和模型发现没有外部请求标记时不受影响。
-- 管理员使用记录必须把持久化的 `usage_logs.session_id` 作为独立 SessionID 列展示，不能用每次请求唯一的 `request_id` 冒充会话标识。该列默认可见并紧邻账号列，支持复制及 Excel 导出，便于核对同一 SessionID 是否始终调度到同一账号；没有显式 SessionID 的历史或当前请求显示 `-`。
+- 管理员使用记录必须把持久化的 `usage_logs.session_id` 作为独立 SessionID 列展示，不能用每次请求唯一的 `request_id` 冒充会话标识。该列默认可见并紧邻账号列，支持复制及 Excel 导出，便于核对同一 SessionID 是否始终调度到同一账号；没有显式 SessionID 的历史或当前请求显示 `-`。用量落库必须复用本次调度已解析的下游显式值，除请求头外还要覆盖请求体 `prompt_cache_key`；不得把内容指纹、Grok `previous_response_id`、WebSocket 连接兜底等仅供内部 sticky 调度的种子写入 `usage_logs.session_id`。
 - SessionID 控制与 Codex 指纹收敛互相独立：指纹收敛可改变上游看到的会话/设备标识，本地槽位仍必须按下游原始显式 SessionID 计数。Codex 指纹收敛默认必须为 `off`，创建、编辑和批量编辑账号时不能因为启用 SessionID 控制而隐式开启收敛；已有账号显式配置的 `device` / `session` / `full` 模式必须原样保留。
 - Redis 使用独立键空间：活跃槽位 `openai_session_limit:account:{accountID}`、暂存槽位 `openai_session_limit:staged:{accountID}`、物理唯一归属定位 `openai_session_limit:owner:{sessionIDHash}` 和带活跃/暂存截止时间的限时调度元数据 `openai_session_limit:preferred:{sessionIDHash}`；不得与 Anthropic 的 `session_limit:account:{accountID}` 共用数据。调度查询只能在暂存窗口返回原账号，活跃窗口仍使用既有调度顺序，并在“活跃周期 + 一个暂存周期”结束时准时失效；唯一归属定位要比共享 ZSET 多保留清理缓冲，防止偏好失效后跨账号接纳留下重复物理成员。接纳、跨账号转移、活跃转暂存、暂存回迁、满槽剔除、过期清理、存在刷新和数量判断必须由 Lua 脚本原子完成；不得把原始 SessionID 写入 Redis key 或 value。
 - Redis 异常时不得让受控账号失败开放；应仅跳过当前受控账号并继续调度其他账号。所有候选账号均不可用时再返回无可用账号错误。
@@ -605,6 +605,7 @@
 - OpenAI SessionID 键空间与 Anthropic 会话限制完全隔离，现有 Anthropic 会话数量、窗口费用及 RPM 展示不受影响。
 - 账号创建、编辑和批量编辑的 Codex 指纹收敛缺省值保持 `off`；SessionID 控制开关与指纹模式分别保存，互不覆盖。
 - HTTP Responses、Chat Completions、Messages、Images、Embeddings、WebSocket 和 Live 外部入口均不能绕过控制；内部账号探测仍可正常选号。
+- 使用记录在请求仅通过请求体携带 `prompt_cache_key` 时必须保存该显式 SessionID；请求只命中内容指纹、Grok `previous_response_id` 或 WebSocket 内部兜底时仍须保存为空，不能泄露内部调度种子。
 
 ## 3. 合并后必测清单
 
@@ -718,7 +719,7 @@ GOMAXPROCS=2 go test -tags=unit -run TestSettingService_ImagePlaygroundAndVideoJ
 7. 等待账号 A 的 SessionID 达到空闲过期时间，确认活跃计数释放且哈希进入 A 的暂存区；在额外一个过期周期内再次请求，确认高级调度和旧调度都优先选择 A，并将其从暂存区原子移回活跃槽位。
 8. 关闭自动轮换时，暂存期内先用其他 SessionID 填满账号 A，再让暂存 SessionID 请求，确认 A 的暂存成员和偏好被删除、请求继续调度到其他账号；等待暂存期自然结束后重复请求，确认不再偏好 A 且所有账号间仍只有一个物理槽位成员。
 9. 开启“槽位满时自动轮换”后，用第四个 SessionID 请求已满的账号，确认最久未请求的旧会话从活跃槽位移入请求暂存区、仍归属原账号且立即获得暂存偏好；第四个会话进入活跃槽位，活跃数量保持上限。旧会话在暂存期回访时应优先原账号，并把另一最久未请求的活跃会话轮换进暂存区。
-10. 打开管理员使用记录，确认 SessionID 列默认显示在账号列旁边；同一会话的多条记录可直接对照账号，SessionID 可复制且 Excel 导出包含该列，请求 ID 仍保持独立列和原默认隐藏规则。
+10. 打开管理员使用记录，确认 SessionID 列默认显示在账号列旁边；同一会话的多条记录可直接对照账号，SessionID 可复制且 Excel 导出包含该列，请求 ID 仍保持独立列和原默认隐藏规则。分别用请求头和请求体 `prompt_cache_key` 发起请求，两者都应落库；只使用内容指纹、Grok `previous_response_id` 或 WebSocket 内部兜底时该列应为 `-`。
 
 后端定向测试：
 

@@ -566,6 +566,7 @@ func TestOpenAIGatewayService_GenerateExplicitSessionHash_SkipsContentFallback(t
 		got := svc.GenerateExplicitSessionHash(c, []byte(`{"model":"gpt-image-2","prompt_cache_key":"image-session"}`))
 		require.Equal(t, fmt.Sprintf("%016x", xxhash.Sum64String("image-session")), got)
 		require.NotEmpty(t, openAILegacySessionHashFromContext(c.Request.Context()))
+		require.Equal(t, "image-session", ExtractClientSessionID(c))
 	})
 
 	t.Run("header overrides body", func(t *testing.T) {
@@ -576,6 +577,40 @@ func TestOpenAIGatewayService_GenerateExplicitSessionHash_SkipsContentFallback(t
 
 		got := svc.GenerateExplicitSessionHash(c, []byte(`{"prompt_cache_key":"body-session"}`))
 		require.Equal(t, fmt.Sprintf("%016x", xxhash.Sum64String("header-session")), got)
+		require.Equal(t, "header-session", ExtractClientSessionID(c))
+	})
+}
+
+func TestOpenAIGatewayService_GenerateSessionHash_DoesNotPersistInternalFallbacks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &OpenAIGatewayService{}
+
+	t.Run("content fallback", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+		require.NotEmpty(t, svc.GenerateSessionHash(c, []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}]}`)))
+		require.Empty(t, ExtractClientSessionID(c))
+	})
+
+	t.Run("grok previous response fallback", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+		c.Set("api_key", &APIKey{ID: 44, Group: &Group{Platform: PlatformGrok}})
+
+		require.NotEmpty(t, svc.GenerateSessionHash(c, []byte(`{"model":"grok-4","previous_response_id":"resp_123"}`)))
+		require.Empty(t, ExtractClientSessionID(c))
+	})
+
+	t.Run("websocket fallback", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+
+		require.NotEmpty(t, svc.GenerateSessionHashWithFallback(c, []byte(`{}`), "internal-ws-seed"))
+		require.Empty(t, ExtractClientSessionID(c))
 	})
 }
 

@@ -72,6 +72,22 @@ func explicitOpenAISessionID(c *gin.Context, body []byte) string {
 	return sessionID
 }
 
+// explicitOpenAIUsageSessionID resolves only client-provided session signals
+// that are safe to expose in usage records. It deliberately excludes Grok
+// previous_response_id and all content/transport fallbacks used only for sticky
+// scheduling.
+func explicitOpenAIUsageSessionID(c *gin.Context, body []byte) string {
+	if c == nil {
+		return ""
+	}
+
+	sessionID := clientSessionIDFromHeaders(c)
+	if sessionID == "" && len(body) > 0 {
+		sessionID = strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
+	}
+	return sessionID
+}
+
 // explicitOpenAIRequestSessionID extends the common OpenAI session signals
 // with Grok's native conversation header only for requests authenticated to a
 // Grok group. This keeps an unrelated x-grok-conv-id header from changing
@@ -119,6 +135,7 @@ func grokPreviousResponseSessionSeed(body []byte) string {
 // client session signals. It intentionally skips content-derived fallback and is
 // used by stateless endpoints such as /v1/images.
 func (s *OpenAIGatewayService) GenerateExplicitSessionHash(c *gin.Context, body []byte) string {
+	attachUsageSessionIDToGin(c, explicitOpenAIUsageSessionID(c, body))
 	sessionID := explicitOpenAIRequestSessionID(c, body)
 	attachOpenAISessionControlIdentityToGin(c, sessionID)
 	if sessionID == "" {
@@ -152,6 +169,7 @@ func (s *OpenAIGatewayService) GenerateSessionHash(c *gin.Context, body []byte) 
 		return ""
 	}
 
+	attachUsageSessionIDToGin(c, explicitOpenAIUsageSessionID(c, body))
 	sessionID := explicitOpenAIRequestSessionID(c, body)
 	attachOpenAISessionControlIdentityToGin(c, sessionID)
 	if sessionID == "" && len(body) > 0 {
