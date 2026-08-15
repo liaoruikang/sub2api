@@ -1730,6 +1730,13 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config error: %w", err)
 	}
+	if strings.TrimSpace(cfg.Timezone) == "" {
+		// AllowEmptyEnv is required for explicit empty secrets during bootstrap,
+		// but an empty TIMEZONE must not erase the config-file/default timezone.
+		viper.AllowEmptyEnv(false)
+		cfg.Timezone = strings.TrimSpace(viper.GetString("timezone"))
+		viper.AllowEmptyEnv(true)
+	}
 	if trustedProxiesEnvConfigured {
 		cfg.Server.TrustedProxies = normalizeStringSlice(strings.Split(trustedProxiesEnv, ","))
 	}
