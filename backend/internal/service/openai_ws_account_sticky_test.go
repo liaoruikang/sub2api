@@ -308,6 +308,34 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_BusyKeepsSticky(
 	require.Equal(t, int64(21), selection.WaitPlan.AccountID)
 }
 
+func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_BusyControlledSessionCanMove(t *testing.T) {
+	groupID := int64(24)
+	account := *controlledOpenAIAccount(23)
+	account.Status = StatusActive
+	account.Schedulable = true
+	account.Concurrency = 1
+	cache := &stubGatewayCache{}
+	store := NewOpenAIWSStateStore(cache)
+	svc := &OpenAIGatewayService{
+		accountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
+		cache:       cache,
+		cfg:         newOpenAIWSV2TestConfig(),
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{
+			acquireResults: map[int64]bool{account.ID: false},
+		}),
+		openaiWSStateStore: store,
+	}
+	require.NoError(t, store.BindResponseAccount(context.Background(), groupID, "resp_controlled_busy", account.ID, time.Hour))
+	ctx := context.WithValue(context.Background(), openAISessionControlContextKey{}, openAISessionControlIdentity{
+		Hash:     "controlled-session",
+		Resolved: true,
+	})
+
+	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_controlled_busy", "gpt-5.1", nil, false)
+	require.NoError(t, err)
+	require.Nil(t, selection, "busy previous_response affinity must yield so SessionID control can choose another account")
+}
+
 func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_CapabilityMismatchKeepsSticky(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(25)

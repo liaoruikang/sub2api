@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -420,6 +421,14 @@ func (s *OpenAIGatewayService) selectAccountByPreviousResponseIDForCapability(
 			Acquired:    true,
 			ReleaseFunc: result.ReleaseFunc,
 		}), nil
+	}
+	if acquireErr == nil && result != nil && !result.Acquired &&
+		s.shouldEscapeBusyOpenAISessionControlAccount(ctx, account) {
+		slog.Info("openai_session_control_concurrency_escape",
+			"account_id", accountID,
+			"affinity", "previous_response_id",
+		)
+		return nil, nil
 	}
 
 	cfg := s.schedulingConfig()

@@ -225,6 +225,35 @@ func TestOpenAISessionLimitExpiredSlotMovesToStagingAndReturns(t *testing.T) {
 	requireZMember(t, ctx, client, openAISessionStagingKey(accountID), sessionID, false)
 }
 
+func TestOpenAISessionLimitRequestAdmissionMovesExpiredSlotsToStaging(t *testing.T) {
+	redisServer := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
+	cache := NewSessionLimitCache(client, 5)
+	ctx := context.Background()
+	const accountID int64 = 18
+	const expiredSessionID = "expired-on-next-request"
+	const idleTimeout = 10 * time.Second
+
+	allowed, err := cache.RegisterOpenAISessionID(ctx, accountID, expiredSessionID, 3, idleTimeout)
+	require.NoError(t, err)
+	require.True(t, allowed)
+	redisTime, err := client.Time(ctx).Result()
+	require.NoError(t, err)
+	require.NoError(t, client.ZAdd(ctx, openAISessionLimitKey(accountID), redis.Z{
+		Score:  float64(redisTime.Unix() - 11),
+		Member: expiredSessionID,
+	}).Err())
+
+	allowed, err = cache.RegisterOpenAISessionID(ctx, accountID, "incoming-session", 3, idleTimeout)
+	require.NoError(t, err)
+	require.True(t, allowed)
+	requireZMember(t, ctx, client, openAISessionLimitKey(accountID), expiredSessionID, false)
+	requireZMember(t, ctx, client, openAISessionStagingKey(accountID), expiredSessionID, true)
+	stagedAccountID, err := cache.GetOpenAIStagedSessionAccountID(ctx, expiredSessionID)
+	require.NoError(t, err)
+	require.Equal(t, accountID, stagedAccountID)
+}
+
 func TestOpenAISessionLimitStagedLookupOnlyMatchesStagingWindow(t *testing.T) {
 	redisServer := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})

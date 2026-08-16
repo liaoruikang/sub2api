@@ -583,6 +583,17 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 			ReleaseFunc: result.ReleaseFunc,
 		}), false, nil
 	}
+	if acquireErr == nil && result != nil && !result.Acquired &&
+		s.service.shouldEscapeBusyOpenAISessionControlAccount(ctx, account) {
+		slog.Info("openai_session_control_concurrency_escape",
+			"account_id", accountID,
+			"preferred_account", isSessionControlPreference,
+		)
+		// Session control is intentionally moving this affinity to the next
+		// available account, so the load-balance layer may replace the sticky
+		// binding after the atomic slot transfer succeeds.
+		return nil, false, nil
+	}
 
 	cfg := s.service.schedulingConfig()
 	// WaitPlan.MaxConcurrency 使用 Concurrency（非 EffectiveLoadFactor），因为 WaitPlan 控制的是 Redis 实际并发槽位等待。

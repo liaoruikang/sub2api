@@ -100,6 +100,19 @@ func (s *OpenAIGatewayService) resolveOpenAISessionControlOwner(ctx context.Cont
 	return parent, nil
 }
 
+func (s *OpenAIGatewayService) shouldEscapeBusyOpenAISessionControlAccount(ctx context.Context, account *Account) bool {
+	identity := openAISessionControlIdentityFromContext(ctx)
+	if !identity.Resolved || identity.Hash == "" || account == nil {
+		return false
+	}
+	owner, err := s.resolveOpenAISessionControlOwner(ctx, account)
+	if err != nil {
+		slog.Warn("openai_session_control_busy_owner_resolve_failed", "account_id", account.ID, "err", err)
+		return false
+	}
+	return owner != nil && owner.IsOpenAISessionControlEnabled()
+}
+
 func (s *OpenAIGatewayService) registerOpenAISessionControl(ctx context.Context, account *Account) (bool, string) {
 	if s == nil || account == nil || normalizeOpenAICompatiblePlatform(account.Platform) != PlatformOpenAI {
 		return true, ""
@@ -109,6 +122,11 @@ func (s *OpenAIGatewayService) registerOpenAISessionControl(ctx context.Context,
 		// Internal probes/model discovery do not carry a gateway client identity.
 		return true, ""
 	}
+	if identity.Hash == "" {
+		// Requests without an explicit downstream SessionID use ordinary scheduling
+		// and must neither consume nor be rejected by controlled account slots.
+		return true, ""
+	}
 	owner, err := s.resolveOpenAISessionControlOwner(ctx, account)
 	if err != nil {
 		slog.Error("openai_session_control_owner_resolve_failed", "account_id", account.ID, "err", err)
@@ -116,9 +134,6 @@ func (s *OpenAIGatewayService) registerOpenAISessionControl(ctx context.Context,
 	}
 	if owner == nil || !owner.IsOpenAISessionControlEnabled() {
 		return true, ""
-	}
-	if identity.Hash == "" {
-		return false, "session_id_missing"
 	}
 	if s.sessionLimitCache == nil {
 		slog.Error("openai_session_control_cache_unavailable", "account_id", owner.ID)

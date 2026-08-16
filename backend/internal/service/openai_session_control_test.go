@@ -188,41 +188,152 @@ func TestOpenAISessionControlSkipsFullAccountAndContinuesScheduling(t *testing.T
 	require.Equal(t, []int64{101}, cache.registeredIDs)
 }
 
-func TestOpenAISessionControlRejectsMissingIdentityAndCacheErrorsPerAccount(t *testing.T) {
-	tests := []struct {
-		name     string
-		identity openAISessionControlIdentity
-		cache    *openAISessionControlCacheStub
-	}{
-		{
-			name:     "missing SessionID",
-			identity: openAISessionControlIdentity{Resolved: true},
-			cache:    &openAISessionControlCacheStub{},
-		},
-		{
-			name:     "cache failure",
-			identity: openAISessionControlIdentity{Hash: "client-session", Resolved: true},
-			cache:    &openAISessionControlCacheStub{errByAccount: map[int64]error{201: errors.New("redis unavailable")}},
-		},
+func TestOpenAISessionControlMissingIdentityUsesOrdinaryScheduling(t *testing.T) {
+	controlled := controlledOpenAIAccount(201)
+	missingParentID := int64(999)
+	controlled.ParentAccountID = &missingParentID
+	fallback := &Account{ID: 202, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	scheduler := &openAISessionControlSchedulerStub{accounts: []*Account{controlled, fallback}}
+	cache := &openAISessionControlCacheStub{}
+	svc := &OpenAIGatewayService{
+		cfg:               &config.Config{},
+		rateLimitService:  newOpenAIAdvancedSchedulerRateLimitService("true"),
+		openaiScheduler:   scheduler,
+		sessionLimitCache: cache,
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			controlled := controlledOpenAIAccount(201)
-			fallback := &Account{ID: 202, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
-			scheduler := &openAISessionControlSchedulerStub{accounts: []*Account{controlled, fallback}}
-			svc := &OpenAIGatewayService{
-				cfg:               &config.Config{},
-				rateLimitService:  newOpenAIAdvancedSchedulerRateLimitService("true"),
-				openaiScheduler:   scheduler,
-				sessionLimitCache: tt.cache,
-			}
-			ctx := context.WithValue(context.Background(), openAISessionControlContextKey{}, tt.identity)
+	ctx := context.WithValue(context.Background(), openAISessionControlContextKey{}, openAISessionControlIdentity{Resolved: true})
 
-			selection, _, err := svc.SelectAccountWithScheduler(ctx, nil, "", "sticky", "gpt-5", nil, OpenAIUpstreamTransportAny, false)
+	selection, _, err := svc.SelectAccountWithScheduler(ctx, nil, "", "sticky", "gpt-5", nil, OpenAIUpstreamTransportAny, false)
+	require.NoError(t, err)
+	require.Equal(t, controlled.ID, selection.Account.ID)
+	require.Empty(t, cache.registeredIDs)
+}
+
+func TestOpenAISessionControlCacheErrorsSkipControlledAccount(t *testing.T) {
+	controlled := controlledOpenAIAccount(201)
+	fallback := &Account{ID: 202, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	scheduler := &openAISessionControlSchedulerStub{accounts: []*Account{controlled, fallback}}
+	cache := &openAISessionControlCacheStub{errByAccount: map[int64]error{controlled.ID: errors.New("redis unavailable")}}
+	svc := &OpenAIGatewayService{
+		cfg:               &config.Config{},
+		rateLimitService:  newOpenAIAdvancedSchedulerRateLimitService("true"),
+		openaiScheduler:   scheduler,
+		sessionLimitCache: cache,
+	}
+	ctx := context.WithValue(context.Background(), openAISessionControlContextKey{}, openAISessionControlIdentity{Hash: "client-session", Resolved: true})
+
+	selection, _, err := svc.SelectAccountWithScheduler(ctx, nil, "", "sticky", "gpt-5", nil, OpenAIUpstreamTransportAny, false)
+	require.NoError(t, err)
+	require.Equal(t, fallback.ID, selection.Account.ID)
+}
+
+func TestOpenAISessionControlBusyStickyMovesToAvailableAccount(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		advancedEnabled  string
+		loadBatchEnabled bool
+		stagedPreference bool
+	}{
+		{name: "advanced", advancedEnabled: "true", loadBatchEnabled: true},
+		{name: "legacy load batch", advancedEnabled: "false", loadBatchEnabled: true},
+		{name: "legacy direct selection", advancedEnabled: "false", loadBatchEnabled: false},
+		{name: "advanced staged preference", advancedEnabled: "true", loadBatchEnabled: true, stagedPreference: true},
+		{name: "legacy load batch staged preference", advancedEnabled: "false", loadBatchEnabled: true, stagedPreference: true},
+		{name: "legacy direct staged preference", advancedEnabled: "false", loadBatchEnabled: false, stagedPreference: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			busy := *controlledOpenAIAccount(211)
+			busy.Status = StatusActive
+			busy.Schedulable = true
+			busy.Concurrency = 1
+			busy.Priority = 0
+			available := *controlledOpenAIAccount(212)
+			available.Status = StatusActive
+			available.Schedulable = true
+			available.Concurrency = 1
+			available.Priority = 10
+			gatewayCache := &schedulerTestGatewayCache{}
+			sessionCache := &openAISessionControlCacheStub{}
+			if tt.stagedPreference {
+				sessionCache.ownerAccountID = busy.ID
+			} else {
+				gatewayCache.sessionBindings = map[string]int64{"openai:busy-session": busy.ID}
+			}
+			cfg := &config.Config{}
+			cfg.Gateway.Scheduling.LoadBatchEnabled = tt.loadBatchEnabled
+			cfg.Gateway.Scheduling.StickySessionMaxWaiting = 3
+			cfg.Gateway.Scheduling.StickySessionWaitTimeout = time.Second
+			cfg.Gateway.Scheduling.FallbackWaitTimeout = time.Second
+			cfg.Gateway.Scheduling.FallbackMaxWaiting = 10
+			svc := &OpenAIGatewayService{
+				accountRepo:      schedulerTestOpenAIAccountRepo{accounts: []Account{busy, available}},
+				cache:            gatewayCache,
+				cfg:              cfg,
+				rateLimitService: newOpenAIAdvancedSchedulerRateLimitService(tt.advancedEnabled),
+				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{
+					loadMap: map[int64]*AccountLoadInfo{
+						busy.ID:      {AccountID: busy.ID, LoadRate: 100},
+						available.ID: {AccountID: available.ID, LoadRate: 0},
+					},
+					acquireResults: map[int64]bool{busy.ID: false, available.ID: true},
+				}),
+				sessionLimitCache: sessionCache,
+			}
+			ctx := context.WithValue(context.Background(), openAISessionControlContextKey{}, openAISessionControlIdentity{Hash: "client-session", Resolved: true})
+
+			selection, _, err := svc.SelectAccountWithScheduler(ctx, nil, "", "busy-session", "gpt-5", nil, OpenAIUpstreamTransportAny, false)
 			require.NoError(t, err)
-			require.Equal(t, int64(202), selection.Account.ID)
+			require.NotNil(t, selection)
+			require.Equal(t, available.ID, selection.Account.ID)
+			require.True(t, selection.Acquired)
+			require.Nil(t, selection.WaitPlan)
+			require.Equal(t, []int64{available.ID}, sessionCache.registeredIDs)
+			if selection.ReleaseFunc != nil {
+				selection.ReleaseFunc()
+			}
 		})
 	}
+}
+
+func TestOpenAISessionControlLegacyDirectSelectionAllBusyFallsBackToWait(t *testing.T) {
+	first := *controlledOpenAIAccount(221)
+	first.Status = StatusActive
+	first.Schedulable = true
+	first.Concurrency = 1
+	first.Priority = 0
+	second := *controlledOpenAIAccount(222)
+	second.Status = StatusActive
+	second.Schedulable = true
+	second.Concurrency = 1
+	second.Priority = 10
+	gatewayCache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{
+		"openai:all-busy-session": first.ID,
+	}}
+	sessionCache := &openAISessionControlCacheStub{}
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	cfg.Gateway.Scheduling.FallbackWaitTimeout = time.Second
+	cfg.Gateway.Scheduling.FallbackMaxWaiting = 10
+	svc := &OpenAIGatewayService{
+		accountRepo:      schedulerTestOpenAIAccountRepo{accounts: []Account{first, second}},
+		cache:            gatewayCache,
+		cfg:              cfg,
+		rateLimitService: newOpenAIAdvancedSchedulerRateLimitService("false"),
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{
+			acquireResults: map[int64]bool{first.ID: false, second.ID: false},
+		}),
+		sessionLimitCache: sessionCache,
+	}
+	ctx := context.WithValue(context.Background(), openAISessionControlContextKey{}, openAISessionControlIdentity{Hash: "client-session", Resolved: true})
+
+	selection, _, err := svc.SelectAccountWithScheduler(ctx, nil, "", "all-busy-session", "gpt-5", nil, OpenAIUpstreamTransportAny, false)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.Equal(t, first.ID, selection.Account.ID)
+	require.False(t, selection.Acquired)
+	require.NotNil(t, selection.WaitPlan)
+	require.Equal(t, first.ID, selection.WaitPlan.AccountID)
+	require.Equal(t, []int64{first.ID}, sessionCache.registeredIDs)
 }
 
 func TestOpenAISessionControlShadowUsesParentSlots(t *testing.T) {
