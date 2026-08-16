@@ -43,6 +43,65 @@ type affiliateWithdrawalRepoStub struct {
 	created *AffiliateWithdrawalCreateInput
 }
 
+type affiliateWithdrawalAccountRepoStub struct {
+	account *AffiliateWithdrawalAccount
+	created *AffiliateWithdrawalAccountCreateInput
+}
+
+func (r *affiliateWithdrawalAccountRepoStub) CreateAffiliateWithdrawalAccount(_ context.Context, input AffiliateWithdrawalAccountCreateInput) (*AffiliateWithdrawalAccount, error) {
+	r.created = &input
+	return &AffiliateWithdrawalAccount{
+		ID:               7,
+		UserID:           input.UserID,
+		AccountType:      "alipay",
+		AccountEncrypted: input.AccountEncrypted,
+		AccountMasked:    input.AccountMasked,
+		IsDefault:        true,
+	}, nil
+}
+
+func (r *affiliateWithdrawalAccountRepoStub) ListAffiliateWithdrawalAccounts(context.Context, int64) ([]AffiliateWithdrawalAccount, error) {
+	if r.account == nil {
+		return []AffiliateWithdrawalAccount{}, nil
+	}
+	return []AffiliateWithdrawalAccount{*r.account}, nil
+}
+
+func (r *affiliateWithdrawalAccountRepoStub) GetAffiliateWithdrawalAccount(_ context.Context, userID, accountID int64) (*AffiliateWithdrawalAccount, error) {
+	if r.account == nil || r.account.UserID != userID || r.account.ID != accountID {
+		return nil, ErrAffiliateWithdrawalAccountNotFound
+	}
+	copy := *r.account
+	return &copy, nil
+}
+
+func (r *affiliateWithdrawalAccountRepoStub) UpdateAffiliateWithdrawalAccount(_ context.Context, input AffiliateWithdrawalAccountUpdateInput) (*AffiliateWithdrawalAccount, error) {
+	if r.account == nil || r.account.UserID != input.UserID || r.account.ID != input.ID {
+		return nil, ErrAffiliateWithdrawalAccountNotFound
+	}
+	r.account.AccountEncrypted = input.AccountEncrypted
+	r.account.AccountMasked = input.AccountMasked
+	copy := *r.account
+	return &copy, nil
+}
+
+func (r *affiliateWithdrawalAccountRepoStub) SetDefaultAffiliateWithdrawalAccount(_ context.Context, userID, accountID int64) (*AffiliateWithdrawalAccount, error) {
+	if r.account == nil || r.account.UserID != userID || r.account.ID != accountID {
+		return nil, ErrAffiliateWithdrawalAccountNotFound
+	}
+	r.account.IsDefault = true
+	copy := *r.account
+	return &copy, nil
+}
+
+func (r *affiliateWithdrawalAccountRepoStub) DeleteAffiliateWithdrawalAccount(_ context.Context, userID, accountID int64) error {
+	if r.account == nil || r.account.UserID != userID || r.account.ID != accountID {
+		return ErrAffiliateWithdrawalAccountNotFound
+	}
+	r.account = nil
+	return nil
+}
+
 func (r *affiliateWithdrawalRepoStub) CreateAffiliateWithdrawal(_ context.Context, input AffiliateWithdrawalCreateInput) (*AffiliateWithdrawal, error) {
 	r.created = &input
 	return &AffiliateWithdrawal{
@@ -95,7 +154,7 @@ func TestCreateAffiliateWithdrawalSnapshotsPercentageFee(t *testing.T) {
 		SettingKeyAffiliateWithdrawalFeeRate:   "1",
 	}, repo)
 
-	item, err := svc.CreateAffiliateWithdrawal(context.Background(), 42, 100, "buyer@example.com")
+	item, err := svc.CreateAffiliateWithdrawal(context.Background(), 42, 100, 0, "buyer@example.com")
 	require.NoError(t, err)
 	require.NotNil(t, repo.created)
 	require.InDelta(t, 100, repo.created.Amount, 1e-9)
@@ -115,7 +174,7 @@ func TestCreateAffiliateWithdrawalRejectsBelowMinimum(t *testing.T) {
 		SettingKeyAffiliateWithdrawalMinAmount: "50",
 	}, repo)
 
-	_, err := svc.CreateAffiliateWithdrawal(context.Background(), 42, 49.99, "buyer@example.com")
+	_, err := svc.CreateAffiliateWithdrawal(context.Background(), 42, 49.99, 0, "buyer@example.com")
 	require.ErrorIs(t, err, ErrAffiliateWithdrawalMinimum)
 	require.Nil(t, repo.created)
 }
@@ -127,6 +186,49 @@ func TestAffiliateWithdrawalRequiresBothFeatureSwitches(t *testing.T) {
 		SettingKeyAffiliateWithdrawalEnabled: "true",
 	}, repo)
 
-	_, err := svc.CreateAffiliateWithdrawal(context.Background(), 42, 100, "buyer@example.com")
+	_, err := svc.CreateAffiliateWithdrawal(context.Background(), 42, 100, 0, "buyer@example.com")
 	require.ErrorIs(t, err, ErrAffiliateWithdrawalDisabled)
+}
+
+func TestCreateAffiliateWithdrawalUsesOwnedSavedAccountSnapshot(t *testing.T) {
+	withdrawalRepo := &affiliateWithdrawalRepoStub{}
+	accountRepo := &affiliateWithdrawalAccountRepoStub{account: &AffiliateWithdrawalAccount{
+		ID:               7,
+		UserID:           42,
+		AccountType:      "alipay",
+		AccountEncrypted: "enc:saved@example.com",
+		AccountMasked:    "sav****om",
+		IsDefault:        true,
+	}}
+	svc := newAffiliateWithdrawalServiceForTest(map[string]string{
+		SettingKeyAffiliateEnabled:             "true",
+		SettingKeyAffiliateWithdrawalEnabled:   "true",
+		SettingKeyAffiliateWithdrawalMinAmount: "10",
+	}, withdrawalRepo)
+	svc.withdrawalAccountRepo = accountRepo
+
+	_, err := svc.CreateAffiliateWithdrawal(context.Background(), 42, 100, 7, "attacker@example.com")
+	require.NoError(t, err)
+	require.NotNil(t, withdrawalRepo.created)
+	require.Equal(t, "enc:saved@example.com", withdrawalRepo.created.AlipayAccountEncrypted)
+	require.Equal(t, "sav****om", withdrawalRepo.created.AlipayAccountMasked)
+
+	_, err = svc.CreateAffiliateWithdrawal(context.Background(), 99, 100, 7, "")
+	require.ErrorIs(t, err, ErrAffiliateWithdrawalAccountNotFound)
+}
+
+func TestCreateAffiliateWithdrawalAccountEncryptsAndHidesPlaintext(t *testing.T) {
+	accountRepo := &affiliateWithdrawalAccountRepoStub{}
+	svc := &AffiliateService{
+		withdrawalAccountRepo: accountRepo,
+		encryptor:             affiliateWithdrawalEncryptor{},
+	}
+
+	item, err := svc.CreateAffiliateWithdrawalAccount(context.Background(), 42, " buyer@example.com ")
+	require.NoError(t, err)
+	require.NotNil(t, accountRepo.created)
+	require.Equal(t, "enc:buyer@example.com", accountRepo.created.AccountEncrypted)
+	require.NotEqual(t, "buyer@example.com", accountRepo.created.AccountMasked)
+	require.Empty(t, item.AccountEncrypted)
+	require.Equal(t, accountRepo.created.AccountMasked, item.AccountMasked)
 }

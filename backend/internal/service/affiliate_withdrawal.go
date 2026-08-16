@@ -100,7 +100,7 @@ func (s *AffiliateService) affiliateWithdrawalConfig(ctx context.Context) Affili
 	return config
 }
 
-func (s *AffiliateService) CreateAffiliateWithdrawal(ctx context.Context, userID int64, amount float64, rawAlipayAccount string) (*AffiliateWithdrawal, error) {
+func (s *AffiliateService) CreateAffiliateWithdrawal(ctx context.Context, userID int64, amount float64, withdrawalAccountID int64, rawAlipayAccount string) (*AffiliateWithdrawal, error) {
 	if s == nil || s.withdrawalRepo == nil || s.encryptor == nil {
 		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate withdrawal service unavailable")
 	}
@@ -116,18 +116,30 @@ func (s *AffiliateService) CreateAffiliateWithdrawal(ctx context.Context, userID
 		return nil, ErrAffiliateWithdrawalMinimum
 	}
 
-	alipayAccount := strings.TrimSpace(rawAlipayAccount)
-	if !validAffiliateAlipayAccount(alipayAccount) {
-		return nil, ErrAffiliateWithdrawalAccount
+	var accountEncrypted string
+	var accountMasked string
+	if withdrawalAccountID > 0 {
+		if s.withdrawalAccountRepo == nil {
+			return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate withdrawal account service unavailable")
+		}
+		account, err := s.withdrawalAccountRepo.GetAffiliateWithdrawalAccount(ctx, userID, withdrawalAccountID)
+		if err != nil {
+			return nil, err
+		}
+		accountEncrypted = account.AccountEncrypted
+		accountMasked = account.AccountMasked
+	} else {
+		_, encrypted, masked, err := s.protectAffiliateWithdrawalAccount(rawAlipayAccount)
+		if err != nil {
+			return nil, err
+		}
+		accountEncrypted = encrypted
+		accountMasked = masked
 	}
 	feeAmount := roundTo(amount*(config.FeeRate/100), 8)
 	payoutAmount := roundTo(amount-feeAmount, 8)
 	if payoutAmount <= 0 {
 		return nil, ErrAffiliateWithdrawalAmount
-	}
-	ciphertext, err := s.encryptor.Encrypt(alipayAccount)
-	if err != nil {
-		return nil, infraerrors.ServiceUnavailable("AFFILIATE_WITHDRAWAL_ENCRYPT_FAILED", "failed to protect Alipay account")
 	}
 	requestNo, err := generateAffiliateWithdrawalNo()
 	if err != nil {
@@ -141,8 +153,8 @@ func (s *AffiliateService) CreateAffiliateWithdrawal(ctx context.Context, userID
 		FeeRate:                config.FeeRate,
 		FeeAmount:              feeAmount,
 		PayoutAmount:           payoutAmount,
-		AlipayAccountEncrypted: ciphertext,
-		AlipayAccountMasked:    maskAlipayAccount(alipayAccount),
+		AlipayAccountEncrypted: accountEncrypted,
+		AlipayAccountMasked:    accountMasked,
 	})
 	if err != nil {
 		return nil, err
@@ -262,6 +274,10 @@ func validAffiliateAlipayAccount(account string) bool {
 		}
 	}
 	return true
+}
+
+func normalizeAffiliateAlipayAccount(account string) string {
+	return strings.TrimSpace(account)
 }
 
 func maskAlipayAccount(account string) string {

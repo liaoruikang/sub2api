@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -233,8 +234,9 @@ func (h *UserHandler) TransferAffiliateQuota(c *gin.Context) {
 }
 
 type createAffiliateWithdrawalRequest struct {
-	Amount        float64 `json:"amount" binding:"required"`
-	AlipayAccount string  `json:"alipay_account" binding:"required"`
+	Amount              float64 `json:"amount" binding:"required"`
+	WithdrawalAccountID int64   `json:"withdrawal_account_id"`
+	AlipayAccount       string  `json:"alipay_account"`
 }
 
 // CreateAffiliateWithdrawal freezes affiliate quota and creates an Alipay withdrawal request.
@@ -251,8 +253,124 @@ func (h *UserHandler) CreateAffiliateWithdrawal(c *gin.Context) {
 		return
 	}
 	executeUserIdempotentJSON(c, "user.affiliate.withdrawals.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		return h.affiliateService.CreateAffiliateWithdrawal(ctx, subject.UserID, req.Amount, req.AlipayAccount)
+		return h.affiliateService.CreateAffiliateWithdrawal(ctx, subject.UserID, req.Amount, req.WithdrawalAccountID, req.AlipayAccount)
 	})
+}
+
+type affiliateWithdrawalAccountRequest struct {
+	AlipayAccount string `json:"alipay_account" binding:"required"`
+}
+
+// ListAffiliateWithdrawalAccounts returns saved, masked payout accounts.
+// GET /api/v1/user/aff/withdrawal-accounts
+func (h *UserHandler) ListAffiliateWithdrawalAccounts(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	items, err := h.affiliateService.ListAffiliateWithdrawalAccounts(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, items)
+}
+
+// CreateAffiliateWithdrawalAccount saves an encrypted Alipay payout account.
+// POST /api/v1/user/aff/withdrawal-accounts
+func (h *UserHandler) CreateAffiliateWithdrawalAccount(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	var req affiliateWithdrawalAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.affiliateService.CreateAffiliateWithdrawalAccount(c.Request.Context(), subject.UserID, req.AlipayAccount)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+// UpdateAffiliateWithdrawalAccount replaces a saved Alipay payout account.
+// PUT /api/v1/user/aff/withdrawal-accounts/:id
+func (h *UserHandler) UpdateAffiliateWithdrawalAccount(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	accountID, err := parseAffiliateWithdrawalAccountID(c)
+	if err != nil {
+		response.BadRequest(c, "Invalid withdrawal account")
+		return
+	}
+	var req affiliateWithdrawalAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.affiliateService.UpdateAffiliateWithdrawalAccount(c.Request.Context(), subject.UserID, accountID, req.AlipayAccount)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+// SetDefaultAffiliateWithdrawalAccount changes the account preselected for withdrawals.
+// PUT /api/v1/user/aff/withdrawal-accounts/:id/default
+func (h *UserHandler) SetDefaultAffiliateWithdrawalAccount(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	accountID, err := parseAffiliateWithdrawalAccountID(c)
+	if err != nil {
+		response.BadRequest(c, "Invalid withdrawal account")
+		return
+	}
+	item, err := h.affiliateService.SetDefaultAffiliateWithdrawalAccount(c.Request.Context(), subject.UserID, accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+// DeleteAffiliateWithdrawalAccount removes a saved account without changing withdrawal snapshots.
+// DELETE /api/v1/user/aff/withdrawal-accounts/:id
+func (h *UserHandler) DeleteAffiliateWithdrawalAccount(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	accountID, err := parseAffiliateWithdrawalAccountID(c)
+	if err != nil {
+		response.BadRequest(c, "Invalid withdrawal account")
+		return
+	}
+	if err := h.affiliateService.DeleteAffiliateWithdrawalAccount(c.Request.Context(), subject.UserID, accountID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "withdrawal account deleted"})
+}
+
+func parseAffiliateWithdrawalAccountID(c *gin.Context) (int64, error) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || accountID <= 0 {
+		return 0, service.ErrAffiliateWithdrawalAccountNotFound
+	}
+	return accountID, nil
 }
 
 // ListAffiliateWithdrawals returns the current user's withdrawal history.

@@ -124,6 +124,15 @@ type AffiliateWithdrawalRepository interface {
 	ProcessAffiliateWithdrawal(ctx context.Context, withdrawalID, operatorID int64, status, rejectReason string) (*AffiliateWithdrawal, error)
 }
 
+type AffiliateWithdrawalAccountRepository interface {
+	CreateAffiliateWithdrawalAccount(ctx context.Context, input AffiliateWithdrawalAccountCreateInput) (*AffiliateWithdrawalAccount, error)
+	ListAffiliateWithdrawalAccounts(ctx context.Context, userID int64) ([]AffiliateWithdrawalAccount, error)
+	GetAffiliateWithdrawalAccount(ctx context.Context, userID, accountID int64) (*AffiliateWithdrawalAccount, error)
+	UpdateAffiliateWithdrawalAccount(ctx context.Context, input AffiliateWithdrawalAccountUpdateInput) (*AffiliateWithdrawalAccount, error)
+	SetDefaultAffiliateWithdrawalAccount(ctx context.Context, userID, accountID int64) (*AffiliateWithdrawalAccount, error)
+	DeleteAffiliateWithdrawalAccount(ctx context.Context, userID, accountID int64) error
+}
+
 // AffiliateAdminFilter 列表筛选条件
 type AffiliateAdminFilter struct {
 	Search   string
@@ -213,12 +222,13 @@ type AffiliateUserOverview struct {
 }
 
 type AffiliateService struct {
-	repo                 AffiliateRepository
-	withdrawalRepo       AffiliateWithdrawalRepository
-	settingService       *SettingService
-	authCacheInvalidator APIKeyAuthCacheInvalidator
-	billingCacheService  *BillingCacheService
-	encryptor            SecretEncryptor
+	repo                  AffiliateRepository
+	withdrawalRepo        AffiliateWithdrawalRepository
+	withdrawalAccountRepo AffiliateWithdrawalAccountRepository
+	settingService        *SettingService
+	authCacheInvalidator  APIKeyAuthCacheInvalidator
+	billingCacheService   *BillingCacheService
+	encryptor             SecretEncryptor
 }
 
 func ProvideAffiliateService(
@@ -230,6 +240,7 @@ func ProvideAffiliateService(
 ) *AffiliateService {
 	svc := NewAffiliateService(repo, settingService, authCacheInvalidator, billingCacheService)
 	svc.withdrawalRepo, _ = repo.(AffiliateWithdrawalRepository)
+	svc.withdrawalAccountRepo, _ = repo.(AffiliateWithdrawalAccountRepository)
 	svc.encryptor = encryptor
 	return svc
 }
@@ -242,6 +253,7 @@ func NewAffiliateService(repo AffiliateRepository, settingService *SettingServic
 		billingCacheService:  billingCacheService,
 	}
 	svc.withdrawalRepo, _ = repo.(AffiliateWithdrawalRepository)
+	svc.withdrawalAccountRepo, _ = repo.(AffiliateWithdrawalAccountRepository)
 	return svc
 }
 

@@ -110,10 +110,16 @@
               <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.withdrawal.title') }}</h3>
               <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.withdrawal.description') }}</p>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm shrink-0" @click="openWithdrawalRecords">
-              <Icon name="clock" size="sm" />
-              <span>{{ t('affiliate.withdrawal.records') }}</span>
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" class="btn btn-secondary btn-sm shrink-0" @click="openWithdrawalAccounts">
+                <Icon name="creditCard" size="sm" />
+                <span>{{ t('affiliate.withdrawal.accounts.manage') }}</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm shrink-0" @click="openWithdrawalRecords">
+                <Icon name="clock" size="sm" />
+                <span>{{ t('affiliate.withdrawal.records') }}</span>
+              </button>
+            </div>
           </div>
 
           <div
@@ -149,17 +155,25 @@
                 </p>
               </div>
               <div>
-                <label class="input-label" for="affiliate-alipay-account">{{ t('affiliate.withdrawal.alipayAccount') }}</label>
-                <input
-                  id="affiliate-alipay-account"
-                  v-model.trim="alipayAccount"
-                  type="text"
-                  maxlength="128"
-                  autocomplete="off"
-                  class="input"
-                  :placeholder="t('affiliate.withdrawal.alipayPlaceholder')"
+                <label class="input-label" for="affiliate-withdrawal-account">{{ t('affiliate.withdrawal.alipayAccount') }}</label>
+                <Select
+                  id="affiliate-withdrawal-account"
+                  v-model="selectedWithdrawalAccountID"
+                  :options="withdrawalAccountOptions"
+                  :disabled="withdrawalAccountsLoading || withdrawalAccounts.length === 0"
+                  :placeholder="t('affiliate.withdrawal.accounts.selectPlaceholder')"
+                  :empty-text="t('affiliate.withdrawal.accounts.empty')"
+                  :aria-label="t('affiliate.withdrawal.alipayAccount')"
                 />
-                <p class="mt-1 text-xs text-gray-400">{{ t('affiliate.withdrawal.alipayHint') }}</p>
+                <p class="mt-1 text-xs text-gray-400 dark:text-dark-500">
+                  <template v-if="withdrawalAccounts.length === 0">
+                    {{ t('affiliate.withdrawal.accounts.emptyHint') }}
+                    <button type="button" class="ml-1 text-primary-600 hover:underline dark:text-primary-400" @click="openWithdrawalAccounts">
+                      {{ t('affiliate.withdrawal.accounts.addNow') }}
+                    </button>
+                  </template>
+                  <template v-else>{{ t('affiliate.withdrawal.accounts.selectionHint') }}</template>
+                </p>
               </div>
             </div>
 
@@ -291,6 +305,14 @@
         />
       </div>
     </BaseDialog>
+
+    <AffiliateWithdrawalAccountsDialog
+      :show="withdrawalAccountsOpen"
+      :accounts="withdrawalAccounts"
+      :loading="withdrawalAccountsLoading"
+      @close="withdrawalAccountsOpen = false"
+      @changed="reloadWithdrawalAccountsAfterChange"
+    />
   </AppLayout>
 </template>
 
@@ -302,8 +324,9 @@ import Icon from '@/components/icons/Icon.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import AffiliateWithdrawalAccountsDialog from '@/components/user/AffiliateWithdrawalAccountsDialog.vue'
 import userAPI from '@/api/user'
-import type { AffiliateWithdrawal, AffiliateWithdrawalStatus, UserAffiliateDetail } from '@/types'
+import type { AffiliateWithdrawal, AffiliateWithdrawalAccount, AffiliateWithdrawalStatus, UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
@@ -320,7 +343,10 @@ const transferring = ref(false)
 const submittingWithdrawal = ref(false)
 const detail = ref<UserAffiliateDetail | null>(null)
 const withdrawalAmount = ref<number | null>(null)
-const alipayAccount = ref('')
+const withdrawalAccountsOpen = ref(false)
+const withdrawalAccountsLoading = ref(false)
+const withdrawalAccounts = ref<AffiliateWithdrawalAccount[]>([])
+const selectedWithdrawalAccountID = ref<number | null>(null)
 const withdrawalRecordsOpen = ref(false)
 const withdrawalRecordsLoading = ref(false)
 const withdrawalRecords = ref<AffiliateWithdrawal[]>([])
@@ -333,6 +359,13 @@ const withdrawalStatusOptions = computed(() => [
   { value: 'paid', label: t('affiliate.withdrawal.status.paid') },
   { value: 'rejected', label: t('affiliate.withdrawal.status.rejected') },
 ])
+
+const withdrawalAccountOptions = computed(() => withdrawalAccounts.value.map((account) => ({
+  value: account.id,
+  label: account.is_default
+    ? `${account.account_masked} (${t('affiliate.withdrawal.accounts.default')})`
+    : account.account_masked,
+})))
 
 const inviteLink = computed(() => {
   if (!detail.value) return ''
@@ -361,7 +394,7 @@ const canSubmitWithdrawal = computed(() => {
   return amount >= detail.value.withdrawal_config.min_amount
     && amount <= detail.value.aff_quota
     && withdrawalPayoutAmount.value > 0
-    && alipayAccount.value.trim().length >= 5
+    && Number(selectedWithdrawalAccountID.value) > 0
 })
 
 function formatCount(value: number): string {
@@ -384,6 +417,23 @@ async function loadAffiliateDetail(silent = false): Promise<void> {
     if (!silent) {
       loading.value = false
     }
+  }
+}
+
+async function loadWithdrawalAccounts(preferDefault = false): Promise<void> {
+  withdrawalAccountsLoading.value = true
+  try {
+    const items = await userAPI.listAffiliateWithdrawalAccounts()
+    withdrawalAccounts.value = items || []
+    const selectedStillExists = withdrawalAccounts.value.some((account) => account.id === selectedWithdrawalAccountID.value)
+    if (preferDefault || !selectedStillExists) {
+      const preferred = withdrawalAccounts.value.find((account) => account.is_default) || withdrawalAccounts.value[0]
+      selectedWithdrawalAccountID.value = preferred?.id ?? null
+    }
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('affiliate.withdrawal.accounts.loadFailed')))
+  } finally {
+    withdrawalAccountsLoading.value = false
   }
 }
 
@@ -424,11 +474,10 @@ async function submitWithdrawal(): Promise<void> {
   try {
     const record = await userAPI.createAffiliateWithdrawal({
       amount: normalizedWithdrawalAmount.value,
-      alipay_account: alipayAccount.value.trim(),
+      withdrawal_account_id: Number(selectedWithdrawalAccountID.value),
     })
     appStore.showSuccess(t('affiliate.withdrawal.success', { amount: formatCurrency(record.payout_amount) }))
     withdrawalAmount.value = null
-    alipayAccount.value = ''
     await loadAffiliateDetail(true)
     if (withdrawalRecordsOpen.value) await loadWithdrawalRecords()
   } catch (error) {
@@ -436,6 +485,15 @@ async function submitWithdrawal(): Promise<void> {
   } finally {
     submittingWithdrawal.value = false
   }
+}
+
+async function openWithdrawalAccounts(): Promise<void> {
+  withdrawalAccountsOpen.value = true
+  await loadWithdrawalAccounts()
+}
+
+function reloadWithdrawalAccountsAfterChange(): void {
+  void loadWithdrawalAccounts(true)
 }
 
 async function openWithdrawalRecords(): Promise<void> {
@@ -478,6 +536,9 @@ function withdrawalStatusClass(status: AffiliateWithdrawalStatus): string {
 }
 
 onMounted(() => {
-  void loadAffiliateDetail()
+  void Promise.all([
+    loadAffiliateDetail(),
+    loadWithdrawalAccounts(true),
+  ])
 })
 </script>

@@ -17,6 +17,7 @@ import type {
   UserAffiliateDetail,
   AffiliateTransferResponse,
   AffiliateWithdrawal,
+  AffiliateWithdrawalAccount,
   AffiliateWithdrawalStatus,
   PaginatedResponse,
   PlatformQuotasResponse,
@@ -196,12 +197,41 @@ function newAffiliateWithdrawalKey(): string {
 
 export async function createAffiliateWithdrawal(payload: {
   amount: number
-  alipay_account: string
+  withdrawal_account_id?: number
+  alipay_account?: string
 }): Promise<AffiliateWithdrawal> {
   const { data } = await apiClient.post<AffiliateWithdrawal>('/user/aff/withdrawals', payload, {
     headers: { 'Idempotency-Key': newAffiliateWithdrawalKey() },
   })
   return data
+}
+
+export async function listAffiliateWithdrawalAccounts(): Promise<AffiliateWithdrawalAccount[]> {
+  const { data } = await apiClient.get<AffiliateWithdrawalAccount[]>('/user/aff/withdrawal-accounts')
+  return data
+}
+
+export async function createAffiliateWithdrawalAccount(alipayAccount: string): Promise<AffiliateWithdrawalAccount> {
+  const { data } = await apiClient.post<AffiliateWithdrawalAccount>('/user/aff/withdrawal-accounts', {
+    alipay_account: alipayAccount,
+  })
+  return data
+}
+
+export async function updateAffiliateWithdrawalAccount(id: number, alipayAccount: string): Promise<AffiliateWithdrawalAccount> {
+  const { data } = await apiClient.put<AffiliateWithdrawalAccount>(`/user/aff/withdrawal-accounts/${id}`, {
+    alipay_account: alipayAccount,
+  })
+  return data
+}
+
+export async function setDefaultAffiliateWithdrawalAccount(id: number): Promise<AffiliateWithdrawalAccount> {
+  const { data } = await apiClient.put<AffiliateWithdrawalAccount>(`/user/aff/withdrawal-accounts/${id}/default`)
+  return data
+}
+
+export async function deleteAffiliateWithdrawalAccount(id: number): Promise<void> {
+  await apiClient.delete(`/user/aff/withdrawal-accounts/${id}`)
 }
 
 export async function listAffiliateWithdrawals(params: {
@@ -244,6 +274,11 @@ export const userAPI = {
   transferAffiliateQuota,
   createAffiliateWithdrawal,
   listAffiliateWithdrawals,
+  listAffiliateWithdrawalAccounts,
+  createAffiliateWithdrawalAccount,
+  updateAffiliateWithdrawalAccount,
+  setDefaultAffiliateWithdrawalAccount,
+  deleteAffiliateWithdrawalAccount,
   getMyPlatformQuotas,
 }
 

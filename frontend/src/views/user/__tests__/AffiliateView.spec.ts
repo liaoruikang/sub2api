@@ -3,10 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AffiliateView from '../AffiliateView.vue'
 
-const { copyToClipboard, createAffiliateWithdrawal, getAffiliateDetail, listAffiliateWithdrawals } = vi.hoisted(() => ({
+const {
+  copyToClipboard,
+  createAffiliateWithdrawal,
+  getAffiliateDetail,
+  listAffiliateWithdrawalAccounts,
+  listAffiliateWithdrawals,
+} = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
   createAffiliateWithdrawal: vi.fn(),
   getAffiliateDetail: vi.fn(),
+  listAffiliateWithdrawalAccounts: vi.fn(),
   listAffiliateWithdrawals: vi.fn(),
 }))
 
@@ -16,6 +23,11 @@ vi.mock('@/api/user', () => ({
     transferAffiliateQuota: vi.fn(),
     createAffiliateWithdrawal,
     listAffiliateWithdrawals,
+    listAffiliateWithdrawalAccounts,
+    createAffiliateWithdrawalAccount: vi.fn(),
+    updateAffiliateWithdrawalAccount: vi.fn(),
+    setDefaultAffiliateWithdrawalAccount: vi.fn(),
+    deleteAffiliateWithdrawalAccount: vi.fn(),
   },
 }))
 
@@ -68,6 +80,7 @@ describe('AffiliateView', () => {
       },
       invitees: [],
     })
+    listAffiliateWithdrawalAccounts.mockResolvedValue([])
   })
 
   it('stacks long values and copy controls on mobile while retaining desktop rows', async () => {
@@ -148,6 +161,15 @@ describe('AffiliateView', () => {
       created_at: '2026-08-16T00:00:00Z',
       updated_at: '2026-08-16T00:00:00Z',
     })
+    listAffiliateWithdrawalAccounts.mockResolvedValue([{
+      id: 7,
+      user_id: 1,
+      account_type: 'alipay',
+      account_masked: 'buy****om',
+      is_default: true,
+      created_at: '2026-08-16T00:00:00Z',
+      updated_at: '2026-08-16T00:00:00Z',
+    }])
 
     const wrapper = mount(AffiliateView, {
       global: {
@@ -160,7 +182,6 @@ describe('AffiliateView', () => {
     await flushPromises()
 
     await wrapper.get('#affiliate-withdrawal-amount').setValue('100')
-    await wrapper.get('#affiliate-alipay-account').setValue('buyer@example.com')
     expect(wrapper.text()).toContain('$99.00')
     const submit = wrapper.findAll('button').find((button) => button.text() === 'affiliate.withdrawal.submit')
     expect(submit).toBeTruthy()
@@ -169,7 +190,7 @@ describe('AffiliateView', () => {
 
     expect(createAffiliateWithdrawal).toHaveBeenCalledWith({
       amount: 100,
-      alipay_account: 'buyer@example.com',
+      withdrawal_account_id: 7,
     })
   })
 })

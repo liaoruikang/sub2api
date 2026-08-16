@@ -173,6 +173,16 @@ export interface AffiliateWithdrawalConfig {
 
 export type AffiliateWithdrawalStatus = 'pending' | 'paid' | 'rejected'
 
+export interface AffiliateWithdrawalAccount {
+  id: number
+  user_id: number
+  account_type: 'alipay'
+  account_masked: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface AffiliateWithdrawal {
   id: number
   request_no: string

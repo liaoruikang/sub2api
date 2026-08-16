@@ -93,3 +93,73 @@ VALUES ($1, $2, 100, 100, NOW(), NOW())`, user.ID, fmt.Sprintf("WD%010d", time.N
 	require.InDelta(t, 40, querySingleFloat(t, txCtx, client, "SELECT aff_quota::double precision FROM user_affiliates WHERE user_id = $1", user.ID), 1e-9)
 	require.InDelta(t, 0, querySingleFloat(t, txCtx, client, "SELECT aff_frozen_quota::double precision FROM user_affiliates WHERE user_id = $1", user.ID), 1e-9)
 }
+
+func TestAffiliateWithdrawalAccountRepository_EnforcesOwnershipAndDefaultPromotion(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+	baseRepo := NewAffiliateRepository(client, integrationDB)
+	repo, ok := baseRepo.(service.AffiliateWithdrawalAccountRepository)
+	require.True(t, ok, "affiliate repository must expose withdrawal account management")
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("affiliate-account-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		Concurrency:  1,
+	})
+	otherUser := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("affiliate-account-other-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		Concurrency:  1,
+	})
+
+	first, err := repo.CreateAffiliateWithdrawalAccount(txCtx, service.AffiliateWithdrawalAccountCreateInput{
+		UserID:           user.ID,
+		AccountEncrypted: "ciphertext-1",
+		AccountMasked:    "138****0000",
+	})
+	require.NoError(t, err)
+	require.True(t, first.IsDefault)
+
+	second, err := repo.CreateAffiliateWithdrawalAccount(txCtx, service.AffiliateWithdrawalAccountCreateInput{
+		UserID:           user.ID,
+		AccountEncrypted: "ciphertext-2",
+		AccountMasked:    "buy****om",
+	})
+	require.NoError(t, err)
+	require.False(t, second.IsDefault)
+
+	_, err = repo.GetAffiliateWithdrawalAccount(txCtx, otherUser.ID, first.ID)
+	require.ErrorIs(t, err, service.ErrAffiliateWithdrawalAccountNotFound)
+
+	second, err = repo.SetDefaultAffiliateWithdrawalAccount(txCtx, user.ID, second.ID)
+	require.NoError(t, err)
+	require.True(t, second.IsDefault)
+	require.NoError(t, repo.DeleteAffiliateWithdrawalAccount(txCtx, user.ID, second.ID))
+
+	accounts, err := repo.ListAffiliateWithdrawalAccounts(txCtx, user.ID)
+	require.NoError(t, err)
+	require.Len(t, accounts, 1)
+	require.Equal(t, first.ID, accounts[0].ID)
+	require.True(t, accounts[0].IsDefault)
+
+	for i := 1; i < service.AffiliateWithdrawalAccountMaxCount; i++ {
+		_, err := repo.CreateAffiliateWithdrawalAccount(txCtx, service.AffiliateWithdrawalAccountCreateInput{
+			UserID:           user.ID,
+			AccountEncrypted: fmt.Sprintf("ciphertext-limit-%d", i),
+			AccountMasked:    fmt.Sprintf("account-%d", i),
+		})
+		require.NoError(t, err)
+	}
+	_, err = repo.CreateAffiliateWithdrawalAccount(txCtx, service.AffiliateWithdrawalAccountCreateInput{
+		UserID:           user.ID,
+		AccountEncrypted: "ciphertext-over-limit",
+		AccountMasked:    "over-limit",
+	})
+	require.ErrorIs(t, err, service.ErrAffiliateWithdrawalAccountLimit)
+}
